@@ -4,14 +4,10 @@ export type Vec3 = [number, number, number];
 
 export type UVRect = [number, number, number, number];
 
-export type DepthMode = 'preserve_layer' | 'pixel' | 'fixed';
-
 export interface GeneratorOptions {
   alphaThreshold: number;
   maxVoxels: number;
   batchSize: number;
-  depthMode: DepthMode;
-  fixedDepth: number;
   preserveOriginal: boolean;
   replaceEmptyLayer: boolean;
   autoApplyOnLoad: boolean;
@@ -76,10 +72,12 @@ export interface VoxelSpec {
   origin: Vec3;
   rotation: Vec3;
   textureKey: string;
-  pixelUV: UVRect;
+  /**
+   * Box UV offset (uv_offset) of the voxel cube, chosen so that the shell face
+   * samples exactly its source pixel. All faces stay enabled.
+   */
+  uvOffset: [number, number];
   face: FaceDirection;
-  /** Faces left unrendered to avoid coplanar duplicate surfaces (z-fighting). */
-  disabledFaces: FaceDirection[];
 }
 
 export interface LayerPlan {

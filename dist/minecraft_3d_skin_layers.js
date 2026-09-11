@@ -8,16 +8,14 @@
     alphaThreshold: 0,
     maxVoxels: 1e4,
     batchSize: 200,
-    depthMode: "preserve_layer",
-    fixedDepth: 0.25,
     preserveOriginal: false,
     replaceEmptyLayer: false,
     autoApplyOnLoad: false,
     processSelectedOnly: false,
     useUVToLocalWhenAvailable: false
   };
+  var VOXEL_STANDOFF = 1e-3;
   var TEXEL_EPSILON = 0.01;
-  var MIN_DEPTH = 0.01;
 
   // src/domain/types.ts
   var VoxelLimitError = class extends Error {
@@ -29,74 +27,11 @@
     }
   };
 
-  // src/geometry/depthStrategy.ts
-  function resolveDepth(mode, inflate, texel, options) {
-    let depth;
-    switch (mode) {
-      case "preserve_layer":
-        depth = inflate > 0 ? inflate : (texel.u + texel.v) / 2;
-        break;
-      case "pixel":
-        depth = (texel.u + texel.v) / 2;
-        break;
-      case "fixed":
-        depth = options.fixedDepth;
-        break;
-    }
-    return Math.max(depth, MIN_DEPTH);
-  }
-
   // src/geometry/faceMapper.ts
-  var OPPOSITE_FACE = {
-    north: "south",
-    south: "north",
-    east: "west",
-    west: "east",
-    up: "down",
-    down: "up"
-  };
-  function resolveDisabledFaces(direction, depthMatchesShell) {
-    if (depthMatchesShell) {
-      return FACE_DIRECTIONS.filter((face) => face !== direction);
-    }
-    return [OPPOSITE_FACE[direction]];
-  }
-  function adjustedBox(from, to, inflate, stretch) {
-    const inflatedFrom = [0, 0, 0];
-    const inflatedTo = [0, 0, 0];
-    for (let i = 0; i < 3; i++) {
-      const size = to[i] - from[i];
-      const center = from[i] + size / 2;
-      const half = (size / 2 + inflate) * stretch[i];
-      inflatedFrom[i] = center - half;
-      inflatedTo[i] = center + half;
-    }
-    return { raw: { from: [...from], to: [...to] }, inflated: { from: inflatedFrom, to: inflatedTo } };
-  }
-  function faceSpans(direction, box) {
-    const f = box.inflated.from;
-    const t2 = box.inflated.to;
-    const width = t2[0] - f[0];
-    const height = t2[1] - f[1];
-    const depth = t2[2] - f[2];
-    switch (direction) {
-      case "north":
-      case "south":
-        return { uSpan: width, vSpan: height };
-      case "east":
-      case "west":
-        return { uSpan: depth, vSpan: height };
-      case "up":
-      case "down":
-        return { uSpan: width, vSpan: depth };
-    }
-  }
-  function lerp(a, b, t2) {
-    return a + (b - a) * t2;
-  }
   function facePoint(direction, box, mx, my) {
-    const f = box.inflated.from;
-    const t2 = box.inflated.to;
+    const f = box.from;
+    const t2 = box.to;
+    const lerp = (a, b, k) => a + (b - a) * k;
     switch (direction) {
       case "north":
         return [lerp(t2[0], f[0], mx), lerp(t2[1], f[1], my), f[2]];
@@ -112,7 +47,25 @@
         return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
     }
   }
-  function voxelBounds(direction, box, mx0, mx1, my0, my1, depth) {
+  function faceSpans(direction, box) {
+    const f = box.from;
+    const t2 = box.to;
+    const width = t2[0] - f[0];
+    const height = t2[1] - f[1];
+    const depth = t2[2] - f[2];
+    switch (direction) {
+      case "north":
+      case "south":
+        return { uSpan: width, vSpan: height };
+      case "east":
+      case "west":
+        return { uSpan: depth, vSpan: height };
+      case "up":
+      case "down":
+        return { uSpan: width, vSpan: depth };
+    }
+  }
+  function voxelBounds(direction, box, mx0, mx1, my0, my1, standoff, depth) {
     const a = facePoint(direction, box, mx0, my0);
     const b = facePoint(direction, box, mx1, my1);
     const minX = Math.min(a[0], b[0]);
@@ -123,17 +76,33 @@
     const maxZ = Math.max(a[2], b[2]);
     switch (direction) {
       case "north":
-        return { from: [minX, minY, box.raw.from[2] - depth], to: [maxX, maxY, box.raw.from[2]] };
+        return { from: [minX, minY, box.from[2] - standoff - depth], to: [maxX, maxY, box.from[2] - standoff] };
       case "south":
-        return { from: [minX, minY, box.raw.to[2]], to: [maxX, maxY, box.raw.to[2] + depth] };
+        return { from: [minX, minY, box.to[2] + standoff], to: [maxX, maxY, box.to[2] + standoff + depth] };
       case "east":
-        return { from: [box.raw.to[0], minY, minZ], to: [box.raw.to[0] + depth, maxY, maxZ] };
+        return { from: [box.to[0] + standoff, minY, minZ], to: [box.to[0] + standoff + depth, maxY, maxZ] };
       case "west":
-        return { from: [box.raw.from[0] - depth, minY, minZ], to: [box.raw.from[0], maxY, maxZ] };
+        return { from: [box.from[0] - standoff - depth, minY, minZ], to: [box.from[0] - standoff, maxY, maxZ] };
       case "up":
-        return { from: [minX, box.raw.to[1], minZ], to: [maxX, box.raw.to[1] + depth, maxZ] };
+        return { from: [minX, box.to[1] + standoff, minZ], to: [maxX, box.to[1] + standoff + depth, maxZ] };
       case "down":
-        return { from: [minX, box.raw.from[1] - depth, minZ], to: [maxX, box.raw.from[1], maxZ] };
+        return { from: [minX, box.from[1] - standoff - depth, minZ], to: [maxX, box.from[1] - standoff, maxZ] };
+    }
+  }
+  function boxUvOffset(direction, pixelU, pixelV, w, d) {
+    switch (direction) {
+      case "north":
+        return [pixelU - d, pixelV - d];
+      case "south":
+        return [pixelU - 2 * d - w, pixelV - d];
+      case "west":
+        return [pixelU - d - w, pixelV - d];
+      case "east":
+        return [pixelU, pixelV - d];
+      case "up":
+        return [pixelU - d, pixelV];
+      case "down":
+        return [pixelU - d - w, pixelV];
     }
   }
 
@@ -255,68 +224,6 @@
   }
 
   // src/geometry/voxelPlanner.ts
-  var FACE_AXES = {
-    north: { axis: 2, u: 0, v: 1, normal: -1 },
-    south: { axis: 2, u: 0, v: 1, normal: 1 },
-    west: { axis: 0, u: 2, v: 1, normal: -1 },
-    east: { axis: 0, u: 2, v: 1, normal: 1 },
-    down: { axis: 1, u: 0, v: 2, normal: -1 },
-    up: { axis: 1, u: 0, v: 2, normal: 1 }
-  };
-  function faceRecord(plan, voxel, face) {
-    const { axis, u, v, normal } = FACE_AXES[face];
-    return {
-      plan,
-      voxel,
-      face,
-      axis,
-      normal,
-      coord: normal < 0 ? voxel.from[axis] : voxel.to[axis],
-      u0: voxel.from[u],
-      u1: voxel.to[u],
-      v0: voxel.from[v],
-      v1: voxel.to[v]
-    };
-  }
-  function dedupeCoplanarFaces(plans) {
-    const buckets = /* @__PURE__ */ new Map();
-    for (const plan of plans) {
-      for (const voxel of plan.voxels) {
-        for (const face of FACE_DIRECTIONS) {
-          if (voxel.disabledFaces.includes(face)) {
-            continue;
-          }
-          const record = faceRecord(plan, voxel, face);
-          const key = `${record.axis}:${Math.round(record.coord * 1e4) / 1e4}:${record.normal}`;
-          const bucket = buckets.get(key);
-          if (bucket) {
-            bucket.push(record);
-          } else {
-            buckets.set(key, [record]);
-          }
-        }
-      }
-    }
-    for (const bucket of buckets.values()) {
-      if (bucket.length < 2) {
-        continue;
-      }
-      bucket.sort(
-        (a, b) => a.u0 - b.u0 || a.v0 - b.v0 || (a.plan.sourceName + a.voxel.name).localeCompare(b.plan.sourceName + b.voxel.name)
-      );
-      const accepted = [];
-      for (const record of bucket) {
-        const overlaps = accepted.some(
-          (kept) => Math.min(kept.u1, record.u1) - Math.max(kept.u0, record.u0) > 1e-6 && Math.min(kept.v1, record.v1) - Math.max(kept.v0, record.v0) > 1e-6
-        );
-        if (overlaps) {
-          record.voxel.disabledFaces.push(record.face);
-        } else {
-          accepted.push(record);
-        }
-      }
-    }
-  }
   function countPlanVoxels(plans) {
     return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
   }
@@ -326,12 +233,13 @@
   function buildVoxelPlans(layers, textures, options) {
     const warnings = [];
     const plans = [];
-    for (const layer of layers) {
+    layers.forEach((layer) => {
       if (layer.to[0] <= layer.from[0] || layer.to[1] <= layer.from[1] || layer.to[2] <= layer.from[2]) {
         warnings.push(`${layer.name}: cube has non-positive size, skipped`);
-        continue;
+        return;
       }
-      const box = adjustedBox(layer.from, layer.to, layer.inflate, layer.stretch);
+      const standoff = VOXEL_STANDOFF;
+      const box = { from: [...layer.from], to: [...layer.to] };
       const voxels = [];
       for (const direction of FACE_DIRECTIONS) {
         const face = snapshotFace(layer, direction);
@@ -350,9 +258,10 @@
         }
         const spans = faceSpans(direction, box);
         const grid = { cols: scan.cells[0].cols, rows: scan.cells[0].rows };
-        const texel = { u: spans.uSpan / grid.cols, v: spans.vSpan / grid.rows };
-        const depth = resolveDepth(options.depthMode, layer.inflate, texel, options);
-        const depthMatchesShell = Math.abs(depth - layer.inflate) <= 1e-4;
+        const cellU = spans.uSpan / grid.cols;
+        const cellV = spans.vSpan / grid.rows;
+        const depth = (cellU + cellV) / 2;
+        const { sx, sy } = textureScales(texture);
         for (const cell of scan.cells) {
           const bounds = voxelBounds(
             direction,
@@ -361,8 +270,11 @@
             (cell.col + 1) / cell.cols,
             cell.row / cell.rows,
             (cell.row + 1) / cell.rows,
+            standoff,
             depth
           );
+          const w = Math.abs(bounds.to[0] - bounds.from[0]);
+          const d = Math.abs(bounds.to[2] - bounds.from[2]);
           voxels.push({
             name: `px_${direction}_${cell.col}_${cell.row}`,
             from: bounds.from,
@@ -370,15 +282,14 @@
             origin: [...layer.origin],
             rotation: [...layer.rotation],
             textureKey: face.textureKey,
-            pixelUV: cell.pixelUV,
-            face: direction,
-            disabledFaces: resolveDisabledFaces(direction, depthMatchesShell)
+            uvOffset: boxUvOffset(direction, cell.imageX / sx, cell.imageY / sy, w, d),
+            face: direction
           });
         }
       }
       const isEmpty = voxels.length === 0;
       if (isEmpty && !options.replaceEmptyLayer) {
-        continue;
+        return;
       }
       plans.push({
         sourceKey: layer.key,
@@ -388,8 +299,7 @@
         visiblePixelCount: voxels.length,
         visibility: layer.visibility
       });
-    }
-    dedupeCoplanarFaces(plans);
+    });
     return { plans, warnings };
   }
 
@@ -398,14 +308,9 @@
     "m3sl.action.name": "Generate 3D Skin Layers",
     "m3sl.action.description": 'Replace "* Layer" cubes with per-pixel voxel cubes',
     "m3sl.dialog.title": "Generate 3D Skin Layers",
-    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube whose six faces map to that pixel.",
+    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one full cube (box UV, shell face samples its own pixel).",
     "m3sl.dialog.warnings_header": "Warnings:",
     "m3sl.dialog.warnings_more": "... %0 more",
-    "m3sl.form.depth_mode": "Voxel depth",
-    "m3sl.form.depth_mode.preserve_layer": "Match layer inflate (preserves contour)",
-    "m3sl.form.depth_mode.pixel": "Match texel size (strong voxel look)",
-    "m3sl.form.depth_mode.fixed": "Fixed thickness",
-    "m3sl.form.fixed_depth": "Fixed thickness (only used in fixed mode)",
     "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
     "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
     "m3sl.form.batch_size": "Cubes created per batch",
@@ -427,14 +332,9 @@
     "m3sl.action.name": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.action.description": '\u5C06 "* Layer" \u7ACB\u65B9\u4F53\u66FF\u6362\u4E3A\u9010\u50CF\u7D20\u4F53\u7D20\u65B9\u5757',
     "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
-    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u516D\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\u7684\u65B9\u5757\u3002",
+    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u5B8C\u6574\u7684 1\xD71\xD71 \u4F53\u7D20\u65B9\u5757\uFF08\u76D2\u88C5 UV\uFF0C\u5916\u4FA7\u9762\u7CBE\u786E\u91C7\u6837\u8BE5\u50CF\u7D20\uFF09\u3002",
     "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
     "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
-    "m3sl.form.depth_mode": "\u4F53\u7D20\u539A\u5EA6",
-    "m3sl.form.depth_mode.preserve_layer": "\u5339\u914D\u5C42\u7684\u81A8\u80C0\u503C\uFF08\u4FDD\u6301\u539F\u59CB\u5916\u8F6E\u5ED3\uFF09",
-    "m3sl.form.depth_mode.pixel": "\u5339\u914D\u50CF\u7D20\u5C3A\u5BF8\uFF08\u66F4\u5F3A\u7684\u4F53\u7D20\u7ACB\u4F53\u611F\uFF09",
-    "m3sl.form.depth_mode.fixed": "\u56FA\u5B9A\u539A\u5EA6",
-    "m3sl.form.fixed_depth": "\u56FA\u5B9A\u539A\u5EA6\uFF08\u4EC5\u5728\u56FA\u5B9A\u539A\u5EA6\u6A21\u5F0F\u4E0B\u4F7F\u7528\uFF09",
     "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
     "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
     "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
@@ -692,16 +592,13 @@
 
   // src/blockbench/blockbenchHost.ts
   function voxelFaces(spec) {
-    const uv = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
     const texture = resolveTextureByKey(spec.textureKey);
-    const make = (disabled) => ({
-      texture: disabled ? null : texture ? texture.uuid : false,
-      uv: [uv[0], uv[1], uv[2], uv[3]],
-      rotation: 0
+    const make = () => ({
+      texture: texture ? texture.uuid : false
     });
     const faces = {};
     for (const direction of FACE_DIRECTIONS) {
-      faces[direction] = make(spec.disabledFaces.includes(direction));
+      faces[direction] = make();
     }
     return faces;
   }
@@ -730,7 +627,8 @@
         to: [...spec.to],
         origin: [...spec.origin],
         rotation: [...spec.rotation],
-        box_uv: false,
+        box_uv: true,
+        uv_offset: [...spec.uvOffset],
         autouv: 0,
         faces: voxelFaces(spec)
       });
@@ -787,7 +685,6 @@
 
   // src/ui/settingsDialog.ts
   var STORAGE_KEY = `${PLUGIN_ID}.options`;
-  var DEPTH_MODES = ["preserve_layer", "pixel", "fixed"];
   function toNumber(value, fallback, min, max) {
     const parsed = typeof value === "number" ? value : Number(value);
     if (!Number.isFinite(parsed)) {
@@ -800,13 +697,10 @@
   }
   function sanitizeOptions(raw) {
     const source = typeof raw === "object" && raw !== null ? raw : {};
-    const depthMode = DEPTH_MODES.includes(source.depthMode) ? source.depthMode : DEFAULT_OPTIONS.depthMode;
     return {
       alphaThreshold: Math.round(toNumber(source.alphaThreshold, DEFAULT_OPTIONS.alphaThreshold, 0, 255)),
       maxVoxels: Math.round(toNumber(source.maxVoxels, DEFAULT_OPTIONS.maxVoxels, 1, 1e6)),
       batchSize: Math.round(toNumber(source.batchSize, DEFAULT_OPTIONS.batchSize, 10, 5e3)),
-      depthMode,
-      fixedDepth: toNumber(source.fixedDepth, DEFAULT_OPTIONS.fixedDepth, 0.01, 16),
       preserveOriginal: toBool(source.preserveOriginal, DEFAULT_OPTIONS.preserveOriginal),
       replaceEmptyLayer: toBool(source.replaceEmptyLayer, DEFAULT_OPTIONS.replaceEmptyLayer),
       autoApplyOnLoad: toBool(source.autoApplyOnLoad, DEFAULT_OPTIONS.autoApplyOnLoad),
@@ -848,24 +742,6 @@ ${t("m3sl.dialog.warnings_header")}
         intro: {
           type: "info",
           text: t("m3sl.dialog.intro", [summary.layerCount, summary.voxelCount]) + warningText
-        },
-        depthMode: {
-          label: t("m3sl.form.depth_mode"),
-          type: "select",
-          value: options.depthMode,
-          options: {
-            preserve_layer: t("m3sl.form.depth_mode.preserve_layer"),
-            pixel: t("m3sl.form.depth_mode.pixel"),
-            fixed: t("m3sl.form.depth_mode.fixed")
-          }
-        },
-        fixedDepth: {
-          label: t("m3sl.form.fixed_depth"),
-          type: "number",
-          value: options.fixedDepth,
-          min: 0.01,
-          max: 16,
-          step: 0.05
         },
         alphaThreshold: {
           label: t("m3sl.form.alpha_threshold"),

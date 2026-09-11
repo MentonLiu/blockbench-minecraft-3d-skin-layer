@@ -1,10 +1,8 @@
 import { DEFAULT_OPTIONS, PLUGIN_ID } from '../domain/constants';
-import type { DepthMode, GeneratorOptions } from '../domain/types';
+import type { GeneratorOptions } from '../domain/types';
 import { t } from '../i18n';
 
 const STORAGE_KEY = `${PLUGIN_ID}.options`;
-
-const DEPTH_MODES: readonly DepthMode[] = ['preserve_layer', 'pixel', 'fixed'];
 
 function toNumber(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -20,15 +18,10 @@ function toBool(value: unknown, fallback: boolean): boolean {
 
 export function sanitizeOptions(raw: unknown): GeneratorOptions {
   const source = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
-  const depthMode = DEPTH_MODES.includes(source.depthMode as DepthMode)
-    ? (source.depthMode as DepthMode)
-    : DEFAULT_OPTIONS.depthMode;
   return {
     alphaThreshold: Math.round(toNumber(source.alphaThreshold, DEFAULT_OPTIONS.alphaThreshold, 0, 255)),
     maxVoxels: Math.round(toNumber(source.maxVoxels, DEFAULT_OPTIONS.maxVoxels, 1, 1_000_000)),
     batchSize: Math.round(toNumber(source.batchSize, DEFAULT_OPTIONS.batchSize, 10, 5000)),
-    depthMode,
-    fixedDepth: toNumber(source.fixedDepth, DEFAULT_OPTIONS.fixedDepth, 0.01, 16),
     preserveOriginal: toBool(source.preserveOriginal, DEFAULT_OPTIONS.preserveOriginal),
     replaceEmptyLayer: toBool(source.replaceEmptyLayer, DEFAULT_OPTIONS.replaceEmptyLayer),
     autoApplyOnLoad: toBool(source.autoApplyOnLoad, DEFAULT_OPTIONS.autoApplyOnLoad),
@@ -89,24 +82,6 @@ export function showGenerationDialog(
       intro: {
         type: 'info',
         text: t('m3sl.dialog.intro', [summary.layerCount, summary.voxelCount]) + warningText,
-      },
-      depthMode: {
-        label: t('m3sl.form.depth_mode'),
-        type: 'select',
-        value: options.depthMode,
-        options: {
-          preserve_layer: t('m3sl.form.depth_mode.preserve_layer'),
-          pixel: t('m3sl.form.depth_mode.pixel'),
-          fixed: t('m3sl.form.depth_mode.fixed'),
-        },
-      },
-      fixedDepth: {
-        label: t('m3sl.form.fixed_depth'),
-        type: 'number',
-        value: options.fixedDepth,
-        min: 0.01,
-        max: 16,
-        step: 0.05,
       },
       alphaThreshold: {
         label: t('m3sl.form.alpha_threshold'),

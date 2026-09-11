@@ -83,31 +83,44 @@ renders it. `faceGridSize` warns when a rect leaves the texture bounds
 
 ## Voxel geometry
 
-The in-face rectangle of a cell is cut from the **inflated** face plane, so the
-voxels tile the whole visible layer (the inflated face is wider than the raw
-box). The thickness anchors at the **raw** box surface and extends outward
-along the face normal:
+The cell grid tiles the **raw box face** (the inflated ring of the original
+layer is intentionally not covered). Each visible texel becomes a full
+unit-texel cube protruding one texel outward along the face normal, lifted by
+a tiny uniform standoff (0.001):
 
 ```
-north: z = [from.z - depth, from.z]        south: z = [to.z, to.z + depth]
-east:  x = [to.x, to.x + depth]            west:  x = [from.x - depth, from.x]
-up:    y = [to.y, to.y + depth]            down:  y = [from.y - depth, from.y]
+north: z = [from.z - standoff - depth, from.z - standoff]
+south: z = [to.z + standoff, to.z + standoff + depth]      (depth = 1 texel)
+east:  x = [to.x + standoff, to.x + standoff + depth]
+west:  x = [from.x - standoff - depth, from.x - standoff]
+up:    y = [to.y + standoff, to.y + standoff + depth]
+down:  y = [from.y - standoff - depth, from.y - standoff]
 ```
 
-With `depthMode = preserve_layer` (`depth = inflate`) the outer voxel surface
-coincides exactly with the original layer surface; the voxels fill the gap the
-inflated shell occupied. Edge/corner bevels between adjacent faces stay open in
-v0.1 (known limitation, see README).
+Because each direction tiles its own raw face, slabs of different directions
+never intersect -> no coplanar duplicate faces -> no z-fighting within a part.
+The standoff keeps voxel inner faces off the base cube's surface. Source cubes
+from different parts may interpenetrate (the reference model's legs overlap by
+0.2 in the default pose); those shared planes are kept - cross-part ghosting
+is accepted and disappears when the model is posed.
 
 ## Voxel UVs
 
-Each voxel gets `box_uv: false`, `autouv: 0`, and all six faces map to the
-single source texel:
+Voxels use **box UV** (`box_uv: true`), like the source model. The `uv_offset`
+of each voxel is derived from its source pixel so that the shell face samples
+exactly that pixel. With the cube extents (w, h, d) in UV units and the
+pixel's top-left corner (px, py) in UV units:
 
 ```
-uv = [imageX/sx, imageY/sy, (imageX+1)/sx, (imageY+1)/sy]
+north: uv_offset = (px - d, py - d)
+south: uv_offset = (px - 2d - w, py - d)
+west:  uv_offset = (px - d - w, py - d)
+east:  uv_offset = (px, py - d)
+up:    uv_offset = (px - d, py)
+down:  uv_offset = (px - d - w, py)
 ```
 
-so every side of the voxel shows the same skin pixel, independent of the
-layer face the voxel was generated from. Face `texture` is assigned by UUID,
-the way Blockbench stores face textures at runtime.
+The five non-shell faces sample the neighboring pixels of the box unwrap -
+box UV cannot map six faces to one pixel. All six faces stay enabled.
+Every voxel copies source `origin` and `rotation` (rotation lives on the
+voxels, never on the new Group) and uses `autouv: 0`.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPTIONS } from '../../src/domain/constants';
-import type { FaceDirection, GeneratorOptions, LayerSnapshot, PixelSource, UVRect } from '../../src/domain/types';
+import { DEFAULT_OPTIONS, VOXEL_STANDOFF } from '../../src/domain/constants';
+import type { GeneratorOptions, LayerSnapshot, PixelSource, UVRect } from '../../src/domain/types';
 import { buildVoxelPlans, countPlanVoxels } from '../../src/geometry/voxelPlanner';
 
 function opaqueTexture(alphaAt?: (x: number, y: number) => number): PixelSource {
@@ -68,122 +68,45 @@ describe('buildVoxelPlans', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('places the first north voxel at the top-left of the inflated front face', () => {
+  it('places unit cubes on the raw box, lifted by the standoff', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
     const voxel = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    expect(voxel?.from).toEqual([3.375, 31.375, -4.5]);
-    expect(voxel?.to).toEqual([4.5, 32.5, -4]);
+    // first north cell at the +X top corner of the raw box front
+    expect(voxel?.from).toEqual([3, 31, -4 - VOXEL_STANDOFF - 1]);
+    expect(voxel?.to).toEqual([4, 32, -4 - VOXEL_STANDOFF]);
   });
 
-  it('disables all but the textured outer face in preserve_layer', () => {
-    const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
-    const corner = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    expect(corner?.disabledFaces).toEqual(['east', 'south', 'west', 'up', 'down']);
-    const middle = plans[0].voxels.find(v => v.name === 'px_north_3_3');
-    expect(middle?.disabledFaces).toEqual(['east', 'south', 'west', 'up', 'down']);
-  });
-
-  it('keeps silhouette side faces when pixel depth separates the shells', () => {
-    const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([hatLayer()], textures, opts({ depthMode: 'pixel' }));
-    const corner = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    expect(corner?.disabledFaces).toEqual(['south']);
-  });
-
-  it('deduplicates coplanar faces of interpenetrating layers', () => {
-    // the reference legs overlap by 0.2 in x and share the north/south planes
-    const right: LayerSnapshot = {
-      ...hatLayer(),
-      key: 'leg-right',
-      name: 'Right Leg Layer',
-      from: [-0.1, 0, -2],
-      to: [3.9, 12, 2],
-      inflate: 0.25,
-    };
-    const left: LayerSnapshot = {
-      ...hatLayer(),
-      key: 'leg-left',
-      name: 'Left Leg Layer',
-      from: [-3.9, 0, -2],
-      to: [0.1, 12, 2],
-      inflate: 0.25,
-    };
-    const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([right, left], textures, opts());
-
-    // collect the enabled faces grouped by (direction, plane coordinate); on
-    // each shared plane the in-plane rectangles must be free of overlaps
-    const inPlane: Record<FaceDirection, [number, number, number, number]> = {
-      north: [0, 1, 0, 1], // axes for u,v -> handled via from/to picks below
-      south: [0, 1, 0, 1],
-      east: [2, 1, 0, 1],
-      west: [2, 1, 0, 1],
-      up: [0, 2, 0, 1],
-      down: [0, 2, 0, 1],
-    };
-    const buckets = new Map<string, { u0: number; u1: number; v0: number; v1: number; name: string }[]>();
-    for (const voxel of plans.flatMap(plan => plan.voxels)) {
-      for (const face of Object.keys(inPlane) as (keyof typeof inPlane)[]) {
-        if (voxel.disabledFaces.includes(face)) {
-          continue;
-        }
-        const [ua, va] = inPlane[face];
-        const axis = face === 'north' || face === 'south' ? 2 : face === 'east' || face === 'west' ? 0 : 1;
-        const fromSide = face === 'north' || face === 'west' || face === 'down';
-        const coord = fromSide ? voxel.from[axis] : voxel.to[axis];
-        const key = `${face}:${coord}`;
-        const entry = {
-          u0: voxel.from[ua], u1: voxel.to[ua],
-          v0: voxel.from[va], v1: voxel.to[va],
-          name: voxel.name,
-        };
-        const bucket = buckets.get(key);
-        if (bucket) bucket.push(entry); else buckets.set(key, [entry]);
-      }
-    }
-    let overlaps = 0;
-    for (const faces of buckets.values()) {
-      for (let i = 0; i < faces.length; i++) {
-        for (let j = i + 1; j < faces.length; j++) {
-          const a = faces[i], b = faces[j];
-          const du = Math.min(a.u1, b.u1) - Math.max(a.u0, b.u0);
-          const dv = Math.min(a.v1, b.v1) - Math.max(a.v0, b.v0);
-          if (du > 1e-6 && dv > 1e-6) overlaps++;
-        }
-      }
-    }
-    expect(overlaps).toBe(0);
-  });
-
-  it('gives every voxel the single-texel UV and the source transform', () => {
+  it('builds true unit cubes', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
     for (const voxel of plans[0].voxels) {
-      const [u1, v1, u2, v2] = voxel.pixelUV;
-      expect(u2 - u1).toBeCloseTo(1, 10);
-      expect(v2 - v1).toBeCloseTo(1, 10);
-      expect(u1).toBeGreaterThanOrEqual(0);
-      expect(v1).toBeGreaterThanOrEqual(0);
-      expect(u2).toBeLessThanOrEqual(64);
+      expect(voxel.to[0] - voxel.from[0]).toBeCloseTo(1, 10);
+      expect(voxel.to[1] - voxel.from[1]).toBeCloseTo(1, 10);
+      expect(voxel.to[2] - voxel.from[2]).toBeCloseTo(1, 10);
+    }
+  });
+
+  it('chooses the box UV offset so the shell face samples its own pixel', () => {
+    const textures = new Map([['texA', opaqueTexture()]]);
+    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
+    // hat faces all sample the region at (40, 8); first cell of each face:
+    const byName = (name: string) => plans[0].voxels.find(v => v.name === name)!.uvOffset;
+    expect(byName('px_north_0_0')).toEqual([39, 7]); // north rect at offset+(1,1)
+    expect(byName('px_south_0_0')).toEqual([37, 7]); // south rect at offset+(3,1)
+    expect(byName('px_east_0_0')).toEqual([40, 7]); // east rect at offset+(0,1)
+    expect(byName('px_west_0_0')).toEqual([38, 7]); // west rect at offset+(2,1)
+    expect(byName('px_up_0_0')).toEqual([39, 8]); // up rect at offset+(1,0)
+    expect(byName('px_down_7_7')).toEqual([45, 15]); // down rect at offset+(2,0) for its pixel (47,15)
+  });
+
+  it('copies the source transform onto every voxel', () => {
+    const textures = new Map([['texA', opaqueTexture()]]);
+    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
+    for (const voxel of plans[0].voxels) {
       expect(voxel.origin).toEqual([0, 0, 0]);
       expect(voxel.rotation).toEqual([0, 0, 0]);
       expect(voxel.textureKey).toBe('texA');
-    }
-  });
-
-  it('keeps all faces of a voxel on the same image pixel', () => {
-    const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
-    const byPixel = new Map<string, number>();
-    for (const voxel of plans[0].voxels) {
-      const key = voxel.pixelUV.join(',');
-      byPixel.set(key, (byPixel.get(key) ?? 0) + 1);
-    }
-    // 6 faces x 64 pixels, each image pixel used exactly 6 times (once per face direction)
-    for (const count of byPixel.values()) {
-      expect(count).toBe(6);
     }
   });
 
@@ -240,18 +163,31 @@ describe('buildVoxelPlans', () => {
     expect(plans[0].voxels.every(v => v.textureKey === 'texB')).toBe(true);
   });
 
-  it('uses pixel depth when depthMode is pixel', () => {
+  it('lets different parts keep their shared planes (accepted overlap)', () => {
+    // the reference legs interpenetrate in the default pose; the user accepts
+    // that cross-part ghosting (posing separates the parts again), so the
+    // standoff stays uniform and the legs keep the same north plane
+    const right: LayerSnapshot = {
+      ...hatLayer(),
+      key: 'leg-right',
+      name: 'Right Leg Layer',
+      from: [-0.1, 0, -2],
+      to: [3.9, 12, 2],
+      inflate: 0.25,
+    };
+    const left: LayerSnapshot = {
+      ...hatLayer(),
+      key: 'leg-left',
+      name: 'Left Leg Layer',
+      from: [-3.9, 0, -2],
+      to: [0.1, 12, 2],
+      inflate: 0.25,
+    };
     const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([hatLayer()], textures, opts({ depthMode: 'pixel' }));
-    const voxel = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    expect(voxel?.from[2]).toBeCloseTo(-5.125, 10); // -4 - 1.125
-    expect(voxel?.to[2]).toBeCloseTo(-4, 10);
-  });
-
-  it('uses fixed depth when depthMode is fixed', () => {
-    const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([hatLayer()], textures, opts({ depthMode: 'fixed', fixedDepth: 0.1 }));
-    const voxel = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    expect(voxel?.from[2]).toBeCloseTo(-4.1, 10);
+    const { plans } = buildVoxelPlans([right, left], textures, opts());
+    const rightNorthZ = plans[0].voxels.find(v => v.name === 'px_north_0_0')!.from[2];
+    const leftNorthZ = plans[1].voxels.find(v => v.name === 'px_north_0_0')!.from[2];
+    expect(rightNorthZ).toBe(leftNorthZ);
+    expect(rightNorthZ).toBeCloseTo(-2 - VOXEL_STANDOFF - 1, 10);
   });
 });

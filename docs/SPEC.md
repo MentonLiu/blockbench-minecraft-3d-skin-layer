@@ -14,7 +14,8 @@ inside Blockbench. Derived from `plan.md`; the reference model
 6. Never mutate the model before preflight validation finishes.
 7. Every destructive model operation must be inside Blockbench Undo.
 8. Deleting/adding Outliner nodes must use `outliner` undo tracking.
-9. A generated voxel must map all six faces to the source texel.
+9. A generated voxel's shell face must sample exactly its source pixel; the
+   other faces follow the box UV unwrap of the voxel cube.
 10. `alpha === 0` is skipped by default (`alphaThreshold: 0`, visible when `alpha > threshold`).
 11. Run typecheck, test and build before every engineering commit.
 12. Use Conventional Commits.
@@ -62,46 +63,55 @@ Nv = |v2 - v1| * scaleY
 
 ## Geometry
 
-Face planes and grids use the **inflated box** (`from - inflate`, `to + inflate`
-per axis, times `stretch`), matching Blockbench's `adjustFromAndToForInflateAndStretch`
-and `CubeFace.UVToLocal`. Voxel thickness anchors at the **raw box surface** and
-extends outward along the face normal:
+Voxels are **full unit-texel cubes** (edge length = one skin texel; 1 unit at
+64px, 0.5 at 128px) tiling the RAW box face (not the inflated one) and
+protruding one texel outward along the face normal:
 
 ```
-north: z = [from.z - depth, from.z]      south: z = [to.z, to.z + depth]
-east:  x = [to.x, to.x + depth]          west:  x = [from.x - depth, from.x]
-up:    y = [to.y, to.y + depth]          down:  y = [from.y - depth, from.y]
+north: z = [from.z - standoff - depth, from.z - standoff]
+south: z = [to.z + standoff, to.z + standoff + depth]      (depth = 1 texel)
+east:  x = [to.x + standoff, to.x + standoff + depth]
+west:  x = [from.x - standoff - depth, from.x - standoff]
+up:    y = [to.y + standoff, to.y + standoff + depth]
+down:  y = [from.y - standoff - depth, from.y - standoff]
 ```
 
-Depth modes:
-
-| mode | depth | effect |
-|---|---|---|
-| `preserve_layer` (default) | `inflate` (fallback: face texel size when inflate <= 0) | outer contour equals the original layer surface |
-| `pixel` | mean in-face texel edge length | full 1x1x1 voxel look |
-| `fixed` | `fixedDepth` | user-controlled |
-
-Edge/corner bevels between adjacent faces are left open in v0.1 (documented limitation).
+- All faces of every voxel are enabled; no voxel or pixel is ever hidden.
+- Each face direction tiles its own raw box face, so slabs of different
+  directions never overlap -> no coplanar duplicates -> no z-fighting inside
+  a part.
+- The uniform standoff (0.001) keeps voxel inner faces off the base cube's
+  surface (same-part ghosting).
+- Source cubes from DIFFERENT parts may interpenetrate (reference model legs
+  overlap by 0.2); their shared planes are kept as-is - cross-part ghosting
+  in the default pose is accepted and disappears once the model is posed.
+- Edges/corners: the inflated ring of the original layer is not covered;
+  each edge shows a one-texel-deep notch (documented limitation).
 
 ## UV mapping
 
-The mapper is a faithful port of Blockbench `CubeFace.UVToLocal` semantics
-(see `docs/UV_MAPPING.md`). Reversed UV rects (`u2 < u1`, `v2 < v1`) and face
-rotation (0/90/180/270) must be honored; never normalize with min/max.
+Voxels use **box UV** (`box_uv: true`, matching the source model). Each
+voxel's `uv_offset` is computed from its source pixel position so the shell
+face samples exactly that pixel; the five other faces sample the neighboring
+pixels of the box unwrap (inherent to box UV - six faces cannot all map to
+one pixel):
 
-Every generated voxel cube:
+```
+north: uv_offset = (px - d, py - d)
+south: uv_offset = (px - 2d - w, py - d)
+west:  uv_offset = (px - d - w, py - d)
+east:  uv_offset = (px, py - d)
+up:    uv_offset = (px - d, py)
+down:  uv_offset = (px - d - w, py)
+```
 
-- has its six faces mapped to the single source texel rectangle
-  `[px/sx, py/sy, (px+1)/sx, (py+1)/sy]`, texture = the source face's texture;
-- uses `box_uv: false`, `autouv: 0`;
-- copies source `origin` and `rotation` (rotation lives on the voxels, never on
-  the new Group, to avoid double rotation);
-- in preserve_layer (outer surface exactly on the inflated shell) only the
-  textured outer face is rendered: the six shell planes seal the layer, so any
-  side face would be a coplanar duplicate causing z-fighting. In pixel/fixed
-  depth modes the shells separate - the inner face against the base cube is
-  disabled and the silhouette side faces are kept. All six faces keep their
-  texel UV in the data either way.
+(w = voxel x-size, d = voxel z-size in UV units; px/py = the pixel's top-left
+corner in UV units.) The cell-to-texel mapping ports Blockbench
+`CubeFace.UVToLocal` semantics: reversed UV rects (`u2 < u1`, `v2 < v1`) and
+face rotation (0/90/180/270) are honored before the offset is applied; never
+normalize with min/max. Every voxel copies source `origin` and `rotation`
+(rotation lives on the voxels, never on the new Group, to avoid double
+rotation) and uses `autouv: 0`.
 
 ## Replacement
 
@@ -136,8 +146,6 @@ before the model is touched. If the total voxel count exceeds `maxVoxels`
   alphaThreshold: 0,
   maxVoxels: 10_000,
   batchSize: 200,
-  depthMode: 'preserve_layer',
-  fixedDepth: 0.25,
   preserveOriginal: false,
   replaceEmptyLayer: false,
   autoApplyOnLoad: false,
@@ -154,7 +162,8 @@ before the model is touched. If the total voxel count exceeds `maxVoxels`
 Layer cubes found: 6
 Visible texel instances: Hat 168, Body 168, Right/Left Arm 136 each,
                          Right/Left Leg 136 each -> total 880
-Generated voxel cubes:   880
+Generated voxel cubes:   880 (unit texel cubes, box UV, all faces enabled)
+No coplanar overlap within any part.
 Undo restores the original 6 Layer cubes and hierarchy; redo restores the voxels.
 Second run generates 0 cubes.
 ```

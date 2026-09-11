@@ -28,7 +28,6 @@ existing layer cube's geometry and UVs are the source of truth, so 64x64,
 
 | Option | Default | Meaning |
 |---|---|---|
-| Voxel depth | match layer inflate | `preserve_layer` keeps the original contour; `pixel` gives full 1x1x1 voxels; `fixed` uses a custom thickness |
 | Alpha threshold | 0 | texels with alpha above this become cubes (0 = every non-transparent pixel) |
 | Maximum cube count | 10,000 | preflight aborts above this; nothing is modified |
 | Batch size | 200 | cubes created per UI batch |
@@ -39,11 +38,21 @@ existing layer cube's geometry and UVs are the source of truth, so 64x64,
 
 ### Behavior
 
+- **Every non-transparent texel becomes one full 1x1x1-texel cube** with all
+  six faces enabled - nothing is hidden or skipped.
+- **Box UV** (`box_uv: true`), like the source model: each voxel's `uv_offset`
+  is chosen so its shell face samples exactly its own pixel; the side faces
+  follow the box unwrap.
+- **No z-fighting within a part**: each face direction tiles its own raw box
+  face, so the slabs never overlap, and a 0.001 standoff keeps voxel inner
+  faces off the base cube. Different parts that interpenetrate in the default
+  pose (e.g. the legs) keep their shared plane - pose the model and they
+  separate.
+- Edges/corners show a one-texel-deep notch where the inflated ring of the
+  original layer used to be (inherent to per-pixel cubes with box UV).
 - **Idempotent**: only `Cube` elements named `... Layer` are scanned; generated
   groups are never re-processed, so a second run is a no-op.
 - **Atomic**: the whole run is one undo transaction; failures roll back.
-- **Transparent pixels are skipped** (alpha > threshold), per the reference
-  model's 880 visible texels.
 - Multi-texture models are supported per-face; each face uses its own texture.
 - Face UV direction (reversed U/V) and face rotation (0/90/180/270) are
   honored; see `docs/UV_MAPPING.md`.

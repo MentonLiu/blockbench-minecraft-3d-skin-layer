@@ -293,9 +293,8 @@ export function addSourceCube(runtime: MockRuntime, spec: MockSourceSpec): void 
       origin: [0, 0, 0],
       rotation: [0, 0, 0],
       textureKey: 'tex',
-      pixelUV: [0, 0, 1, 1],
+      uvOffset: [0, 0],
       face: 'north',
-      disabledFaces: [],
     },
   };
   runtime.registry.set(node.uuid, node);

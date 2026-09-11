@@ -9,15 +9,10 @@ export const en = {
 
   'm3sl.dialog.title': 'Generate 3D Skin Layers',
   'm3sl.dialog.intro':
-    'Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube whose six faces map to that pixel.',
+    'Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one full cube (box UV, shell face samples its own pixel).',
   'm3sl.dialog.warnings_header': 'Warnings:',
   'm3sl.dialog.warnings_more': '... %0 more',
 
-  'm3sl.form.depth_mode': 'Voxel depth',
-  'm3sl.form.depth_mode.preserve_layer': 'Match layer inflate (preserves contour)',
-  'm3sl.form.depth_mode.pixel': 'Match texel size (strong voxel look)',
-  'm3sl.form.depth_mode.fixed': 'Fixed thickness',
-  'm3sl.form.fixed_depth': 'Fixed thickness (only used in fixed mode)',
   'm3sl.form.alpha_threshold': 'Alpha threshold (texels with alpha above this become cubes)',
   'm3sl.form.max_voxels': 'Maximum cube count (run aborts above this)',
   'm3sl.form.batch_size': 'Cubes created per batch',
@@ -47,15 +42,10 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.action.description': '将 "* Layer" 立方体替换为逐像素体素方块',
 
   'm3sl.dialog.title': '生成 3D 皮肤层',
-  'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个六面都映射到该像素的方块。',
+  'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个完整的 1×1×1 体素方块（盒装 UV，外侧面精确采样该像素）。',
   'm3sl.dialog.warnings_header': '警告：',
   'm3sl.dialog.warnings_more': '……另有 %0 条',
 
-  'm3sl.form.depth_mode': '体素厚度',
-  'm3sl.form.depth_mode.preserve_layer': '匹配层的膨胀值（保持原始外轮廓）',
-  'm3sl.form.depth_mode.pixel': '匹配像素尺寸（更强的体素立体感）',
-  'm3sl.form.depth_mode.fixed': '固定厚度',
-  'm3sl.form.fixed_depth': '固定厚度（仅在固定厚度模式下使用）',
   'm3sl.form.alpha_threshold': 'Alpha 阈值（Alpha 高于该值的像素会生成方块）',
   'm3sl.form.max_voxels': '最大方块数量（超过此数量将中止）',
   'm3sl.form.batch_size': '每批创建的方块数量',

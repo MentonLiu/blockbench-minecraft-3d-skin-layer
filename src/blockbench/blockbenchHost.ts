@@ -1,23 +1,17 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
-import type { UVRect, VoxelSpec } from '../domain/types';
+import type { VoxelSpec } from '../domain/types';
 import { resolveTextureByKey } from './compatibility';
 import type { GroupSpec, WriterHost } from './modelWriter';
 import { blockbenchUndo } from './undoTransaction';
 
 function voxelFaces(spec: VoxelSpec) {
-  const uv: UVRect = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
   const texture = resolveTextureByKey(spec.textureKey);
-  // Blockbench treats a face texture of null as "face disabled": such faces are
-  // skipped in UV updates and mesh building, which is how coplanar duplicate
-  // surfaces of the voxel shell are switched off
-  const make = (disabled: boolean) => ({
-    texture: disabled ? null : texture ? texture.uuid : (false as const),
-    uv: [uv[0], uv[1], uv[2], uv[3]] as [number, number, number, number],
-    rotation: 0,
+  const make = () => ({
+    texture: texture ? texture.uuid : (false as const),
   });
   const faces: Record<string, ReturnType<typeof make>> = {};
   for (const direction of FACE_DIRECTIONS) {
-    faces[direction] = make(spec.disabledFaces.includes(direction));
+    faces[direction] = make();
   }
   return faces;
 }
@@ -50,7 +44,8 @@ export const blockbenchHost: WriterHost = {
       to: [...spec.to],
       origin: [...spec.origin],
       rotation: [...spec.rotation],
-      box_uv: false,
+      box_uv: true,
+      uv_offset: [...spec.uvOffset],
       autouv: 0,
       faces: voxelFaces(spec),
     });

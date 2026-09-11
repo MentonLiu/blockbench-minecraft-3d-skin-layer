@@ -1,146 +1,89 @@
 import { describe, expect, it } from 'vitest';
-import type { GeneratorOptions } from '../../src/domain/types';
-import { DEFAULT_OPTIONS } from '../../src/domain/constants';
-import { adjustedBox, facePoint, faceSpans, resolveDisabledFaces, voxelBounds } from '../../src/geometry/faceMapper';
-import { resolveDepth } from '../../src/geometry/depthStrategy';
+import { boxUvOffset, faceSpans, voxelBounds } from '../../src/geometry/faceMapper';
 
-// Hat layer of the reference model: 8x8x8 cube with inflate 0.5
+// Hat layer of the reference model: 8x8x8 cube
 const hatFrom: [number, number, number] = [-4, 24, -4];
 const hatTo: [number, number, number] = [4, 32, 4];
-const hat = adjustedBox(hatFrom, hatTo, 0.5, [1, 1, 1]);
-
-describe('adjustedBox', () => {
-  it('expands by inflate on all axes', () => {
-    expect(hat.inflated.from).toEqual([-4.5, 23.5, -4.5]);
-    expect(hat.inflated.to).toEqual([4.5, 32.5, 4.5]);
-    expect(hat.raw.from).toEqual(hatFrom);
-  });
-
-  it('applies stretch around the center', () => {
-    const stretched = adjustedBox(hatFrom, hatTo, 0.5, [2, 1, 1]);
-    expect(stretched.inflated.from[0]).toBe(-9);
-    expect(stretched.inflated.to[0]).toBe(9);
-    expect(stretched.inflated.from[1]).toBe(23.5);
-  });
-});
+const hat = { from: hatFrom, to: hatTo };
+const STANDOFF = 0.001;
+const DEPTH = 1;
 
 describe('faceSpans', () => {
-  it('uses the inflated box', () => {
-    expect(faceSpans('north', hat)).toEqual({ uSpan: 9, vSpan: 9 });
-    expect(faceSpans('east', hat)).toEqual({ uSpan: 9, vSpan: 9 });
-    expect(faceSpans('up', hat)).toEqual({ uSpan: 9, vSpan: 9 });
+  it('uses the raw box', () => {
+    expect(faceSpans('north', hat)).toEqual({ uSpan: 8, vSpan: 8 });
+    expect(faceSpans('east', hat)).toEqual({ uSpan: 8, vSpan: 8 });
+    expect(faceSpans('up', hat)).toEqual({ uSpan: 8, vSpan: 8 });
   });
 });
 
-describe('facePoint follows CubeFace.UVToLocal', () => {
-  it('north: u1 at to.x, v1 at to.y, plane at inflated from.z', () => {
-    expect(facePoint('north', hat, 0, 0)).toEqual([4.5, 32.5, -4.5]);
-    expect(facePoint('north', hat, 1, 1)).toEqual([-4.5, 23.5, -4.5]);
+describe('facePoint conventions (via voxelBounds)', () => {
+  it('north: u1 at to.x, v1 at to.y, slab off the raw front plane', () => {
+    const b = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    // first cell sits at the +X top corner
+    expect(b.from).toEqual([3, 31, -4 - STANDOFF - DEPTH]);
+    expect(b.to).toEqual([4, 32, -4 - STANDOFF]);
   });
 
-  it('south: u1 at from.x', () => {
-    expect(facePoint('south', hat, 0, 0)).toEqual([-4.5, 32.5, 4.5]);
+  it('south: u1 at from.x, slab off the raw back plane', () => {
+    const b = voxelBounds('south', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    expect(b.from).toEqual([-4, 31, 4 + STANDOFF]);
+    expect(b.to).toEqual([-3, 32, 4 + STANDOFF + DEPTH]);
   });
 
-  it('east: u1 at to.z', () => {
-    expect(facePoint('east', hat, 0, 0)).toEqual([4.5, 32.5, 4.5]);
+  it('east: u1 at to.z, slab off the raw +X plane', () => {
+    const b = voxelBounds('east', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    expect(b.from).toEqual([4 + STANDOFF, 31, 3]);
+    expect(b.to).toEqual([4 + STANDOFF + DEPTH, 32, 4]);
   });
 
-  it('west: u1 at from.z', () => {
-    expect(facePoint('west', hat, 0, 0)).toEqual([-4.5, 32.5, -4.5]);
+  it('west: u1 at from.z, slab off the raw -X plane', () => {
+    const b = voxelBounds('west', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    expect(b.from).toEqual([-4 - STANDOFF - DEPTH, 31, -4]);
+    expect(b.to).toEqual([-4 - STANDOFF, 32, -3]);
   });
 
-  it('up: u1 at from.x, v1 at from.z', () => {
-    expect(facePoint('up', hat, 0, 0)).toEqual([-4.5, 32.5, -4.5]);
-    expect(facePoint('up', hat, 1, 1)).toEqual([4.5, 32.5, 4.5]);
+  it('up: u1 at from.x, v1 at from.z, slab off the raw top plane', () => {
+    const b = voxelBounds('up', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    expect(b.from).toEqual([-4, 32 + STANDOFF, -4]);
+    expect(b.to).toEqual([-3, 32 + STANDOFF + DEPTH, -3]);
   });
 
-  it('down: u1 at from.x, v1 at to.z', () => {
-    expect(facePoint('down', hat, 0, 0)).toEqual([-4.5, 23.5, 4.5]);
-  });
-});
-
-describe('voxelBounds', () => {
-  const depth = 0.5;
-
-  it('north voxels protrude from the raw front surface', () => {
-    const b = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(b.from).toEqual([3.375, 31.375, -4.5]);
-    expect(b.to).toEqual([4.5, 32.5, -4]);
-  });
-
-  it('south voxels protrude from the raw back surface', () => {
-    const b = voxelBounds('south', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(b.from).toEqual([-4.5, 31.375, 4]);
-    expect(b.to).toEqual([-3.375, 32.5, 4.5]);
-  });
-
-  it('east voxels protrude from the raw +X surface', () => {
-    const b = voxelBounds('east', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(b.from).toEqual([4, 31.375, 3.375]);
-    expect(b.to).toEqual([4.5, 32.5, 4.5]);
-  });
-
-  it('west voxels protrude from the raw -X surface', () => {
-    const b = voxelBounds('west', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(b.from).toEqual([-4.5, 31.375, -4.5]);
-    expect(b.to).toEqual([-4, 32.5, -3.375]);
-  });
-
-  it('up voxels protrude from the raw top surface', () => {
-    const b = voxelBounds('up', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(b.from).toEqual([-4.5, 32, -4.5]);
-    expect(b.to).toEqual([-3.375, 32.5, -3.375]);
-  });
-
-  it('down voxels protrude from the raw bottom surface', () => {
-    const b = voxelBounds('down', hat, 7 / 8, 1, 7 / 8, 1, depth);
-    expect(b.from).toEqual([3.375, 23.5, -4.5]);
-    expect(b.to).toEqual([4.5, 24, -3.375]);
-  });
-
-  it('with depth = inflate the outer surface equals the inflated layer surface', () => {
-    const b = voxelBounds('north', hat, 0, 1, 0, 1, 0.5);
-    expect(b.from[2]).toBe(-4.5); // inflated front plane
-    expect(b.to[2]).toBe(-4); // raw front plane
+  it('down: u1 at from.x, v1 at to.z, slab off the raw bottom plane', () => {
+    const b = voxelBounds('down', hat, 7 / 8, 1, 7 / 8, 1, STANDOFF, DEPTH);
+    expect(b.from).toEqual([3, 24 - STANDOFF - DEPTH, -4]);
+    expect(b.to).toEqual([4, 24 - STANDOFF, -3]);
   });
 });
 
-describe('resolveDisabledFaces', () => {
-  it('keeps only the textured outer face when the shell planes are owned (preserve_layer)', () => {
-    // the six shell planes seal the layer, every side face would duplicate a
-    // face another direction also produces in the edge/corner overlap volumes
-    expect(resolveDisabledFaces('north', true)).toEqual(['east', 'south', 'west', 'up', 'down']);
-    expect(resolveDisabledFaces('up', true)).toEqual(['north', 'east', 'south', 'west', 'down']);
-  });
-
-  it('keeps silhouette side faces when the depth separates the shells (pixel/fixed)', () => {
-    expect(resolveDisabledFaces('north', false)).toEqual(['south']);
-    expect(resolveDisabledFaces('west', false)).toEqual(['east']);
+describe('raw-extent grids never overlap between directions', () => {
+  it('the north and west slabs of the hat are disjoint', () => {
+    const north = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    const west = voxelBounds('west', hat, 0, 1 / 8, 0, 1 / 8, STANDOFF, DEPTH);
+    // north slab: x in [-4, 4]; west slab: x in [-5, -4]
+    expect(north.from[0]).toBeGreaterThanOrEqual(-4);
+    expect(west.to[0]).toBeLessThanOrEqual(-4);
+    // west slab: z in [-4, 4]; north slab: z in [-5, -4]
+    expect(west.from[2]).toBeGreaterThanOrEqual(-4);
+    expect(north.to[2]).toBeLessThanOrEqual(-4);
   });
 });
 
-describe('resolveDepth', () => {
-  const texel = { u: 1.125, v: 1.125 };
-  const options: GeneratorOptions = { ...DEFAULT_OPTIONS, fixedDepth: 0.4 };
-
-  it('preserve_layer uses the layer inflate', () => {
-    expect(resolveDepth('preserve_layer', 0.5, texel, options)).toBe(0.5);
+describe('boxUvOffset', () => {
+  it('puts the north face rect on the source pixel', () => {
+    // unit cube, pixel (40, 8): north rect = [ox+d, oy+d] -> offset (39, 7)
+    expect(boxUvOffset('north', 40, 8, 1, 1)).toEqual([39, 7]);
   });
 
-  it('preserve_layer falls back to the texel size when inflate is zero', () => {
-    expect(resolveDepth('preserve_layer', 0, texel, options)).toBe(1.125);
+  it('handles every direction of a unit cube', () => {
+    expect(boxUvOffset('south', 40, 8, 1, 1)).toEqual([37, 7]);
+    expect(boxUvOffset('east', 40, 8, 1, 1)).toEqual([40, 7]);
+    expect(boxUvOffset('west', 40, 8, 1, 1)).toEqual([38, 7]);
+    expect(boxUvOffset('up', 40, 8, 1, 1)).toEqual([39, 8]);
+    expect(boxUvOffset('down', 40, 8, 1, 1)).toEqual([38, 8]);
   });
 
-  it('pixel mode uses the mean texel edge', () => {
-    expect(resolveDepth('pixel', 0.25, { u: 1, v: 0.5 }, options)).toBe(0.75);
-  });
-
-  it('fixed mode uses the configured depth', () => {
-    expect(resolveDepth('fixed', 0.25, texel, options)).toBe(0.4);
-  });
-
-  it('never returns degenerate thickness', () => {
-    expect(resolveDepth('fixed', 0.25, texel, { ...options, fixedDepth: 0 })).toBeGreaterThan(0);
+  it('works in UV units for other texture scales', () => {
+    // 128px texture with 64 UV space: texel = 0.5 UV units
+    expect(boxUvOffset('north', 10, 10, 0.5, 0.5)).toEqual([9.5, 9.5]);
   });
 });

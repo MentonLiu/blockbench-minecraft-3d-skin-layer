@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPTIONS } from '../../src/domain/constants';
+import { DEFAULT_OPTIONS, VOXEL_STANDOFF } from '../../src/domain/constants';
 import type { LayerSnapshot, PixelSource, UVRect } from '../../src/domain/types';
 import { buildVoxelPlans, countPlanVoxels } from '../../src/geometry/voxelPlanner';
 
@@ -55,50 +55,37 @@ describe('doubled texture resolution (128px image, 64 UV space)', () => {
     ],
   };
 
+  const plans = () =>
+    buildVoxelPlans([layer], new Map([['hires', makeHiResTexture()]]), DEFAULT_OPTIONS).plans[0];
+
   it('renders a 16x16 grid for the head front', () => {
-    const { plans } = buildVoxelPlans(
-      [layer],
-      new Map([['hires', makeHiResTexture()]]),
-      DEFAULT_OPTIONS,
-    );
-    const north = plans[0].voxels.filter(voxel => voxel.face === 'north');
+    const north = plans().voxels.filter(voxel => voxel.face === 'north');
     expect(north).toHaveLength(16 * 16);
     const cols = new Set(north.map(voxel => voxel.name.split('_')[3]));
     expect(cols.size).toBe(16);
   });
 
   it('keeps the reversed top-face UV working at 2x', () => {
-    const { plans } = buildVoxelPlans(
-      [layer],
-      new Map([['hires', makeHiResTexture()]]),
-      DEFAULT_OPTIONS,
-    );
-    const up = plans[0].voxels.filter(voxel => voxel.face === 'up');
+    const up = plans().voxels.filter(voxel => voxel.face === 'up');
     expect(up).toHaveLength(16 * 16);
   });
 
-  it('maps each voxel to a half-UV-unit pixel rectangle', () => {
-    const { plans } = buildVoxelPlans(
-      [layer],
-      new Map([['hires', makeHiResTexture()]]),
-      DEFAULT_OPTIONS,
-    );
-    expect(countPlanVoxels(plans)).toBe(512);
-    for (const voxel of plans[0].voxels) {
-      const [u1, v1, u2, v2] = voxel.pixelUV;
-      expect(u2 - u1).toBeCloseTo(0.5, 10);
-      expect(v2 - v1).toBeCloseTo(0.5, 10);
-    }
+  it('totals 512 half-texel cubes', () => {
+    expect(countPlanVoxels([plans()])).toBe(512);
   });
 
-  it('shrinks voxel face size to 0.5 model units at 2x', () => {
-    const { plans } = buildVoxelPlans(
-      [layer],
-      new Map([['hires', makeHiResTexture()]]),
-      DEFAULT_OPTIONS,
-    );
-    const first = plans[0].voxels.find(voxel => voxel.face === 'north')!;
-    expect(first.to[0] - first.from[0]).toBeCloseTo(0.5625, 10); // 9/16
-    expect(first.to[1] - first.from[1]).toBeCloseTo(0.5625, 10);
+  it('builds half-unit cubes lifted by the standoff', () => {
+    const voxel = plans().voxels.find(v => v.name === 'px_north_0_0')!;
+    expect(voxel.to[0] - voxel.from[0]).toBeCloseTo(0.5, 10);
+    expect(voxel.to[1] - voxel.from[1]).toBeCloseTo(0.5, 10);
+    expect(voxel.to[2] - voxel.from[2]).toBeCloseTo(0.5, 10);
+    expect(voxel.from[2]).toBeCloseTo(-4 - VOXEL_STANDOFF - 0.5, 10);
+    expect(voxel.to[2]).toBeCloseTo(-4 - VOXEL_STANDOFF, 10);
+  });
+
+  it('chooses the box UV offset in UV units (half-texel steps)', () => {
+    // first north cell samples image pixel (16,16) = UV (8, 8)
+    const voxel = plans().voxels.find(v => v.name === 'px_north_0_0')!;
+    expect(voxel.uvOffset).toEqual([7.5, 7.5]);
   });
 });

@@ -11,8 +11,6 @@ export const DEFAULT_OPTIONS: GeneratorOptions = {
   alphaThreshold: 0,
   maxVoxels: 10_000,
   batchSize: 200,
-  depthMode: 'preserve_layer',
-  fixedDepth: 0.25,
   preserveOriginal: false,
   replaceEmptyLayer: false,
   autoApplyOnLoad: false,
@@ -20,8 +18,9 @@ export const DEFAULT_OPTIONS: GeneratorOptions = {
   useUVToLocalWhenAvailable: false,
 };
 
+/** Voxels are lifted this far off the raw surface, so no inner face is
+ * coplanar with the base cube's own faces (same-part z-fighting). */
+export const VOXEL_STANDOFF = 0.001;
+
 /** Tolerance when checking that a face UV spans whole texels. */
 export const TEXEL_EPSILON = 0.01;
-
-/** Voxels thinner than this would be degenerate cubes. */
-export const MIN_DEPTH = 0.01;
