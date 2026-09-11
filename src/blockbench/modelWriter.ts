@@ -1,0 +1,133 @@
+import { VoxelLimitError } from '../domain/types';
+import type { LayerPlan, VoxelSpec } from '../domain/types';
+import { countPlanVoxels } from '../geometry/voxelPlanner';
+
+export interface GroupSpec {
+  name: string;
+  origin: [number, number, number];
+  visibility: boolean;
+}
+
+export interface UndoAspects {
+  sources: unknown[];
+}
+
+export interface CommitAspects {
+  created: unknown[];
+  groups: unknown[];
+}
+
+/**
+ * Seam between the generation algorithm and the Blockbench runtime. The
+ * production host wraps the real global APIs; tests provide a mock with the
+ * same outliner/undo semantics so group replacement and rollback stay tested.
+ */
+export interface WriterHost {
+  beginUndo(aspects: UndoAspects): void;
+  finishUndo(label: string, aspects: CommitAspects): void;
+  cancelUndo(revertChanges: boolean): void;
+  createGroup(spec: GroupSpec): unknown;
+  createCube(spec: VoxelSpec): unknown;
+  /** Registers the element with the outliner root. */
+  initElement(element: unknown): void;
+  /** Reparents the element; null means outliner root. */
+  adopt(element: unknown, parent: unknown | null): void;
+  /** Moves the element directly in front of the target within the same parent. */
+  placeBefore(element: unknown, target: unknown): void;
+  parentOf(element: unknown): unknown | null;
+  remove(element: unknown): void;
+  setVisibility(element: unknown, visible: boolean): void;
+  updateView(created: readonly unknown[], groups: readonly unknown[]): void;
+  resolveTexture(key: string): unknown;
+  yieldToUI(): Promise<void>;
+}
+
+export interface SourceLookup {
+  (key: string): unknown | undefined;
+}
+
+export interface ApplyOptions {
+  maxVoxels: number;
+  batchSize: number;
+  preserveOriginal: boolean;
+}
+
+export interface ApplySummary {
+  createdCubes: number;
+  createdGroups: number;
+  removedSources: number;
+}
+
+/**
+ * Applies the plans as one transaction: preflight against maxVoxels, a single
+ * undo scope, batched cube creation with UI yields, then targeted view updates.
+ * Any error reverts the whole run via cancelUndo before rethrowing.
+ */
+export async function applyPlans(
+  plans: readonly LayerPlan[],
+  options: ApplyOptions,
+  host: WriterHost,
+  resolveSource: SourceLookup,
+): Promise<ApplySummary> {
+  const voxelCount = countPlanVoxels(plans);
+  if (voxelCount > options.maxVoxels) {
+    throw new VoxelLimitError(voxelCount, options.maxVoxels);
+  }
+  if (plans.length === 0) {
+    return { createdCubes: 0, createdGroups: 0, removedSources: 0 };
+  }
+
+  const sources = plans.map(plan => resolveSource(plan.sourceKey));
+  if (sources.some(source => source === undefined)) {
+    throw new Error('Layer cubes changed while planning; aborting generation');
+  }
+
+  host.beginUndo({ sources });
+  const created: unknown[] = [];
+  const groups: unknown[] = [];
+  let removedSources = 0;
+
+  try {
+    for (const plan of plans) {
+      const source = resolveSource(plan.sourceKey) as unknown;
+      const parent = host.parentOf(source);
+
+      const group = host.createGroup({
+        name: plan.sourceName,
+        origin: [...plan.origin],
+        visibility: plan.visibility,
+      });
+      host.initElement(group);
+      host.adopt(group, parent);
+      host.placeBefore(group, source);
+      groups.push(group);
+
+      const batch: unknown[] = [];
+      for (const spec of plan.voxels) {
+        const cube = host.createCube(spec);
+        host.initElement(cube);
+        host.adopt(cube, group);
+        created.push(cube);
+        batch.push(cube);
+        if (batch.length >= options.batchSize) {
+          batch.length = 0;
+          await host.yieldToUI();
+        }
+      }
+
+      if (options.preserveOriginal) {
+        host.setVisibility(source, false);
+      } else {
+        host.remove(source);
+        removedSources++;
+      }
+    }
+
+    host.updateView(created, groups);
+    host.finishUndo('Generate 3D skin layers', { created, groups });
+    return { createdCubes: created.length, createdGroups: groups.length, removedSources };
+  } catch (error) {
+    host.cancelUndo(true);
+    throw error;
+  }
+}
