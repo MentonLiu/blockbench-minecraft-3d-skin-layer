@@ -1,5 +1,6 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
 import type {
+  FaceDirection,
   FaceSnapshot,
   GeneratorOptions,
   LayerPlan,
@@ -10,6 +11,93 @@ import type {
 import { resolveDepth } from './depthStrategy';
 import { adjustedBox, faceSpans, resolveDisabledFaces, voxelBounds } from './faceMapper';
 import { enumerateVisibleTexels } from '../texture/pixelReader';
+
+interface FaceRecord {
+  plan: LayerPlan;
+  voxel: VoxelSpec;
+  face: FaceDirection;
+  axis: number;
+  coord: number;
+  normal: number;
+  u0: number;
+  u1: number;
+  v0: number;
+  v1: number;
+}
+
+const FACE_AXES: Record<FaceDirection, { axis: 0 | 1 | 2; u: 0 | 1 | 2; v: 0 | 1 | 2; normal: 1 | -1 }> = {
+  north: { axis: 2, u: 0, v: 1, normal: -1 },
+  south: { axis: 2, u: 0, v: 1, normal: 1 },
+  west: { axis: 0, u: 2, v: 1, normal: -1 },
+  east: { axis: 0, u: 2, v: 1, normal: 1 },
+  down: { axis: 1, u: 0, v: 2, normal: -1 },
+  up: { axis: 1, u: 0, v: 2, normal: 1 },
+};
+
+function faceRecord(plan: LayerPlan, voxel: VoxelSpec, face: FaceDirection): FaceRecord {
+  const { axis, u, v, normal } = FACE_AXES[face];
+  return {
+    plan,
+    voxel,
+    face,
+    axis,
+    normal,
+    coord: normal < 0 ? voxel.from[axis] : voxel.to[axis],
+    u0: voxel.from[u],
+    u1: voxel.to[u],
+    v0: voxel.from[v],
+    v1: voxel.to[v],
+  };
+}
+
+/**
+ * Deterministically disables overlapping coplanar faces that share a plane and
+ * normal, keeping the top-left-most face. Source cubes can interpenetrate (the
+ * reference legs overlap by 0.2), which otherwise leaves their shells
+ * flickering against each other on the shared plane.
+ */
+export function dedupeCoplanarFaces(plans: LayerPlan[]): void {
+  const buckets = new Map<string, FaceRecord[]>();
+  for (const plan of plans) {
+    for (const voxel of plan.voxels) {
+      for (const face of FACE_DIRECTIONS) {
+        if (voxel.disabledFaces.includes(face)) {
+          continue;
+        }
+        const record = faceRecord(plan, voxel, face);
+        const key = `${record.axis}:${Math.round(record.coord * 1e4) / 1e4}:${record.normal}`;
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.push(record);
+        } else {
+          buckets.set(key, [record]);
+        }
+      }
+    }
+  }
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) {
+      continue;
+    }
+    bucket.sort((a, b) =>
+      a.u0 - b.u0 || a.v0 - b.v0 ||
+      (a.plan.sourceName + a.voxel.name).localeCompare(b.plan.sourceName + b.voxel.name),
+    );
+    const accepted: FaceRecord[] = [];
+    for (const record of bucket) {
+      const overlaps = accepted.some(
+        kept =>
+          Math.min(kept.u1, record.u1) - Math.max(kept.u0, record.u0) > 1e-6 &&
+          Math.min(kept.v1, record.v1) - Math.max(kept.v0, record.v0) > 1e-6,
+      );
+      if (overlaps) {
+        record.voxel.disabledFaces.push(record.face);
+      } else {
+        accepted.push(record);
+      }
+    }
+  }
+}
 
 export interface PlannerResult {
   plans: LayerPlan[];
@@ -107,6 +195,8 @@ export function buildVoxelPlans(
       visibility: layer.visibility,
     });
   }
+
+  dedupeCoplanarFaces(plans);
 
   return { plans, warnings };
 }

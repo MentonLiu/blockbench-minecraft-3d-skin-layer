@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_OPTIONS } from '../../src/domain/constants';
-import type { GeneratorOptions, LayerSnapshot, PixelSource, UVRect } from '../../src/domain/types';
+import type { FaceDirection, GeneratorOptions, LayerSnapshot, PixelSource, UVRect } from '../../src/domain/types';
 import { buildVoxelPlans, countPlanVoxels } from '../../src/geometry/voxelPlanner';
 
 function opaqueTexture(alphaAt?: (x: number, y: number) => number): PixelSource {
@@ -90,6 +90,71 @@ describe('buildVoxelPlans', () => {
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts({ depthMode: 'pixel' }));
     const corner = plans[0].voxels.find(v => v.name === 'px_north_0_0');
     expect(corner?.disabledFaces).toEqual(['south']);
+  });
+
+  it('deduplicates coplanar faces of interpenetrating layers', () => {
+    // the reference legs overlap by 0.2 in x and share the north/south planes
+    const right: LayerSnapshot = {
+      ...hatLayer(),
+      key: 'leg-right',
+      name: 'Right Leg Layer',
+      from: [-0.1, 0, -2],
+      to: [3.9, 12, 2],
+      inflate: 0.25,
+    };
+    const left: LayerSnapshot = {
+      ...hatLayer(),
+      key: 'leg-left',
+      name: 'Left Leg Layer',
+      from: [-3.9, 0, -2],
+      to: [0.1, 12, 2],
+      inflate: 0.25,
+    };
+    const textures = new Map([['texA', opaqueTexture()]]);
+    const { plans } = buildVoxelPlans([right, left], textures, opts());
+
+    // collect the enabled faces grouped by (direction, plane coordinate); on
+    // each shared plane the in-plane rectangles must be free of overlaps
+    const inPlane: Record<FaceDirection, [number, number, number, number]> = {
+      north: [0, 1, 0, 1], // axes for u,v -> handled via from/to picks below
+      south: [0, 1, 0, 1],
+      east: [2, 1, 0, 1],
+      west: [2, 1, 0, 1],
+      up: [0, 2, 0, 1],
+      down: [0, 2, 0, 1],
+    };
+    const buckets = new Map<string, { u0: number; u1: number; v0: number; v1: number; name: string }[]>();
+    for (const voxel of plans.flatMap(plan => plan.voxels)) {
+      for (const face of Object.keys(inPlane) as (keyof typeof inPlane)[]) {
+        if (voxel.disabledFaces.includes(face)) {
+          continue;
+        }
+        const [ua, va] = inPlane[face];
+        const axis = face === 'north' || face === 'south' ? 2 : face === 'east' || face === 'west' ? 0 : 1;
+        const fromSide = face === 'north' || face === 'west' || face === 'down';
+        const coord = fromSide ? voxel.from[axis] : voxel.to[axis];
+        const key = `${face}:${coord}`;
+        const entry = {
+          u0: voxel.from[ua], u1: voxel.to[ua],
+          v0: voxel.from[va], v1: voxel.to[va],
+          name: voxel.name,
+        };
+        const bucket = buckets.get(key);
+        if (bucket) bucket.push(entry); else buckets.set(key, [entry]);
+      }
+    }
+    let overlaps = 0;
+    for (const faces of buckets.values()) {
+      for (let i = 0; i < faces.length; i++) {
+        for (let j = i + 1; j < faces.length; j++) {
+          const a = faces[i], b = faces[j];
+          const du = Math.min(a.u1, b.u1) - Math.max(a.u0, b.u0);
+          const dv = Math.min(a.v1, b.v1) - Math.max(a.v0, b.v0);
+          if (du > 1e-6 && dv > 1e-6) overlaps++;
+        }
+      }
+    }
+    expect(overlaps).toBe(0);
   });
 
   it('gives every voxel the single-texel UV and the source transform', () => {
