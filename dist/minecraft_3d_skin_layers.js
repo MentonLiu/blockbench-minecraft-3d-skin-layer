@@ -55,43 +55,11 @@
     up: "down",
     down: "up"
   };
-  var PLANE_EPSILON = 1e-4;
-  function facePlaneCoordinate(direction, from, to) {
-    switch (direction) {
-      case "north":
-        return from[2];
-      case "south":
-        return to[2];
-      case "east":
-        return to[0];
-      case "west":
-        return from[0];
-      case "up":
-        return to[1];
-      case "down":
-        return from[1];
+  function resolveDisabledFaces(direction, depthMatchesShell) {
+    if (depthMatchesShell) {
+      return FACE_DIRECTIONS.filter((face) => face !== direction);
     }
-  }
-  function resolveDisabledFaces(direction, box, bounds, depthMatchesShell) {
-    const disabled = [];
-    for (const face of FACE_DIRECTIONS) {
-      if (face === direction) {
-        continue;
-      }
-      if (face === OPPOSITE_FACE[direction]) {
-        disabled.push(face);
-        continue;
-      }
-      if (!depthMatchesShell) {
-        continue;
-      }
-      const plane = facePlaneCoordinate(face, bounds.from, bounds.to);
-      const shell = facePlaneCoordinate(face, box.inflated.from, box.inflated.to);
-      if (Math.abs(plane - shell) <= PLANE_EPSILON) {
-        disabled.push(face);
-      }
-    }
-    return disabled;
+    return [OPPOSITE_FACE[direction]];
   }
   function adjustedBox(from, to, inflate, stretch) {
     const inflatedFrom = [0, 0, 0];
@@ -342,7 +310,7 @@
             textureKey: face.textureKey,
             pixelUV: cell.pixelUV,
             face: direction,
-            disabledFaces: resolveDisabledFaces(direction, box, bounds, depthMatchesShell)
+            disabledFaces: resolveDisabledFaces(direction, depthMatchesShell)
           });
         }
       }

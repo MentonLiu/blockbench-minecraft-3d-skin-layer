@@ -116,18 +116,16 @@ describe('reference model conversion', () => {
     }
   });
 
-  it('disables the inner face of every voxel (anti z-fighting)', () => {
-    const opposite: Record<string, string> = {
-      north: 'south', south: 'north', east: 'west', west: 'east', up: 'down', down: 'up',
-    };
+  it('renders exactly one face per voxel against the shell (anti z-fighting)', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
     for (const plan of plans) {
       for (const voxel of plan.voxels) {
+        // preserve_layer keeps only the textured outer face enabled
         expect(
           voxel.disabledFaces,
           `${plan.sourceName}/${voxel.name}`,
-        ).toContain(opposite[voxel.face]);
-        expect(voxel.disabledFaces.length).toBeLessThanOrEqual(3);
+        ).not.toContain(voxel.face);
+        expect(voxel.disabledFaces, `${plan.sourceName}/${voxel.name}`).toHaveLength(5);
       }
     }
   });

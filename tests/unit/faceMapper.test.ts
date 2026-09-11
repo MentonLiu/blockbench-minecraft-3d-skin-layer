@@ -107,31 +107,16 @@ describe('voxelBounds', () => {
 });
 
 describe('resolveDisabledFaces', () => {
-  const depth = 0.5; // == inflate -> outer shell planes are owned per direction
-
-  it('always disables the inner face', () => {
-    const bounds = voxelBounds('north', hat, 3 / 8, 4 / 8, 3 / 8, 4 / 8, depth);
-    expect(resolveDisabledFaces('north', hat, bounds, true)).toEqual(['south']);
+  it('keeps only the textured outer face when the shell planes are owned (preserve_layer)', () => {
+    // the six shell planes seal the layer, every side face would duplicate a
+    // face another direction also produces in the edge/corner overlap volumes
+    expect(resolveDisabledFaces('north', true)).toEqual(['east', 'south', 'west', 'up', 'down']);
+    expect(resolveDisabledFaces('up', true)).toEqual(['north', 'east', 'south', 'west', 'down']);
   });
 
-  it('disables corner side faces that duplicate a neighbouring shell plane', () => {
-    // north corner voxel at col 0 sits on the +X (east) and +Y (up) shell planes
-    const neTop = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(resolveDisabledFaces('north', hat, neTop, true)).toEqual(['east', 'south', 'up']);
-
-    // west corner voxel at col 0 sits on the -Z (north) and +Y (up) shell planes
-    const nwTop = voxelBounds('west', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(resolveDisabledFaces('west', hat, nwTop, true)).toEqual(['north', 'east', 'up']);
-
-    // up corner voxel at col 0 / row 0 sits on the -X (west) and -Z (north) planes
-    const upCorner = voxelBounds('up', hat, 0, 1 / 8, 0, 1 / 8, depth);
-    expect(resolveDisabledFaces('up', hat, upCorner, true)).toEqual(['north', 'west', 'down']);
-  });
-
-  it('keeps shell side faces when the depth separates the shells (pixel mode)', () => {
-    const pixelDepth = 1.125;
-    const neTop = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, pixelDepth);
-    expect(resolveDisabledFaces('north', hat, neTop, false)).toEqual(['south']);
+  it('keeps silhouette side faces when the depth separates the shells (pixel/fixed)', () => {
+    expect(resolveDisabledFaces('north', false)).toEqual(['south']);
+    expect(resolveDisabledFaces('west', false)).toEqual(['east']);
   });
 });
 

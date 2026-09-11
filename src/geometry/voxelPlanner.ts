@@ -88,7 +88,7 @@ export function buildVoxelPlans(
           textureKey: face.textureKey as string,
           pixelUV: cell.pixelUV,
           face: direction,
-          disabledFaces: resolveDisabledFaces(direction, box, bounds, depthMatchesShell),
+          disabledFaces: resolveDisabledFaces(direction, depthMatchesShell),
         });
       }
     }

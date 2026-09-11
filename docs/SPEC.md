@@ -96,11 +96,12 @@ Every generated voxel cube:
 - uses `box_uv: false`, `autouv: 0`;
 - copies source `origin` and `rotation` (rotation lives on the voxels, never on
   the new Group, to avoid double rotation);
-- leaves two kinds of faces disabled (`texture: null`) to keep the shell free
-  of coplanar duplicate surfaces (z-fighting): the inner face against the base
-  cube, and - when the outer surface lies exactly on the inflated shell
-  (preserve_layer) - side faces landing on a neighbouring direction's shell
-  plane, which that direction's own voxels own, matching the original box.
+- in preserve_layer (outer surface exactly on the inflated shell) only the
+  textured outer face is rendered: the six shell planes seal the layer, so any
+  side face would be a coplanar duplicate causing z-fighting. In pixel/fixed
+  depth modes the shells separate - the inner face against the base cube is
+  disabled and the silhouette side faces are kept. All six faces keep their
+  texel UV in the data either way.
 
 ## Replacement
 

@@ -76,16 +76,16 @@ describe('buildVoxelPlans', () => {
     expect(voxel?.to).toEqual([4.5, 32.5, -4]);
   });
 
-  it('disables the inner face and duplicate shell faces (preserve_layer)', () => {
+  it('disables all but the textured outer face in preserve_layer', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
     const corner = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    expect(corner?.disabledFaces).toEqual(['east', 'south', 'up']);
+    expect(corner?.disabledFaces).toEqual(['east', 'south', 'west', 'up', 'down']);
     const middle = plans[0].voxels.find(v => v.name === 'px_north_3_3');
-    expect(middle?.disabledFaces).toEqual(['south']);
+    expect(middle?.disabledFaces).toEqual(['east', 'south', 'west', 'up', 'down']);
   });
 
-  it('keeps shell side faces when pixel depth separates the shells', () => {
+  it('keeps silhouette side faces when pixel depth separates the shells', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts({ depthMode: 'pixel' }));
     const corner = plans[0].voxels.find(v => v.name === 'px_north_0_0');
