@@ -4,6 +4,30 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.2.1] - 2026-09-12
+
+### Fixed
+
+- Severe z-fighting inside a part: adjacent face grids share the inflated
+  shell, so corner voxels of neighbouring directions produced coplanar
+  duplicate faces - up to 1668 overlapping face pairs on the reference model.
+  Each direction now carries a tiny epsilon (north 0, east 0.0015, ... down
+  0.0075) applied as a translation of its face grid plus extra thickness, so
+  faces of different directions never share a plane. Reference model
+  verification: 0 intra-part coplanar pairs with all 5280 faces enabled,
+  live in Blockbench 5.1.6 at 60 FPS.
+- Voxel inner faces are lifted 0.001 off the base cube's surface, removing
+  the ghosting visible through the edge gaps.
+
+### Changed
+
+- Re-affirmed the product contract per user feedback: every visible texel
+  becomes a full voxel with **all six faces enabled and mapped to the same
+  source pixel** (per-face UV), and the thickness always matches the original
+  layer inflate - the voxel shell reproduces the original layer contour.
+  Nothing is ever hidden. Cross-part overlaps of the default pose (legs, waist)
+  are intentionally untouched; posing the model separates them.
+
 ## [0.2.0] - 2026-09-12
 
 ### Added
