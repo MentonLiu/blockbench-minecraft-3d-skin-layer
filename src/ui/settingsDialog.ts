@@ -50,6 +50,7 @@ export function persistOptions(options: GeneratorOptions): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
   } catch {
+    // 持久化尽力而为；失败时选项仍在本次会话内可用
     // persistence is best-effort; in-memory options still work for this session
   }
 }
