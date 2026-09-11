@@ -1,6 +1,6 @@
 import { findLayerCubes } from '../../src/scan/layerScanner';
 import type { VoxelSpec } from '../../src/domain/types';
-import type { WriterHost } from '../../src/blockbench/modelWriter';
+import type { CommitAspects, UndoAspects, WriterHost } from '../../src/blockbench/modelWriter';
 import type { GroupSpec } from '../../src/blockbench/modelWriter';
 
 export interface MockNode {
@@ -45,6 +45,8 @@ export class MockRuntime implements WriterHost {
   removedCount = 0;
   failCubeCreationAfter = Number.POSITIVE_INFINITY;
   viewUpdates: { elements: number; groups: number }[] = [];
+  beginAspects: UndoAspects | null = null;
+  finishAspects: CommitAspects | null = null;
 
   private currentBefore: SerializedNode[] | null = null;
 
@@ -173,13 +175,15 @@ export class MockRuntime implements WriterHost {
     await Promise.resolve();
   }
 
-  beginUndo(): void {
+  beginUndo(aspects?: UndoAspects): void {
     this.beginCount++;
+    this.beginAspects = aspects ?? null;
     this.currentBefore = this.serialize(this.root);
   }
 
-  finishUndo(label: string): void {
+  finishUndo(label: string, aspects?: CommitAspects): void {
     this.finishCount++;
+    this.finishAspects = aspects ?? null;
     if (!this.currentBefore) {
       throw new Error('finishUndo without beginUndo');
     }

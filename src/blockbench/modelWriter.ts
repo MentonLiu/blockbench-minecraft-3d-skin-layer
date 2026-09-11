@@ -10,6 +10,13 @@ export interface GroupSpec {
 
 export interface UndoAspects {
   sources: unknown[];
+  /**
+   * Groups involved in the transaction; empty at start, the created groups at
+   * commit. Blockbench's loadSave compares the before/after saves against each
+   * other, so the `groups` list must be present on BOTH ends - omitting it
+   * crashes redo with "groups is not iterable".
+   */
+  groups: unknown[];
 }
 
 export interface CommitAspects {
@@ -82,7 +89,7 @@ export async function applyPlans(
     throw new Error('Layer cubes changed while planning; aborting generation');
   }
 
-  host.beginUndo({ sources });
+  host.beginUndo({ sources, groups: [] });
   const created: unknown[] = [];
   const groups: unknown[] = [];
   let removedSources = 0;

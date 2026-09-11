@@ -134,6 +134,16 @@ describe('applyPlans against the mock outliner', () => {
     expect(runtime.cancelCount).toBe(0);
   });
 
+  it('passes the groups aspect to both undo transaction ends', async () => {
+    // Blockbench's loadSave compares the before/after saves against each other;
+    // a missing groups list on either side crashes undo/redo ("groups is not iterable")
+    const { runtime, plans } = buildReferenceRuntime();
+    await applyPlans(plans, { ...DEFAULT_OPTIONS }, runtime, key => runtime.registry.get(key));
+    expect(Array.isArray(runtime.beginAspects?.groups)).toBe(true);
+    expect(runtime.beginAspects?.groups).toHaveLength(0);
+    expect(runtime.finishAspects?.groups).toHaveLength(6);
+  });
+
   it('undo restores the original tree and redo restores the voxels', async () => {
     const { runtime, plans } = buildReferenceRuntime();
     const before = runtime.snapshot();

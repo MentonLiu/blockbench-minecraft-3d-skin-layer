@@ -464,7 +464,7 @@
     if (sources.some((source) => source === void 0)) {
       throw new Error("Layer cubes changed while planning; aborting generation");
     }
-    host.beginUndo({ sources });
+    host.beginUndo({ sources, groups: [] });
     const created = [];
     const groups = [];
     let removedSources = 0;
@@ -519,6 +519,7 @@
       Undo.initEdit({
         outliner: true,
         elements,
+        groups: aspects.groups,
         selection: true
       });
     },
