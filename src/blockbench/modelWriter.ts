@@ -86,6 +86,7 @@ export async function applyPlans(
   const created: unknown[] = [];
   const groups: unknown[] = [];
   let removedSources = 0;
+  let batch = 0;
 
   try {
     for (const plan of plans) {
@@ -102,15 +103,14 @@ export async function applyPlans(
       host.placeBefore(group, source);
       groups.push(group);
 
-      const batch: unknown[] = [];
       for (const spec of plan.voxels) {
         const cube = host.createCube(spec);
         host.initElement(cube);
         host.adopt(cube, group);
         created.push(cube);
-        batch.push(cube);
-        if (batch.length >= options.batchSize) {
-          batch.length = 0;
+        batch++;
+        if (batch >= options.batchSize) {
+          batch = 0;
           await host.yieldToUI();
         }
       }
@@ -121,6 +121,9 @@ export async function applyPlans(
         host.remove(source);
         removedSources++;
       }
+    }
+    if (batch > 0) {
+      await host.yieldToUI();
     }
 
     host.updateView(created, groups);
