@@ -11,6 +11,9 @@ export interface GroupSpec {
 export interface UndoAspects {
   sources: unknown[];
   /**
+   * 事务涉及的分组：开始时为空列表，提交时为新建的分组。Blockbench 的
+   * loadSave 会前后对比两个 save，任何一侧缺少 groups 都会导致
+   * undo/redo 崩溃（"groups is not iterable"）。
    * Groups involved in the transaction; empty at start, the created groups at
    * commit. Blockbench's loadSave compares the before/after saves against each
    * other, so the `groups` list must be present on BOTH ends - omitting it
@@ -25,6 +28,8 @@ export interface CommitAspects {
 }
 
 /**
+ * 生成算法与 Blockbench 运行时之间的接缝。生产环境宿主包装真实的全局
+ * API；测试提供具有相同大纲/撤销语义的 mock，使分组替换与回滚保持可测。
  * Seam between the generation algorithm and the Blockbench runtime. The
  * production host wraps the real global APIs; tests provide a mock with the
  * same outliner/undo semantics so group replacement and rollback stay tested.
@@ -35,11 +40,11 @@ export interface WriterHost {
   cancelUndo(revertChanges: boolean): void;
   createGroup(spec: GroupSpec): unknown;
   createCube(spec: VoxelSpec): unknown;
-  /** Registers the element with the outliner root. */
+  /** 向大纲根注册元素 / Registers the element with the outliner root. */
   initElement(element: unknown): void;
-  /** Reparents the element; null means outliner root. */
+  /** 重挂载元素的父级；null 表示大纲根 / Reparents the element; null means root. */
   adopt(element: unknown, parent: unknown | null): void;
-  /** Moves the element directly in front of the target within the same parent. */
+  /** 在同一父级内移动到目标元素之前 / Moves the element in front of the target. */
   placeBefore(element: unknown, target: unknown): void;
   parentOf(element: unknown): unknown | null;
   remove(element: unknown): void;
@@ -66,6 +71,9 @@ export interface ApplySummary {
 }
 
 /**
+ * 以单个事务应用所有计划：先对 maxVoxels 做预检，然后打开一个撤销作用域，
+ * 分批创建体素并让出 UI，最后只做定向视图更新。任何错误都会通过 cancelUndo
+ * 回滚整个运行，然后再抛出。
  * Applies the plans as one transaction: preflight against maxVoxels, a single
  * undo scope, batched cube creation with UI yields, then targeted view updates.
  * Any error reverts the whole run via cancelUndo before rethrowing.

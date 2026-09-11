@@ -403,7 +403,7 @@
       }
       faces.push({
         direction,
-        // a face with texture === null does not exist for rendering
+        // texture === null 的面不参与渲染 / a face with texture === null does not exist for rendering
         enabled: face.texture !== null,
         textureKey: faceTextureKey(face),
         uv: [face.uv[0], face.uv[1], face.uv[2], face.uv[3]],

@@ -2,13 +2,13 @@ import { TEXEL_EPSILON } from '../domain/constants';
 import type { FaceSnapshot, PixelSource, TexelCell, UVRect } from '../domain/types';
 
 export interface GridSize {
-  /** Cells along the face's model U axis. */
+  /** 沿面模型 U 轴的单元格数 / Cells along the face's model U axis. */
   cols: number;
-  /** Cells along the face's model V axis. */
+  /** 沿面模型 V 轴的单元格数 / Cells along the face's model V axis. */
   rows: number;
-  /** Image texels the UV rect spans horizontally. */
+  /** UV 矩形横向覆盖的图像像素数 / Image texels the UV rect spans horizontally. */
   texelsU: number;
-  /** Image texels the UV rect spans vertically. */
+  /** UV 矩形纵向覆盖的图像像素数 / Image texels the UV rect spans vertically. */
   texelsV: number;
 }
 
@@ -17,20 +17,26 @@ export interface FaceScan {
   warnings: string[];
 }
 
+/** 纹理图像尺寸与 UV 空间尺寸的换算比例 / Image-to-UV scales of a texture. */
 export function textureScales(texture: PixelSource): { sx: number; sy: number } {
   const uvWidth = texture.uvWidth > 0 ? texture.uvWidth : texture.width;
   const uvHeight = texture.uvHeight > 0 ? texture.uvHeight : texture.height;
   return { sx: texture.width / uvWidth, sy: texture.height / uvHeight };
 }
 
+/** 读取指定像素的 alpha 字节 / Alpha byte of the requested pixel. */
 export function getAlpha(texture: PixelSource, x: number, y: number): number {
   const index = (y * texture.width + x) * 4;
   return texture.rgba[index + 3];
 }
 
 /**
+ * 面在其模型轴上需要的网格单元数。
  * Number of grid cells the face needs along its model axes.
  *
+ * 图像像素数由 UV 矩形与纹理比例推导；面旋转 90/270 时，纹理 U 轴对应面的
+ * 模型 V 轴，因此数量互换。UV 矩形没有横跨整数像素时返回 null——该面会被
+ * 上报而不是被静默取整。
  * The image texel counts derive from the UV rect and texture scale; with face
  * rotation 90/270 the texture's U axis lies along the face's model V axis, so
  * the counts swap. Returns null when the UV rect does not span whole texels -
@@ -86,8 +92,13 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
+ * 一个网格单元对应的图像像素与精确 UV 矩形。
  * Image pixel and exact UV rect of one grid cell.
  *
+ * 采样点为单元格中心；UV 方向被保留（反向矩形按镜像采样，与 Blockbench
+ * 渲染一致）。面旋转把模型位置旋转进 UV 空间——即对 `CubeFace.UVToLocal`
+ * 所做的变换（每 90 度执行一次 `[lerp_x, lerp_y] = [1-lerp_y, lerp_x]`）
+ * 求逆。
  * The sampling point is the cell center. UV direction is preserved: a reversed
  * rect (`u2 < u1`) samples the region mirrored, exactly like Blockbench renders
  * it. Face rotation rotates the model position into UV space, inverting the
@@ -150,6 +161,8 @@ export function sampleCell(
 }
 
 /**
+ * 枚举一个面上所有可见像素：alpha 高于阈值的每个网格单元格各生成一个
+ * 体素候选。单元格之间永不合并；同一图像像素也可以出现在多个面上。
  * Enumerates the visible texels of one face: every grid cell whose sampled
  * pixel's alpha exceeds the threshold. Each cell is an independent voxel
  * candidate - cells are never merged, and the same image pixel can appear on

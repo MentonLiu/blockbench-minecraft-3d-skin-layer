@@ -168,6 +168,7 @@ export function registerPlugin(): void {
     },
   });
   actions = [action];
+  // Blockbench 不会自动把插件动作插入菜单栏，这里显式挂到编辑菜单
   // plugin actions are not added to menus automatically; place it in Edit
   MenuBar.addAction(action, 'edit');
 

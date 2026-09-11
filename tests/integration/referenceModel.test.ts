@@ -3,6 +3,8 @@ import { DEFAULT_OPTIONS } from '../../src/domain/constants';
 import { buildVoxelPlans, countPlanVoxels } from '../../src/geometry/voxelPlanner';
 import { loadReferenceModel } from '../helpers/referenceModel';
 
+// 从提供的参考模型特征化得到的黄金数字
+// （skin_model.bbmodel，内嵌 64×64 steve64.png，alpha 阈值 0）。
 // Golden numbers characterized from the provided reference model
 // (skin_model.bbmodel, embedded 64x64 steve64.png, alpha threshold 0).
 const EXPECTED_PER_LAYER: Record<string, number> = {
@@ -89,6 +91,8 @@ describe('reference model conversion', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
     const planeOf = (name: string) =>
       plans.find(plan => plan.sourceName === name)!.voxels.find(v => v.name === 'px_north_0_0')!.from[2];
+    // 身体与双腿有意共享腰部平面（跨部位重叠已被接受；摆姿势后分离）；
+    // 帽子的平面高得多
     // body and both legs share the waist plane on purpose (cross-part overlap
     // is accepted; posing separates them); the hat sits far higher
     expect(planeOf('Body Layer')).toBeCloseTo(-2.251, 10);
@@ -101,9 +105,11 @@ describe('reference model conversion', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
     const leg = plans.find(plan => plan.sourceName === 'Right Leg Layer');
     const voxel = leg!.voxels.find(v => v.name === 'px_north_0_0');
+    // 膨胀后 x 跨度 [-0.35, 4.15] → 4 列 1.125；第一格位于 +X 边缘
     // inflated x span [-0.35, 4.15] -> 4 texel columns of 1.125; first cell at the +X edge
     expect(voxel?.from[0]).toBeCloseTo(3.025, 10);
     expect(voxel?.to[0]).toBeCloseTo(4.15, 10);
+    // 北面体素填满 z 方向的膨胀间隙（standoff 0.001 + 厚度 0.25）
     // north voxels fill the inflate gap in z (standoff 0.001 + depth 0.25)
     expect(voxel?.from[2]).toBeCloseTo(-2.251, 10);
     expect(voxel?.to[2]).toBeCloseTo(-2.001, 10);

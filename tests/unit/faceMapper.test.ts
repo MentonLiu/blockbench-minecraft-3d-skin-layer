@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { adjustedBox, faceSpans, insetBox, voxelBounds } from '../../src/geometry/faceMapper';
 import type { Box } from '../../src/geometry/faceMapper';
 
+// 参考模型的帽子层：8×8×8 立方体，inflate 0.5
 // Hat layer of the reference model: 8x8x8 cube with inflate 0.5
 const hatFrom: [number, number, number] = [-4, 24, -4];
 const hatTo: [number, number, number] = [4, 32, 4];
@@ -42,6 +43,8 @@ describe('faceSpans', () => {
 });
 
 describe('voxelBounds', () => {
+  // 每个方向的 epsilon：north 0、east .0015、south .003、west .0045、up .006、down .0075
+  // 面盒子按 epsilon 平移（非内缩），单元格保持纹理像素尺寸
   // per-direction epsilon: north 0, east .0015, south .003, west .0045, up .006, down .0075
   // the face box is TRANSLATED by the epsilon, so cells stay texel-sized
   it('north voxels fill the inflate gap in front of the raw surface (north epsilon 0)', () => {

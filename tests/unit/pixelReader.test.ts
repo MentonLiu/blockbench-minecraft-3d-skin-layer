@@ -78,6 +78,7 @@ describe('faceGridSize', () => {
 
   it('swaps grid axes for face rotation 90 and 270', () => {
     const warnings: string[] = [];
+    // 4 宽 × 8 高的区域
     // 4 wide, 8 tall region
     expect(faceGridSize(face('north', [0, 0, 4, 8]), tex64, warnings)).toEqual({
       cols: 4,
@@ -142,10 +143,12 @@ describe('sampleCell', () => {
   });
 
   it('samples through face rotation 90 by transposing the region', () => {
+    // 2×4 区域，旋转 90 度后：网格为 4 列 × 2 行
     // 2x4 region, rotated: grid is 4 cols x 2 rows
     const uv: UVRect = [0, 0, 2, 4];
     const grid = { cols: 4, rows: 2, texelsU: 2, texelsV: 4 };
     const s = sampleCell(face('north', uv, 90), uv, tex64, 1, 1, grid, 0, 0);
+    // mx=0.125, my=0.25 → pu=my=0.25, pv=1-mx=0.875 → u=0.5, v=3.5
     // mx=0.125, my=0.25 -> pu=my=0.25, pv=1-mx=0.875 -> u=0.5, v=3.5
     expect([s.imageX, s.imageY]).toEqual([0, 3]);
   });
@@ -159,6 +162,7 @@ describe('sampleCell', () => {
 
 describe('enumerateVisibleTexels', () => {
   it('keeps cells whose alpha is above the threshold', () => {
+    // [0,0,2,2] 的 2×2 面区域；alpha 分布：255, 0 / 1, 128
     // 2x2 face region at [0,0,2,2]; alpha pattern: 255, 0 / 1, 128
     const tex = makeTexture(4, 4, (x, y) => {
       if (x < 2 && y < 2) {

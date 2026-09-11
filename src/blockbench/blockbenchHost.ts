@@ -18,7 +18,7 @@ function voxelFaces(spec: VoxelSpec) {
   return faces;
 }
 
-/** Production writer host speaking to Blockbench's global model APIs. */
+/** 面向 Blockbench 全局模型 API 的生产环境写入宿主 / Production writer host over Blockbench's global model APIs. */
 export const blockbenchHost: WriterHost = {
   beginUndo(aspects) {
     blockbenchUndo.begin(aspects);

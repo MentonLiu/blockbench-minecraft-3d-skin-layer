@@ -54,7 +54,8 @@ describe('buildVoxelPlans', () => {
     expect(plans).toHaveLength(1);
     expect(plans[0].sourceKey).toBe('uuid-hat');
     expect(plans[0].sourceName).toBe('Hat Layer');
-    expect(plans[0].visiblePixelCount).toBe(384); // 6 faces x 8x8
+    expect(plans[0].visiblePixelCount).toBe(384); // 6 个面 × 8×8
+    // expect(plans[0].visiblePixelCount).toBe(384); // 6 faces x 8x8
     expect(countPlanVoxels(plans)).toBe(384);
   });
 
@@ -72,6 +73,7 @@ describe('buildVoxelPlans', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
     const voxel = plans[0].voxels.find(v => v.name === 'px_north_0_0');
+    // 第一个北面单元格位于 +X 顶角；north 的 epsilon 为 0
     // first north cell at the +X top corner; north epsilon is 0
     expect(voxel?.from).toEqual([3.375, 31.375, -4.501]);
     expect(voxel?.to).toEqual([4.5, 32.5, -4.001]);
@@ -81,6 +83,7 @@ describe('buildVoxelPlans', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
     const first = (name: string) => plans[0].voxels.find(v => v.name === name)!;
+    // north 的 epsilon 为 0 → 厚度恰为膨胀值 0.5；up 的 epsilon 0.006 → 0.506
     // north epsilon 0 -> exact inflate depth 0.5; up epsilon 0.006 -> 0.506
     const north = first('px_north_0_0');
     expect(north.to[2] - north.from[2]).toBeCloseTo(0.5, 10);
@@ -88,6 +91,7 @@ describe('buildVoxelPlans', () => {
     expect(up.to[1] - up.from[1]).toBeCloseTo(0.506, 10);
     expect(up.from[1]).toBeCloseTo(32.001, 10);
     expect(up.to[1]).toBeCloseTo(32.507, 10);
+    // 东侧板层位于北面网格东边缘（4.5）之外：不共享平面
     // east slab sits outside the north grid's east edge (4.5): no shared plane
     const east = first('px_east_0_0');
     expect(east.from[0]).toBeCloseTo(4.001, 10);
@@ -116,6 +120,8 @@ describe('buildVoxelPlans', () => {
   });
 
   it('skips transparent texels', () => {
+    // 采样区域 [40..48, 8..16] 的右半部分透明：每面保留 4×8 = 32 格，
+    // 6 个面 → 192 个体素
     // right half of the sampled region [40..48, 8..16] is transparent:
     // each face keeps 4x8 = 32 cells, 6 faces -> 192 voxels
     const textures = new Map([
@@ -130,6 +136,7 @@ describe('buildVoxelPlans', () => {
     const full = buildVoxelPlans([hatLayer()], textures, opts({ alphaThreshold: 0 }));
     const strict = buildVoxelPlans([hatLayer()], textures, opts({ alphaThreshold: 128 }));
     expect(countPlanVoxels(full.plans)).toBe(384);
+    // 像素 (40,8) 在每个面方向各被采样一次 → 减少 6 个体素
     // pixel (40,8) is sampled once per face direction -> 6 voxels removed
     expect(countPlanVoxels(strict.plans)).toBe(378);
   });
@@ -206,6 +213,8 @@ describe('buildVoxelPlans', () => {
   });
 
   it('lets different parts keep their shared planes (accepted overlap)', () => {
+    // 参考模型的双腿在默认姿势下互相穿透；用户接受这种跨部位叠影
+    // （摆姿势后分离），因此抬升保持统一，双腿共享同一北面平面
     // the reference legs interpenetrate in the default pose; the user accepts
     // that cross-part ghosting (posing separates the parts again), so the
     // standoff stays uniform and the legs keep the same north plane

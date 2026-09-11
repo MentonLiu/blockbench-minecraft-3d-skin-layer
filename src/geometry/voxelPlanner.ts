@@ -18,11 +18,12 @@ export interface PlannerResult {
   warnings: string[];
 }
 
+/** 汇总所有计划中的体素总数 / Total voxel count across all plans. */
 export function countPlanVoxels(plans: readonly LayerPlan[]): number {
   return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
 }
 
-/** Epsilon of a direction: north 0, east 1 * step, ... down 5 * step. */
+/** 某个面方向的 epsilon：north 0，east 1 * step，…… down 5 * step / Epsilon of a direction. */
 export function directionEpsilon(direction: FaceDirection): number {
   return FACE_DIRECTIONS.indexOf(direction) * FACE_EPSILON_STEP;
 }
@@ -32,8 +33,16 @@ function snapshotFace(layer: LayerSnapshot, direction: string): FaceSnapshot | u
 }
 
 /**
+ * 纯规划阶段：把层快照与已解码纹理转换为体素规格，不触碰模型。
  * Pure planning pass: turns layer snapshots plus decoded textures into voxel
  * specs without touching the model.
+ *
+ * 每个可见像素都成为一个完整体素，六面全部启用并映射到同一源像素（逐面 UV，
+ * box_uv 关闭）。体素填满层自身的壳：厚度 = 膨胀值，外表面与原层轮廓偏差在
+ * 0.009 以内。由于相邻面网格共享膨胀壳，拐角体素会产生共面重复面（严重闪烁），
+ * 因此每个方向带一个微小 epsilon（平移网格并增加厚度），使不同方向的面永不
+ * 共面。统一抬升（standoff）让内侧面离开基础方块表面。跨部位的源模型穿模
+ * 重叠保持原样（已被接受，摆姿势后自然分离）。
  *
  * Every visible texel becomes a full voxel with ALL six faces mapping to its
  * source pixel (per-face UV, box_uv off). The voxel fills the layer's own
@@ -71,7 +80,9 @@ export function buildVoxelPlans(
       }
 
       const epsilon = directionEpsilon(direction);
-      // translate (not inset) the face box: cells stay exactly texel-sized and
+      // 平移（而非内缩）面网格盒子：单元格保持精确的纹理像素尺寸，
+      // 且每个方向的网格线整体错开——对称内缩会让中线始终重合
+      // Translate (not inset) the face box: cells stay exactly texel-sized and
       // every grid line shifts by this direction's epsilon, so grid lines of
       // different directions never coincide (a symmetric inset would keep the
       // center line shared)

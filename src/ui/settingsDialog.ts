@@ -16,6 +16,7 @@ function toBool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+/** 清洗并校验用户输入，得到合法的生成选项 / Validate raw input into legal options. */
 export function sanitizeOptions(raw: unknown): GeneratorOptions {
   const source = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   return {
@@ -69,6 +70,7 @@ export function showGenerationDialog(
   onConfirm: (options: GeneratorOptions) => void,
   onCancel: () => void,
 ): void {
+  // 有警告时在简介下方附上前 5 条 / Append up to five warnings below the intro
   const warningText = summary.warnings.length
     ? `\n\n${t('m3sl.dialog.warnings_header')}\n- ${summary.warnings.slice(0, 5).join('\n- ')}` +
       (summary.warnings.length > 5 ? `\n- ${t('m3sl.dialog.warnings_more', [summary.warnings.length - 5])}` : '')

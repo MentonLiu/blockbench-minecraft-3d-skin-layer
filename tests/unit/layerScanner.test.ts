@@ -39,6 +39,8 @@ describe('findLayerCubes', () => {
   });
 
   it('returns an empty list for already converted models', () => {
+    // 转换后大纲里只有名为 "Hat Layer" 的分组而没有立方体；
+    // 模拟该状态（完全无立方体）时不应有任何匹配
     // after conversion the outliner holds a *Group* named "Hat Layer" and no cube;
     // simulating that state (no cubes at all) must produce no matches
     expect(findLayerCubes([])).toEqual([]);

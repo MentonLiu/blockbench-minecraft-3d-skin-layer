@@ -11,6 +11,7 @@ function buildReferenceRuntime() {
   const model = loadReferenceModel();
   const runtime = new MockRuntime();
 
+  // 复刻参考模型的大纲：Waist -> Head/Body/Right Arm/Left Arm，双腿在根级
   // mirror the reference outliner: Waist -> Head/Body/Right Arm/Left Arm, legs at root
   const groupNodes = new Map<string, { uuid: string; name: string }>();
   const ensureGroup = (json: { uuid: string; name: string }) => {
@@ -19,6 +20,7 @@ function buildReferenceRuntime() {
       return existing;
     }
     const node = runtime.createGroup({ name: json.name, origin: [0, 0, 0], visibility: true });
+    // createGroup 分配的是 mock uuid；这里对齐为模型中的 uuid
     // createGroup assigned a mock uuid; align it with the model uuid
     runtime.registry.delete(node.uuid);
     node.uuid = json.uuid;
@@ -103,15 +105,18 @@ describe('applyPlans against the mock outliner', () => {
     const hatGroup = runtime.find('Hat Layer')!;
     expect(hatGroup.parent?.name).toBe('Head');
     expect(hatGroup.children).toHaveLength(168);
+    // 分组占据了源立方体的兄弟位置（在基础 "Head" 立方体之后）
     // the group took the source cube's sibling slot (after the base "Head" cube)
     expect(hatGroup.parent!.children.map(child => child.name)).toEqual(['Head', 'Hat Layer']);
 
     const legGroup = runtime.find('Right Leg Layer')!;
     expect(legGroup.parent?.name).toBe('Right Leg');
 
+    // 基础立方体未受影响
     // base cubes untouched
     expect(runtime.cubes().some(cube => cube.name === 'Head')).toBe(true);
     expect(runtime.cubes().some(cube => cube.name === 'Body')).toBe(true);
+    // 原始层立方体已被删除
     // original layer cubes removed
     expect(runtime.cubes().filter(cube => /\sLayer$/i.test(cube.name))).toHaveLength(0);
     expect(summary.createdCubes).toBe(880);
@@ -135,6 +140,8 @@ describe('applyPlans against the mock outliner', () => {
   });
 
   it('passes the groups aspect to both undo transaction ends', async () => {
+    // Blockbench 的 loadSave 会前后对比两个 save；
+    // 任一侧缺少 groups 列表都会让 undo/redo 崩溃（"groups is not iterable"）
     // Blockbench's loadSave compares the before/after saves against each other;
     // a missing groups list on either side crashes undo/redo ("groups is not iterable")
     const { runtime, plans } = buildReferenceRuntime();
@@ -190,7 +197,8 @@ describe('applyPlans against the mock outliner', () => {
       runtime,
       key => runtime.registry.get(key),
     );
-    expect(runtime.yieldCount).toBe(5); // ceil(880 / 200): 4 full batches + the final partial one
+    expect(runtime.yieldCount).toBe(5); // ceil(880 / 200)：4 个整批 + 最后一个不满批
+    // expect(runtime.yieldCount).toBe(5); // ceil(880 / 200): 4 full batches + the final partial one
     expect(runtime.viewUpdates).toEqual([{ elements: 880, groups: 6 }]);
   });
 
@@ -245,6 +253,7 @@ describe('small synthetic runtime', () => {
       new Map(),
       DEFAULT_OPTIONS,
     );
+    // 没有面 → 没有可替换的内容（空层保持原样）
     // no faces -> nothing to replace (empty layer stays untouched)
     expect(plan.plans).toHaveLength(0);
   });

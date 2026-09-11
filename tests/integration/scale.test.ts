@@ -12,6 +12,8 @@ describe('doubled texture resolution (128px image, 64 UV space)', () => {
     const rgba = new Uint8ClampedArray(128 * 128 * 4);
     for (let y = 0; y < 128; y++) {
       for (let x = 0; x < 128; x++) {
+        // 不透明的正面区域 [16..32)×[16..32) = 2 倍头部正面 [8,8,16,16]；
+        // 不透明的顶面区域 [16..32)×[0..16) = 2 倍头顶；其余为棋盘格 alpha
         // opaque front region [16..32) x [16..32) = the 2x head front [8,8,16,16],
         // opaque top region [16..32) x [0..16) = the 2x head top, checkerboard alpha elsewhere
         const inFront = x >= 16 && x < 32 && y >= 16 && y < 32;
@@ -85,9 +87,12 @@ describe('doubled texture resolution (128px image, 64 UV space)', () => {
   });
 
   it('maps each face cell to its own region corner texel', () => {
+    // 北面单元格 (0,0) 采样其区域的 u1/v1 角：图像像素 (16, 16)
     // north cell (0,0) samples its region's u1/v1 corner: image pixel (16, 16)
     const north = plans().voxels.find(v => v.name === 'px_north_0_0')!.pixelUV;
     expect(north).toEqual([8, 8, 8.5, 8.5]);
+    // 顶面区域 [16,8,8,0] 两轴均反向：单元格 (0,0) 采样其 u1/v1 角，
+    // 在图像空间中即像素 (31, 15)
     // up region [16,8,8,0] is reversed on both axes: cell (0,0) samples its
     // u1/v1 corner, which in image space is pixel (31, 15)
     const up = plans().voxels.find(v => v.name === 'px_up_0_0')!.pixelUV;

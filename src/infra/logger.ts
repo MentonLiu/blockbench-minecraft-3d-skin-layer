@@ -1,4 +1,4 @@
-/** Small console logger with a stable prefix so warnings are greppable. */
+/** 带固定前缀的控制台日志，方便过滤告警 / Console logger with a stable prefix so warnings are greppable. */
 export const logger = {
   info(message: string): void {
     console.info(`[${PLUGIN_NAME}] ${message}`);

@@ -4,40 +4,49 @@ export type Vec3 = [number, number, number];
 
 export type UVRect = [number, number, number, number];
 
+/** 体素生成选项 / Voxel generation options. */
 export interface GeneratorOptions {
+  /** Alpha 阈值：alpha 高于该值的像素生成方块 / Texels with alpha above this become cubes. */
   alphaThreshold: number;
+  /** 单次运行允许生成的最大体素数 / Preflight aborts above this count. */
   maxVoxels: number;
+  /** 每批创建的方块数量（让出 UI 线程）/ Cubes created per UI batch. */
   batchSize: number;
+  /** 为 true 时隐藏而非删除源层立方体 / Hide the sources instead of deleting them. */
   preserveOriginal: boolean;
+  /** 为 true 时用空分组替换全透明层 / Replace fully transparent layers with empty groups. */
   replaceEmptyLayer: boolean;
+  /** 项目打开时自动生成 / Generate automatically when a project loads. */
   autoApplyOnLoad: boolean;
+  /** 仅处理被选中的层立方体 / Only process selected layer cubes. */
   processSelectedOnly: boolean;
+  /** 实验开关：可用时用 Blockbench 的 UVToLocal 交叉验证 / Optional UVToLocal cross-check. */
   useUVToLocalWhenAvailable: boolean;
-}
-
-/** Decoded, immutable pixel snapshot of one texture. */
-export interface PixelSource {
-  width: number;
-  height: number;
-  /** UV coordinate space the project addresses this texture with. */
-  uvWidth: number;
-  uvHeight: number;
-  /** RGBA, 4 bytes per pixel, row-major. */
-  rgba: Uint8ClampedArray;
 }
 
 export interface FaceSnapshot {
   direction: FaceDirection;
   enabled: boolean;
-  /** Key (uuid) of the face's own texture, or null when the face has none. */
+  /** 该面自己的纹理键（uuid）；null 表示没有纹理 / Key (uuid) of the face's own texture, or null. */
   textureKey: string | null;
   uv: UVRect;
   rotation: 0 | 90 | 180 | 270;
 }
 
-/** Plain-data capture of a `* Layer` cube; everything the planner needs. */
+/** 一张纹理的已解码像素快照（不可变）/ Decoded, immutable pixel snapshot of one texture. */
+export interface PixelSource {
+  width: number;
+  height: number;
+  /** 项目对该纹理使用的 UV 空间尺寸 / UV coordinate space the project addresses this texture with. */
+  uvWidth: number;
+  uvHeight: number;
+  /** RGBA 数据，每像素 4 字节，按行存储 / RGBA, 4 bytes per pixel, row-major. */
+  rgba: Uint8ClampedArray;
+}
+
+/** 一个 `* Layer` 立方体的纯数据快照，包含规划所需的全部信息 / Plain-data capture of a `* Layer` cube. */
 export interface LayerSnapshot {
-  /** Runtime-unique key (cube uuid). */
+  /** 运行时唯一键（立方体 uuid）/ Runtime-unique key (cube uuid). */
   key: string;
   name: string;
   from: Vec3;
@@ -52,16 +61,16 @@ export interface LayerSnapshot {
 
 export interface TexelCell {
   direction: FaceDirection;
-  /** Cell indices on the face grid (col along the face's U-model axis, row along V). */
+  /** 面网格上的行列索引 / Cell indices on the face grid. */
   col: number;
   row: number;
   cols: number;
   rows: number;
-  /** Sampled image pixel. */
+  /** 采样到的图像像素 / Sampled image pixel. */
   imageX: number;
   imageY: number;
   alpha: number;
-  /** UV rectangle of exactly this image pixel in UV units. */
+  /** 该 1 像素矩形的 UV 范围 / UV rectangle of exactly this image pixel. */
   pixelUV: UVRect;
 }
 
@@ -72,7 +81,7 @@ export interface VoxelSpec {
   origin: Vec3;
   rotation: Vec3;
   textureKey: string;
-  /** UV rectangle of the source pixel; all six faces map to it. */
+  /** 源像素的 UV 矩形；六个面全部映射到它 / Source pixel rect; all six faces map to it. */
   pixelUV: UVRect;
   face: FaceDirection;
 }
@@ -80,13 +89,14 @@ export interface VoxelSpec {
 export interface LayerPlan {
   sourceKey: string;
   sourceName: string;
-  /** Pivot copied from the source cube onto the replacement group. */
+  /** 从源立方体复制给替换分组的枢轴 / Pivot copied from the source cube onto the replacement group. */
   origin: Vec3;
   voxels: VoxelSpec[];
   visiblePixelCount: number;
   visibility: boolean;
 }
 
+/** 体素数超过 maxVoxels 时抛出的预检错误 / Preflight error when the plan exceeds maxVoxels. */
 export class VoxelLimitError extends Error {
   constructor(public readonly voxelCount: number, public readonly limit: number) {
     super(`Voxel plan needs ${voxelCount} cubes which exceeds maxVoxels (${limit}).`);

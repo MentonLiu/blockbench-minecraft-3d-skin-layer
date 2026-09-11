@@ -25,6 +25,9 @@ type SerializedNode = {
 };
 
 /**
+ * 足以驱动写入器的大纲/撤销语义：节点存放在树中，init 注册到根，
+ * adopt 重新挂载父级，placeBefore 重排序，撤销事务对整棵树做快照
+ * （对象身份通过注册表保留，类似 Blockbench 让被删元素可恢复）。
  * Outliner/undo semantics good enough to exercise the writer: nodes live in a
  * tree, init registers at the root, adopt reparents, placeBefore reorders, and
  * undo transactions snapshot the whole tree (object identity is preserved via
@@ -259,7 +262,7 @@ export class MockRuntime implements WriterHost {
     return walk(this.root);
   }
 
-  /** Layer scan against the mock tree, mirroring the plugin's Cube.all scan. */
+  /** 对 mock 树做层扫描，等价于插件的 Cube.all 扫描 / Layer scan against the mock tree. */
   scanLayerCubes(): MockNode[] {
     return findLayerCubes(this.cubes().map(node => ({ node, name: node.name }))).map(
       entry => entry.node,

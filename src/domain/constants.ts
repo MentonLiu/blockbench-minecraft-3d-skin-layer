@@ -2,7 +2,11 @@ import type { FaceDirection, GeneratorOptions } from './types';
 
 export const PLUGIN_ID = 'minecraft_3d_skin_layers';
 
-/** Matches "Hat Layer", "body layer"; rejects "MyLayer", "Layer Helper", "LayerExtra". */
+/**
+ * 层名称匹配规则：匹配 "Hat Layer"、"body layer"；
+ * 拒绝 "MyLayer"、"Layer Helper"、"LayerExtra"。
+ * Matches "Hat Layer", "body layer"; rejects "MyLayer", "Layer Helper", "LayerExtra".
+ */
 export const LAYER_NAME_RE = /\sLayer$/i;
 
 export const FACE_DIRECTIONS: readonly FaceDirection[] = ['north', 'east', 'south', 'west', 'up', 'down'];
@@ -18,18 +22,16 @@ export const DEFAULT_OPTIONS: GeneratorOptions = {
   useUVToLocalWhenAvailable: false,
 };
 
-/** Voxels are lifted this far off the raw surface, so no inner face is
- * coplanar with the base cube's own faces (same-part z-fighting). */
+/** 体素抬离原始表面的距离（同部位防共面闪烁）/ Lift of the voxels off the raw surface. */
 export const VOXEL_STANDOFF = 0.001;
 
 /**
- * Per-direction epsilon that separates the six voxel shells of one part: each
- * direction grids and protrudes a tiny bit more than the previous one, so
- * faces of different directions never land on the same plane (the corner and
- * slit overlaps of the inflated shell). Max offset: 5 * step = 0.0075 -
- * imperceptible, but enough for the depth buffer.
+ * 每个方向的 epsilon：让六个方向的外壳彼此错开，
+ * 消除同部位内的共面重叠（最大偏移 0.0075，视觉不可见）。
+ * Per-direction epsilon that separates the six shells of one part
+ * (max offset 5 * step = 0.0075 - imperceptible).
  */
 export const FACE_EPSILON_STEP = 0.0015;
 
-/** Tolerance when checking that a face UV spans whole texels. */
+/** 校验面 UV 是否横跨整数纹理像素时的容差 / Tolerance for whole-texel UV span checks. */
 export const TEXEL_EPSILON = 0.01;

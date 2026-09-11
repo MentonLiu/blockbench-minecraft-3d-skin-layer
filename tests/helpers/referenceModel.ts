@@ -57,6 +57,8 @@ function asVec3(values: number[] | undefined, fill: number): Vec3 {
 }
 
 /**
+ * 加载参考皮肤模型：解析 .bbmodel JSON、解码内嵌纹理，并生成与插件
+ * Blockbench 兼容层在运行时构建的相同的层快照。
  * Loads the provided reference skin model: parses the .bbmodel JSON, decodes
  * the embedded texture, and produces the same layer snapshots the plugin's
  * Blockbench compatibility layer would build at runtime.
