@@ -87,7 +87,7 @@ export function showGenerationDialog(
     width: 512,
     form: {
       intro: {
-        type: 'text',
+        type: 'info',
         text: t('m3sl.dialog.intro', [summary.layerCount, summary.voxelCount]) + warningText,
       },
       depthMode: {
