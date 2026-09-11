@@ -930,18 +930,18 @@ Warnings:
     };
   }
   function registerPlugin() {
-    actions = [
-      new Action(`${PLUGIN_ID}.generate`, {
-        name: "Generate 3D Skin Layers",
-        description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
-        icon: "view_in_ar",
-        category: "edit",
-        condition: () => isEditMode() && hasOpenProject(),
-        click: () => {
-          void runGenerationGuarded(false);
-        }
-      })
-    ];
+    const action = new Action(`${PLUGIN_ID}.generate`, {
+      name: "Generate 3D Skin Layers",
+      description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
+      icon: "view_in_ar",
+      category: "edit",
+      condition: () => isEditMode() && hasOpenProject(),
+      click: () => {
+        void runGenerationGuarded(false);
+      }
+    });
+    actions = [action];
+    MenuBar.addAction(action, "edit");
     listeners = [onProjectEvent("load_project", onProjectLoaded())];
   }
   function unregisterPlugin() {
@@ -949,6 +949,7 @@ Warnings:
       listener.dispose();
     }
     listeners = [];
+    MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
     for (const action of actions) {
       action.delete();
     }
@@ -961,7 +962,7 @@ Warnings:
     author: "bbmodel-skins",
     icon: "view_in_ar",
     description: 'Convert Minecraft skin outer layers ("xxx Layer" cubes) into per-pixel voxel cubes. Every visible texel becomes one cube whose six faces map to that pixel; the layer cube is replaced by a same-named group in one reversible undo step.',
-    version: "0.1.1",
+    version: "0.1.2",
     min_version: "5.0.0",
     variant: "desktop",
     tags: ["Minecraft"],

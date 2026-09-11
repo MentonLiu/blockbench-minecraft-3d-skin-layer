@@ -158,18 +158,19 @@ function onProjectLoaded(): ProjectListener {
 }
 
 export function registerPlugin(): void {
-  actions = [
-    new Action(`${PLUGIN_ID}.generate`, {
-      name: 'Generate 3D Skin Layers',
-      description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
-      icon: 'view_in_ar',
-      category: 'edit',
-      condition: () => isEditMode() && hasOpenProject(),
-      click: () => {
-        void runGenerationGuarded(false);
-      },
-    }),
-  ];
+  const action = new Action(`${PLUGIN_ID}.generate`, {
+    name: 'Generate 3D Skin Layers',
+    description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
+    icon: 'view_in_ar',
+    category: 'edit',
+    condition: () => isEditMode() && hasOpenProject(),
+    click: () => {
+      void runGenerationGuarded(false);
+    },
+  });
+  actions = [action];
+  // plugin actions are not added to menus automatically; place it in Edit
+  MenuBar.addAction(action, 'edit');
 
   listeners = [onProjectEvent('load_project', onProjectLoaded())];
 }
@@ -179,6 +180,7 @@ export function unregisterPlugin(): void {
     listener.dispose();
   }
   listeners = [];
+  MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
   for (const action of actions) {
     action.delete();
   }

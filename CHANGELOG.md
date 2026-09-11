@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.1.2] - 2026-09-12
+
+### Added
+
+- The action now appears in the **Edit menu** as "Generate 3D Skin Layers".
+  Previously it was only reachable through the action search / keybindings
+  panel, because Blockbench does not insert plugin actions into menus
+  automatically. The menu entry is removed again when the plugin is disabled
+  or uninstalled.
+
 ## [0.1.1] - 2026-09-12
 
 ### Fixed
