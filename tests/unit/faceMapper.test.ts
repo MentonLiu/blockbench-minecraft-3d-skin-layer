@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GeneratorOptions } from '../../src/domain/types';
 import { DEFAULT_OPTIONS } from '../../src/domain/constants';
-import { adjustedBox, facePoint, faceSpans, voxelBounds } from '../../src/geometry/faceMapper';
+import { adjustedBox, facePoint, faceSpans, resolveDisabledFaces, voxelBounds } from '../../src/geometry/faceMapper';
 import { resolveDepth } from '../../src/geometry/depthStrategy';
 
 // Hat layer of the reference model: 8x8x8 cube with inflate 0.5
@@ -103,6 +103,35 @@ describe('voxelBounds', () => {
     const b = voxelBounds('north', hat, 0, 1, 0, 1, 0.5);
     expect(b.from[2]).toBe(-4.5); // inflated front plane
     expect(b.to[2]).toBe(-4); // raw front plane
+  });
+});
+
+describe('resolveDisabledFaces', () => {
+  const depth = 0.5; // == inflate -> outer shell planes are owned per direction
+
+  it('always disables the inner face', () => {
+    const bounds = voxelBounds('north', hat, 3 / 8, 4 / 8, 3 / 8, 4 / 8, depth);
+    expect(resolveDisabledFaces('north', hat, bounds, true)).toEqual(['south']);
+  });
+
+  it('disables corner side faces that duplicate a neighbouring shell plane', () => {
+    // north corner voxel at col 0 sits on the +X (east) and +Y (up) shell planes
+    const neTop = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, depth);
+    expect(resolveDisabledFaces('north', hat, neTop, true)).toEqual(['east', 'south', 'up']);
+
+    // west corner voxel at col 0 sits on the -Z (north) and +Y (up) shell planes
+    const nwTop = voxelBounds('west', hat, 0, 1 / 8, 0, 1 / 8, depth);
+    expect(resolveDisabledFaces('west', hat, nwTop, true)).toEqual(['north', 'east', 'up']);
+
+    // up corner voxel at col 0 / row 0 sits on the -X (west) and -Z (north) planes
+    const upCorner = voxelBounds('up', hat, 0, 1 / 8, 0, 1 / 8, depth);
+    expect(resolveDisabledFaces('up', hat, upCorner, true)).toEqual(['north', 'west', 'down']);
+  });
+
+  it('keeps shell side faces when the depth separates the shells (pixel mode)', () => {
+    const pixelDepth = 1.125;
+    const neTop = voxelBounds('north', hat, 0, 1 / 8, 0, 1 / 8, pixelDepth);
+    expect(resolveDisabledFaces('north', hat, neTop, false)).toEqual(['south']);
   });
 });
 

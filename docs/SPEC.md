@@ -91,11 +91,16 @@ rotation (0/90/180/270) must be honored; never normalize with min/max.
 
 Every generated voxel cube:
 
-- has all six faces enabled, UV = the single source texel rectangle
+- has its six faces mapped to the single source texel rectangle
   `[px/sx, py/sy, (px+1)/sx, (py+1)/sy]`, texture = the source face's texture;
 - uses `box_uv: false`, `autouv: 0`;
 - copies source `origin` and `rotation` (rotation lives on the voxels, never on
-  the new Group, to avoid double rotation).
+  the new Group, to avoid double rotation);
+- leaves two kinds of faces disabled (`texture: null`) to keep the shell free
+  of coplanar duplicate surfaces (z-fighting): the inner face against the base
+  cube, and - when the outer surface lies exactly on the inflated shell
+  (preserve_layer) - side faces landing on a neighbouring direction's shell
+  plane, which that direction's own voxels own, matching the original box.
 
 ## Replacement
 

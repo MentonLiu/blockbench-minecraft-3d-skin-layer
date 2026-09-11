@@ -7,14 +7,17 @@ import { blockbenchUndo } from './undoTransaction';
 function voxelFaces(spec: VoxelSpec) {
   const uv: UVRect = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
   const texture = resolveTextureByKey(spec.textureKey);
-  const make = () => ({
-    texture: texture ? texture.uuid : (false as const),
+  // Blockbench treats a face texture of null as "face disabled": such faces are
+  // skipped in UV updates and mesh building, which is how coplanar duplicate
+  // surfaces of the voxel shell are switched off
+  const make = (disabled: boolean) => ({
+    texture: disabled ? null : texture ? texture.uuid : (false as const),
     uv: [uv[0], uv[1], uv[2], uv[3]] as [number, number, number, number],
     rotation: 0,
   });
   const faces: Record<string, ReturnType<typeof make>> = {};
   for (const direction of FACE_DIRECTIONS) {
-    faces[direction] = make();
+    faces[direction] = make(spec.disabledFaces.includes(direction));
   }
   return faces;
 }

@@ -8,7 +8,7 @@ import type {
   VoxelSpec,
 } from '../domain/types';
 import { resolveDepth } from './depthStrategy';
-import { adjustedBox, faceSpans, voxelBounds } from './faceMapper';
+import { adjustedBox, faceSpans, resolveDisabledFaces, voxelBounds } from './faceMapper';
 import { enumerateVisibleTexels } from '../texture/pixelReader';
 
 export interface PlannerResult {
@@ -67,6 +67,7 @@ export function buildVoxelPlans(
       const grid = { cols: scan.cells[0].cols, rows: scan.cells[0].rows };
       const texel = { u: spans.uSpan / grid.cols, v: spans.vSpan / grid.rows };
       const depth = resolveDepth(options.depthMode, layer.inflate, texel, options);
+      const depthMatchesShell = Math.abs(depth - layer.inflate) <= 1e-4;
 
       for (const cell of scan.cells) {
         const bounds = voxelBounds(
@@ -87,6 +88,7 @@ export function buildVoxelPlans(
           textureKey: face.textureKey as string,
           pixelUV: cell.pixelUV,
           face: direction,
+          disabledFaces: resolveDisabledFaces(direction, box, bounds, depthMatchesShell),
         });
       }
     }

@@ -1,3 +1,4 @@
+import { FACE_DIRECTIONS } from '../domain/constants';
 import type { FaceDirection, Vec3 } from '../domain/types';
 
 export interface Box {
@@ -10,6 +11,75 @@ export interface BoxPair {
   raw: Box;
   /** Bounds after Blockbench's inflate+stretch adjustment; what the rendered faces lie on. */
   inflated: Box;
+}
+
+const OPPOSITE_FACE: Record<FaceDirection, FaceDirection> = {
+  north: 'south',
+  south: 'north',
+  east: 'west',
+  west: 'east',
+  up: 'down',
+  down: 'up',
+};
+
+const PLANE_EPSILON = 1e-4;
+
+/** Coordinate of the plane a face of the given box lies on. */
+function facePlaneCoordinate(direction: FaceDirection, from: Vec3, to: Vec3): number {
+  switch (direction) {
+    case 'north':
+      return from[2];
+    case 'south':
+      return to[2];
+    case 'east':
+      return to[0];
+    case 'west':
+      return from[0];
+    case 'up':
+      return to[1];
+    case 'down':
+      return from[1];
+  }
+}
+
+/**
+ * Faces of a voxel that must not be rendered to keep the shell free of
+ * coplanar duplicate surfaces (z-fighting):
+ *
+ * 1. the inner face (opposite the voxel's own direction) always - it is
+ *    coplanar with the base cube's surface in preserve_layer mode and never
+ *    legitimately visible;
+ * 2. when the voxel's own outer surface lies exactly on the inflated shell
+ *    (depth == inflate), any side face that lands on one of the other five
+ *    shell planes: that plane is owned by the neighbouring face direction's
+ *    own voxels, exactly like the faces of the original inflated box. With
+ *    other depth modes the shells separate and side faces are kept.
+ */
+export function resolveDisabledFaces(
+  direction: FaceDirection,
+  box: BoxPair,
+  bounds: { from: Vec3; to: Vec3 },
+  depthMatchesShell: boolean,
+): FaceDirection[] {
+  const disabled: FaceDirection[] = [];
+  for (const face of FACE_DIRECTIONS) {
+    if (face === direction) {
+      continue;
+    }
+    if (face === OPPOSITE_FACE[direction]) {
+      disabled.push(face);
+      continue;
+    }
+    if (!depthMatchesShell) {
+      continue;
+    }
+    const plane = facePlaneCoordinate(face, bounds.from, bounds.to);
+    const shell = facePlaneCoordinate(face, box.inflated.from, box.inflated.to);
+    if (Math.abs(plane - shell) <= PLANE_EPSILON) {
+      disabled.push(face);
+    }
+  }
+  return disabled;
 }
 
 /**

@@ -115,4 +115,20 @@ describe('reference model conversion', () => {
       expect(plan.visibility).toBe(false);
     }
   });
+
+  it('disables the inner face of every voxel (anti z-fighting)', () => {
+    const opposite: Record<string, string> = {
+      north: 'south', south: 'north', east: 'west', west: 'east', up: 'down', down: 'up',
+    };
+    const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
+    for (const plan of plans) {
+      for (const voxel of plan.voxels) {
+        expect(
+          voxel.disabledFaces,
+          `${plan.sourceName}/${voxel.name}`,
+        ).toContain(opposite[voxel.face]);
+        expect(voxel.disabledFaces.length).toBeLessThanOrEqual(3);
+      }
+    }
+  });
 });

@@ -78,6 +78,8 @@ export interface VoxelSpec {
   textureKey: string;
   pixelUV: UVRect;
   face: FaceDirection;
+  /** Faces left unrendered to avoid coplanar duplicate surfaces (z-fighting). */
+  disabledFaces: FaceDirection[];
 }
 
 export interface LayerPlan {

@@ -295,6 +295,7 @@ export function addSourceCube(runtime: MockRuntime, spec: MockSourceSpec): void 
       textureKey: 'tex',
       pixelUV: [0, 0, 1, 1],
       face: 'north',
+      disabledFaces: [],
     },
   };
   runtime.registry.set(node.uuid, node);

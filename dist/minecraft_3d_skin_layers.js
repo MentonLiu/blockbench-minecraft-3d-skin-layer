@@ -47,6 +47,52 @@
   }
 
   // src/geometry/faceMapper.ts
+  var OPPOSITE_FACE = {
+    north: "south",
+    south: "north",
+    east: "west",
+    west: "east",
+    up: "down",
+    down: "up"
+  };
+  var PLANE_EPSILON = 1e-4;
+  function facePlaneCoordinate(direction, from, to) {
+    switch (direction) {
+      case "north":
+        return from[2];
+      case "south":
+        return to[2];
+      case "east":
+        return to[0];
+      case "west":
+        return from[0];
+      case "up":
+        return to[1];
+      case "down":
+        return from[1];
+    }
+  }
+  function resolveDisabledFaces(direction, box, bounds, depthMatchesShell) {
+    const disabled = [];
+    for (const face of FACE_DIRECTIONS) {
+      if (face === direction) {
+        continue;
+      }
+      if (face === OPPOSITE_FACE[direction]) {
+        disabled.push(face);
+        continue;
+      }
+      if (!depthMatchesShell) {
+        continue;
+      }
+      const plane = facePlaneCoordinate(face, bounds.from, bounds.to);
+      const shell = facePlaneCoordinate(face, box.inflated.from, box.inflated.to);
+      if (Math.abs(plane - shell) <= PLANE_EPSILON) {
+        disabled.push(face);
+      }
+    }
+    return disabled;
+  }
   function adjustedBox(from, to, inflate, stretch) {
     const inflatedFrom = [0, 0, 0];
     const inflatedTo = [0, 0, 0];
@@ -276,6 +322,7 @@
         const grid = { cols: scan.cells[0].cols, rows: scan.cells[0].rows };
         const texel = { u: spans.uSpan / grid.cols, v: spans.vSpan / grid.rows };
         const depth = resolveDepth(options.depthMode, layer.inflate, texel, options);
+        const depthMatchesShell = Math.abs(depth - layer.inflate) <= 1e-4;
         for (const cell of scan.cells) {
           const bounds = voxelBounds(
             direction,
@@ -294,7 +341,8 @@
             rotation: [...layer.rotation],
             textureKey: face.textureKey,
             pixelUV: cell.pixelUV,
-            face: direction
+            face: direction,
+            disabledFaces: resolveDisabledFaces(direction, box, bounds, depthMatchesShell)
           });
         }
       }
@@ -615,14 +663,14 @@
   function voxelFaces(spec) {
     const uv = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
     const texture = resolveTextureByKey(spec.textureKey);
-    const make = () => ({
-      texture: texture ? texture.uuid : false,
+    const make = (disabled) => ({
+      texture: disabled ? null : texture ? texture.uuid : false,
       uv: [uv[0], uv[1], uv[2], uv[3]],
       rotation: 0
     });
     const faces = {};
     for (const direction of FACE_DIRECTIONS) {
-      faces[direction] = make();
+      faces[direction] = make(spec.disabledFaces.includes(direction));
     }
     return faces;
   }
