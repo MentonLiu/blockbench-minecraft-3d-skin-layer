@@ -1,7 +1,7 @@
+import { PLUGIN_ID } from './domain/constants';
 import { VoxelLimitError } from './domain/types';
 import type { GeneratorOptions, GenerationResult, LayerPlan, LayerSnapshot } from './domain/types';
-import { countPlanVoxels } from './geometry/voxelPlanner';
-import { buildVoxelPlans } from './geometry/voxelPlanner';
+import { buildVoxelPlans, countPlanVoxels } from './geometry/voxelPlanner';
 import {
   buildTextureMap,
   collectLayerSnapshots,
@@ -159,7 +159,7 @@ function onProjectLoaded(): ProjectListener {
 
 export function registerPlugin(): void {
   actions = [
-    new Action(`${'minecraft_3d_skin_layers'}.generate`, {
+    new Action(`${PLUGIN_ID}.generate`, {
       name: 'Generate 3D Skin Layers',
       description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
       icon: 'view_in_ar',

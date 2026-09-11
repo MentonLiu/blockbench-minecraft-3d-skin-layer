@@ -930,7 +930,7 @@ Warnings:
   }
   function registerPlugin() {
     actions = [
-      new Action(`${"minecraft_3d_skin_layers"}.generate`, {
+      new Action(`${PLUGIN_ID}.generate`, {
         name: "Generate 3D Skin Layers",
         description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
         icon: "view_in_ar",

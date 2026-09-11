@@ -1,6 +1,5 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
 import type {
-  FaceDirection,
   FaceSnapshot,
   LayerSnapshot,
   PixelSource,
@@ -158,8 +157,4 @@ export function onProjectEvent(event: 'load_project' | 'select_project', listene
       }
     },
   };
-}
-
-export function directionList(): readonly FaceDirection[] {
-  return FACE_DIRECTIONS;
 }
