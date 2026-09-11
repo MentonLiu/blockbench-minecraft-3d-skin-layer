@@ -1,5 +1,6 @@
 import { DEFAULT_OPTIONS, PLUGIN_ID } from '../domain/constants';
 import type { DepthMode, GeneratorOptions } from '../domain/types';
+import { t } from '../i18n';
 
 const STORAGE_KEY = `${PLUGIN_ID}.options`;
 
@@ -76,33 +77,31 @@ export function showGenerationDialog(
   onCancel: () => void,
 ): void {
   const warningText = summary.warnings.length
-    ? `\n\nWarnings:\n- ${summary.warnings.slice(0, 5).join('\n- ')}` +
-      (summary.warnings.length > 5 ? `\n- ... ${summary.warnings.length - 5} more` : '')
+    ? `\n\n${t('m3sl.dialog.warnings_header')}\n- ${summary.warnings.slice(0, 5).join('\n- ')}` +
+      (summary.warnings.length > 5 ? `\n- ${t('m3sl.dialog.warnings_more', [summary.warnings.length - 5])}` : '')
     : '';
 
   new Dialog({
     id: `${PLUGIN_ID}.generate_dialog`,
-    title: 'Generate 3D Skin Layers',
+    title: t('m3sl.dialog.title'),
     width: 512,
     form: {
       intro: {
         type: 'text',
-        text:
-          `Found **${summary.layerCount}** layer cube(s) with **${summary.voxelCount}** visible texel(s).` +
-          ` Each texel becomes one cube whose six faces map to that pixel.${warningText}`,
+        text: t('m3sl.dialog.intro', [summary.layerCount, summary.voxelCount]) + warningText,
       },
       depthMode: {
-        label: 'Voxel depth',
+        label: t('m3sl.form.depth_mode'),
         type: 'select',
         value: options.depthMode,
         options: {
-          preserve_layer: 'Match layer inflate (preserves contour)',
-          pixel: 'Match texel size (strong voxel look)',
-          fixed: 'Fixed thickness',
+          preserve_layer: t('m3sl.form.depth_mode.preserve_layer'),
+          pixel: t('m3sl.form.depth_mode.pixel'),
+          fixed: t('m3sl.form.depth_mode.fixed'),
         },
       },
       fixedDepth: {
-        label: 'Fixed thickness (only used in fixed mode)',
+        label: t('m3sl.form.fixed_depth'),
         type: 'number',
         value: options.fixedDepth,
         min: 0.01,
@@ -110,7 +109,7 @@ export function showGenerationDialog(
         step: 0.05,
       },
       alphaThreshold: {
-        label: 'Alpha threshold (texels with alpha above this become cubes)',
+        label: t('m3sl.form.alpha_threshold'),
         type: 'number',
         value: options.alphaThreshold,
         min: 0,
@@ -119,7 +118,7 @@ export function showGenerationDialog(
         force_step: true,
       },
       maxVoxels: {
-        label: 'Maximum cube count (run aborts above this)',
+        label: t('m3sl.form.max_voxels'),
         type: 'number',
         value: options.maxVoxels,
         min: 1,
@@ -128,7 +127,7 @@ export function showGenerationDialog(
         force_step: true,
       },
       batchSize: {
-        label: 'Cubes created per batch',
+        label: t('m3sl.form.batch_size'),
         type: 'number',
         value: options.batchSize,
         min: 10,
@@ -137,22 +136,22 @@ export function showGenerationDialog(
         force_step: true,
       },
       preserveOriginal: {
-        label: 'Keep original layer cubes (hide instead of delete)',
+        label: t('m3sl.form.preserve_original'),
         type: 'checkbox',
         value: options.preserveOriginal,
       },
       replaceEmptyLayer: {
-        label: 'Replace fully transparent layers with empty groups',
+        label: t('m3sl.form.replace_empty'),
         type: 'checkbox',
         value: options.replaceEmptyLayer,
       },
       processSelectedOnly: {
-        label: 'Only process selected layer cubes',
+        label: t('m3sl.form.selected_only'),
         type: 'checkbox',
         value: options.processSelectedOnly,
       },
       autoApplyOnLoad: {
-        label: 'Generate automatically when a project loads',
+        label: t('m3sl.form.auto_apply'),
         type: 'checkbox',
         value: options.autoApplyOnLoad,
       },

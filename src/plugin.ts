@@ -2,6 +2,7 @@ import { PLUGIN_ID } from './domain/constants';
 import { VoxelLimitError } from './domain/types';
 import type { GeneratorOptions, GenerationResult, LayerPlan, LayerSnapshot } from './domain/types';
 import { buildVoxelPlans, countPlanVoxels } from './geometry/voxelPlanner';
+import { registerTranslations, t } from './i18n';
 import {
   buildTextureMap,
   collectLayerSnapshots,
@@ -68,13 +69,13 @@ async function applyOutcome(outcome: ScanOutcome, options: GeneratorOptions): Pr
 async function runGeneration(auto: boolean): Promise<void> {
   if (!isEditMode()) {
     if (!auto) {
-      toast('Switch to Edit mode to generate 3D skin layers', 'edit');
+      toast(t('m3sl.toast.edit_mode'), 'edit');
     }
     return;
   }
   if (!hasOpenProject()) {
     if (!auto) {
-      toast('Open a project first', 'info');
+      toast(t('m3sl.toast.open_project'), 'info');
     }
     return;
   }
@@ -94,10 +95,7 @@ async function runGeneration(auto: boolean): Promise<void> {
   }
 
   if (auto && !options.autoApplyOnLoad) {
-    status(
-      `${outcome.snapshots.length} skin layer cube(s) with ${outcome.voxelCount} texels detected - ` +
-        'use "Generate 3D Skin Layers" to voxelize',
-    );
+    status(t('m3sl.status.detected', [outcome.snapshots.length, outcome.voxelCount]));
     return;
   }
 
@@ -158,9 +156,10 @@ function onProjectLoaded(): ProjectListener {
 }
 
 export function registerPlugin(): void {
+  registerTranslations();
   const action = new Action(`${PLUGIN_ID}.generate`, {
-    name: 'Generate 3D Skin Layers',
-    description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
+    name: t('m3sl.action.name'),
+    description: t('m3sl.action.description'),
     icon: 'view_in_ar',
     category: 'edit',
     condition: () => isEditMode() && hasOpenProject(),

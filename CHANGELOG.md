@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.2.0] - 2026-09-12
+
+### Added
+
+- Localization through Blockbench's native translation system
+  (`Language.addTranslations` + `tl`): English and Simplified Chinese catalog
+  for the action, the preflight dialog and every toast/status message.
+  The English catalog doubles as the lookup fallback; other Blockbench
+  interface languages fall back to English until contributed. Dictionary
+  consistency (key parity, placeholder anchors) is covered by unit tests.
+
 ## [0.1.2] - 2026-09-12
 
 ### Added

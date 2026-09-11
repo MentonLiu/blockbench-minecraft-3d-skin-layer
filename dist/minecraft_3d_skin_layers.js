@@ -61,10 +61,10 @@
   }
   function faceSpans(direction, box) {
     const f = box.inflated.from;
-    const t = box.inflated.to;
-    const width = t[0] - f[0];
-    const height = t[1] - f[1];
-    const depth = t[2] - f[2];
+    const t2 = box.inflated.to;
+    const width = t2[0] - f[0];
+    const height = t2[1] - f[1];
+    const depth = t2[2] - f[2];
     switch (direction) {
       case "north":
       case "south":
@@ -77,25 +77,25 @@
         return { uSpan: width, vSpan: depth };
     }
   }
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
+  function lerp(a, b, t2) {
+    return a + (b - a) * t2;
   }
   function facePoint(direction, box, mx, my) {
     const f = box.inflated.from;
-    const t = box.inflated.to;
+    const t2 = box.inflated.to;
     switch (direction) {
       case "north":
-        return [lerp(t[0], f[0], mx), lerp(t[1], f[1], my), f[2]];
+        return [lerp(t2[0], f[0], mx), lerp(t2[1], f[1], my), f[2]];
       case "south":
-        return [lerp(f[0], t[0], mx), lerp(t[1], f[1], my), t[2]];
+        return [lerp(f[0], t2[0], mx), lerp(t2[1], f[1], my), t2[2]];
       case "east":
-        return [t[0], lerp(t[1], f[1], my), lerp(t[2], f[2], mx)];
+        return [t2[0], lerp(t2[1], f[1], my), lerp(t2[2], f[2], mx)];
       case "west":
-        return [f[0], lerp(t[1], f[1], my), lerp(f[2], t[2], mx)];
+        return [f[0], lerp(t2[1], f[1], my), lerp(f[2], t2[2], mx)];
       case "up":
-        return [lerp(f[0], t[0], mx), t[1], lerp(f[2], t[2], my)];
+        return [lerp(f[0], t2[0], mx), t2[1], lerp(f[2], t2[2], my)];
       case "down":
-        return [lerp(f[0], t[0], mx), f[1], lerp(t[2], f[2], my)];
+        return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
     }
   }
   function voxelBounds(direction, box, mx0, mx1, my0, my1, depth) {
@@ -312,6 +312,81 @@
       });
     }
     return { plans, warnings };
+  }
+
+  // src/i18n/strings.ts
+  var en = {
+    "m3sl.action.name": "Generate 3D Skin Layers",
+    "m3sl.action.description": 'Replace "* Layer" cubes with per-pixel voxel cubes',
+    "m3sl.dialog.title": "Generate 3D Skin Layers",
+    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube whose six faces map to that pixel.",
+    "m3sl.dialog.warnings_header": "Warnings:",
+    "m3sl.dialog.warnings_more": "... %0 more",
+    "m3sl.form.depth_mode": "Voxel depth",
+    "m3sl.form.depth_mode.preserve_layer": "Match layer inflate (preserves contour)",
+    "m3sl.form.depth_mode.pixel": "Match texel size (strong voxel look)",
+    "m3sl.form.depth_mode.fixed": "Fixed thickness",
+    "m3sl.form.fixed_depth": "Fixed thickness (only used in fixed mode)",
+    "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
+    "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
+    "m3sl.form.batch_size": "Cubes created per batch",
+    "m3sl.form.preserve_original": "Keep original layer cubes (hide instead of delete)",
+    "m3sl.form.replace_empty": "Replace fully transparent layers with empty groups",
+    "m3sl.form.selected_only": "Only process selected layer cubes",
+    "m3sl.form.auto_apply": "Generate automatically when a project loads",
+    "m3sl.toast.generated": "Generated %0 cubes in %1 layer group(s) (%2s)",
+    "m3sl.toast.warnings": "- %0 warning(s), see console",
+    "m3sl.toast.no_layers": 'No "* Layer" cubes found - model left unchanged',
+    "m3sl.toast.busy": "A generation run is already in progress",
+    "m3sl.toast.limit": "Aborted: run needs %0 cubes, maxVoxels is %1. Raise the limit in the settings dialog if you really want this.",
+    "m3sl.toast.edit_mode": "Switch to Edit mode to generate 3D skin layers",
+    "m3sl.toast.open_project": "Open a project first",
+    "m3sl.toast.failed": "Generation failed: %0",
+    "m3sl.status.detected": '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize'
+  };
+  var zh = {
+    "m3sl.action.name": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
+    "m3sl.action.description": '\u5C06 "* Layer" \u7ACB\u65B9\u4F53\u66FF\u6362\u4E3A\u9010\u50CF\u7D20\u4F53\u7D20\u65B9\u5757',
+    "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
+    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u516D\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\u7684\u65B9\u5757\u3002",
+    "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
+    "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
+    "m3sl.form.depth_mode": "\u4F53\u7D20\u539A\u5EA6",
+    "m3sl.form.depth_mode.preserve_layer": "\u5339\u914D\u5C42\u7684\u81A8\u80C0\u503C\uFF08\u4FDD\u6301\u539F\u59CB\u5916\u8F6E\u5ED3\uFF09",
+    "m3sl.form.depth_mode.pixel": "\u5339\u914D\u50CF\u7D20\u5C3A\u5BF8\uFF08\u66F4\u5F3A\u7684\u4F53\u7D20\u7ACB\u4F53\u611F\uFF09",
+    "m3sl.form.depth_mode.fixed": "\u56FA\u5B9A\u539A\u5EA6",
+    "m3sl.form.fixed_depth": "\u56FA\u5B9A\u539A\u5EA6\uFF08\u4EC5\u5728\u56FA\u5B9A\u539A\u5EA6\u6A21\u5F0F\u4E0B\u4F7F\u7528\uFF09",
+    "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
+    "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
+    "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
+    "m3sl.form.preserve_original": "\u4FDD\u7559\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08\u9690\u85CF\u800C\u975E\u5220\u9664\uFF09",
+    "m3sl.form.replace_empty": "\u7528\u7A7A\u7EC4\u66FF\u6362\u5B8C\u5168\u900F\u660E\u7684\u76AE\u80A4\u5C42",
+    "m3sl.form.selected_only": "\u4EC5\u5904\u7406\u9009\u4E2D\u7684\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53",
+    "m3sl.form.auto_apply": "\u6253\u5F00\u9879\u76EE\u65F6\u81EA\u52A8\u751F\u6210",
+    "m3sl.toast.generated": "\u5DF2\u751F\u6210 %0 \u4E2A\u65B9\u5757\uFF08%1 \u4E2A\u76AE\u80A4\u5C42\u7EC4\uFF09\uFF0C\u8017\u65F6 %2 \u79D2",
+    "m3sl.toast.warnings": "- %0 \u6761\u8B66\u544A\uFF0C\u8BE6\u89C1\u63A7\u5236\u53F0",
+    "m3sl.toast.no_layers": '\u672A\u627E\u5230 "* Layer" \u7ACB\u65B9\u4F53 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539',
+    "m3sl.toast.busy": "\u5DF2\u6709\u4E00\u6B21\u751F\u6210\u6B63\u5728\u8FDB\u884C\u4E2D",
+    "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u4E0A\u9650 %1\u3002\u5982\u786E\u6709\u9700\u8981\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u5BF9\u8BDD\u6846\u4E2D\u8C03\u9AD8\u4E0A\u9650\u3002",
+    "m3sl.toast.edit_mode": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u751F\u6210 3D \u76AE\u80A4\u5C42",
+    "m3sl.toast.open_project": "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u9879\u76EE",
+    "m3sl.toast.failed": "\u751F\u6210\u5931\u8D25\uFF1A%0",
+    "m3sl.status.detected": '\u68C0\u6D4B\u5230 %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08%1 \u4E2A\u50CF\u7D20\uFF09\u2014\u2014 \u4F7F\u7528"\u751F\u6210 3D \u76AE\u80A4\u5C42"\u8FDB\u884C\u4F53\u7D20\u5316'
+  };
+
+  // src/i18n/index.ts
+  var registered = false;
+  function registerTranslations() {
+    if (registered) {
+      return;
+    }
+    Language.addTranslations("en", en);
+    Language.addTranslations("zh", zh);
+    registered = true;
+  }
+  function t(key, variables) {
+    const fallback = en[key];
+    return tl(key, variables && variables.length ? variables : void 0, fallback);
   }
 
   // src/scan/layerScanner.ts
@@ -683,30 +758,30 @@
   function showGenerationDialog(summary, options, onConfirm, onCancel) {
     const warningText = summary.warnings.length ? `
 
-Warnings:
+${t("m3sl.dialog.warnings_header")}
 - ${summary.warnings.slice(0, 5).join("\n- ")}` + (summary.warnings.length > 5 ? `
-- ... ${summary.warnings.length - 5} more` : "") : "";
+- ${t("m3sl.dialog.warnings_more", [summary.warnings.length - 5])}` : "") : "";
     new Dialog({
       id: `${PLUGIN_ID}.generate_dialog`,
-      title: "Generate 3D Skin Layers",
+      title: t("m3sl.dialog.title"),
       width: 512,
       form: {
         intro: {
           type: "text",
-          text: `Found **${summary.layerCount}** layer cube(s) with **${summary.voxelCount}** visible texel(s). Each texel becomes one cube whose six faces map to that pixel.${warningText}`
+          text: t("m3sl.dialog.intro", [summary.layerCount, summary.voxelCount]) + warningText
         },
         depthMode: {
-          label: "Voxel depth",
+          label: t("m3sl.form.depth_mode"),
           type: "select",
           value: options.depthMode,
           options: {
-            preserve_layer: "Match layer inflate (preserves contour)",
-            pixel: "Match texel size (strong voxel look)",
-            fixed: "Fixed thickness"
+            preserve_layer: t("m3sl.form.depth_mode.preserve_layer"),
+            pixel: t("m3sl.form.depth_mode.pixel"),
+            fixed: t("m3sl.form.depth_mode.fixed")
           }
         },
         fixedDepth: {
-          label: "Fixed thickness (only used in fixed mode)",
+          label: t("m3sl.form.fixed_depth"),
           type: "number",
           value: options.fixedDepth,
           min: 0.01,
@@ -714,7 +789,7 @@ Warnings:
           step: 0.05
         },
         alphaThreshold: {
-          label: "Alpha threshold (texels with alpha above this become cubes)",
+          label: t("m3sl.form.alpha_threshold"),
           type: "number",
           value: options.alphaThreshold,
           min: 0,
@@ -723,7 +798,7 @@ Warnings:
           force_step: true
         },
         maxVoxels: {
-          label: "Maximum cube count (run aborts above this)",
+          label: t("m3sl.form.max_voxels"),
           type: "number",
           value: options.maxVoxels,
           min: 1,
@@ -732,7 +807,7 @@ Warnings:
           force_step: true
         },
         batchSize: {
-          label: "Cubes created per batch",
+          label: t("m3sl.form.batch_size"),
           type: "number",
           value: options.batchSize,
           min: 10,
@@ -741,22 +816,22 @@ Warnings:
           force_step: true
         },
         preserveOriginal: {
-          label: "Keep original layer cubes (hide instead of delete)",
+          label: t("m3sl.form.preserve_original"),
           type: "checkbox",
           value: options.preserveOriginal
         },
         replaceEmptyLayer: {
-          label: "Replace fully transparent layers with empty groups",
+          label: t("m3sl.form.replace_empty"),
           type: "checkbox",
           value: options.replaceEmptyLayer
         },
         processSelectedOnly: {
-          label: "Only process selected layer cubes",
+          label: t("m3sl.form.selected_only"),
           type: "checkbox",
           value: options.processSelectedOnly
         },
         autoApplyOnLoad: {
-          label: "Generate automatically when a project loads",
+          label: t("m3sl.form.auto_apply"),
           type: "checkbox",
           value: options.autoApplyOnLoad
         }
@@ -778,21 +853,18 @@ Warnings:
     Blockbench.showStatusMessage(text, 4e3);
   }
   function reportNoLayers() {
-    toast('No "* Layer" cubes found - model left unchanged', "info");
+    toast(t("m3sl.toast.no_layers"), "info");
   }
   function reportBusy() {
-    toast("A generation run is already in progress", "hourglass_empty");
+    toast(t("m3sl.toast.busy"), "hourglass_empty");
   }
   function reportVoxelLimit(error) {
-    toast(
-      `Aborted: run needs ${error.voxelCount} cubes, maxVoxels is ${error.limit}. Raise the limit in the settings dialog if you really want this.`,
-      "warning"
-    );
+    toast(t("m3sl.toast.limit", [error.voxelCount, error.limit]), "warning");
   }
   function reportGenerationResult(result) {
     const seconds = (result.durationMs / 1e3).toFixed(2);
     toast(
-      `Generated ${result.createdCubes} cubes in ${result.createdGroups} layer group(s) (${seconds}s)` + (result.warnings.length ? ` - ${result.warnings.length} warning(s), see console` : ""),
+      t("m3sl.toast.generated", [result.createdCubes, result.createdGroups, seconds]) + (result.warnings.length ? " " + t("m3sl.toast.warnings", [result.warnings.length]) : ""),
       "view_in_ar"
     );
     for (const warning of result.warnings) {
@@ -802,7 +874,7 @@ Warnings:
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[minecraft_3d_skin_layers] generation failed:", error);
-    toast(`Generation failed: ${message}`, "error");
+    toast(t("m3sl.toast.failed", [message]), "error");
   }
 
   // src/infra/logger.ts
@@ -852,13 +924,13 @@ Warnings:
   async function runGeneration(auto) {
     if (!isEditMode()) {
       if (!auto) {
-        toast("Switch to Edit mode to generate 3D skin layers", "edit");
+        toast(t("m3sl.toast.edit_mode"), "edit");
       }
       return;
     }
     if (!hasOpenProject()) {
       if (!auto) {
-        toast("Open a project first", "info");
+        toast(t("m3sl.toast.open_project"), "info");
       }
       return;
     }
@@ -875,9 +947,7 @@ Warnings:
       return;
     }
     if (auto && !options.autoApplyOnLoad) {
-      status(
-        `${outcome.snapshots.length} skin layer cube(s) with ${outcome.voxelCount} texels detected - use "Generate 3D Skin Layers" to voxelize`
-      );
+      status(t("m3sl.status.detected", [outcome.snapshots.length, outcome.voxelCount]));
       return;
     }
     if (auto) {
@@ -930,9 +1000,10 @@ Warnings:
     };
   }
   function registerPlugin() {
+    registerTranslations();
     const action = new Action(`${PLUGIN_ID}.generate`, {
-      name: "Generate 3D Skin Layers",
-      description: 'Replace "* Layer" cubes with per-pixel voxel cubes',
+      name: t("m3sl.action.name"),
+      description: t("m3sl.action.description"),
       icon: "view_in_ar",
       category: "edit",
       condition: () => isEditMode() && hasOpenProject(),
@@ -962,7 +1033,7 @@ Warnings:
     author: "bbmodel-skins",
     icon: "view_in_ar",
     description: 'Convert Minecraft skin outer layers ("xxx Layer" cubes) into per-pixel voxel cubes. Every visible texel becomes one cube whose six faces map to that pixel; the layer cube is replaced by a same-named group in one reversible undo step.',
-    version: "0.1.2",
+    version: "0.2.0",
     min_version: "5.0.0",
     variant: "desktop",
     tags: ["Minecraft"],

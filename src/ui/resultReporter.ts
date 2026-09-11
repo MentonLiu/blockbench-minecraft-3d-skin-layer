@@ -1,4 +1,5 @@
 import type { GenerationResult, VoxelLimitError } from '../domain/types';
+import { t } from '../i18n';
 
 export function toast(text: string, icon = 'view_in_ar'): void {
   Blockbench.showToastNotification({ text, icon });
@@ -9,19 +10,15 @@ export function status(text: string): void {
 }
 
 export function reportNoLayers(): void {
-  toast('No "* Layer" cubes found - model left unchanged', 'info');
+  toast(t('m3sl.toast.no_layers'), 'info');
 }
 
 export function reportBusy(): void {
-  toast('A generation run is already in progress', 'hourglass_empty');
+  toast(t('m3sl.toast.busy'), 'hourglass_empty');
 }
 
 export function reportVoxelLimit(error: VoxelLimitError): void {
-  toast(
-    `Aborted: run needs ${error.voxelCount} cubes, maxVoxels is ${error.limit}. ` +
-      'Raise the limit in the settings dialog if you really want this.',
-    'warning',
-  );
+  toast(t('m3sl.toast.limit', [error.voxelCount, error.limit]), 'warning');
 }
 
 export interface ReportedResult extends GenerationResult {
@@ -31,8 +28,8 @@ export interface ReportedResult extends GenerationResult {
 export function reportGenerationResult(result: ReportedResult): void {
   const seconds = (result.durationMs / 1000).toFixed(2);
   toast(
-    `Generated ${result.createdCubes} cubes in ${result.createdGroups} layer group(s) (${seconds}s)` +
-      (result.warnings.length ? ` - ${result.warnings.length} warning(s), see console` : ''),
+    t('m3sl.toast.generated', [result.createdCubes, result.createdGroups, seconds]) +
+      (result.warnings.length ? ' ' + t('m3sl.toast.warnings', [result.warnings.length]) : ''),
     'view_in_ar',
   );
   for (const warning of result.warnings) {
@@ -43,5 +40,5 @@ export function reportGenerationResult(result: ReportedResult): void {
 export function reportError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[minecraft_3d_skin_layers] generation failed:', error);
-  toast(`Generation failed: ${message}`, 'error');
+  toast(t('m3sl.toast.failed', [message]), 'error');
 }
