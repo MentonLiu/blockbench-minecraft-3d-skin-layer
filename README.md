@@ -4,6 +4,8 @@
 [![Release](https://img.shields.io/badge/release-v0.2.1-blue.svg)](../../releases)
 [![Blockbench](https://img.shields.io/badge/Blockbench-5.0%2B-orange)](https://blockbench.net)
 
+English | [简体中文](README.zh-CN.md)
+
 A Blockbench plugin that converts Minecraft skin outer layers into **per-pixel
 voxel cubes**: every visible texel of a `* Layer` cube becomes one full cube
 whose six faces all map to that exact pixel. The layer cube is replaced by a
