@@ -9,7 +9,7 @@ export const en = {
 
   'm3sl.dialog.title': 'Generate 3D Skin Layers',
   'm3sl.dialog.intro':
-    'Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one full cube (box UV, shell face samples its own pixel).',
+    'Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).',
   'm3sl.dialog.warnings_header': 'Warnings:',
   'm3sl.dialog.warnings_more': '... %0 more',
 
@@ -42,7 +42,7 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.action.description': '将 "* Layer" 立方体替换为逐像素体素方块',
 
   'm3sl.dialog.title': '生成 3D 皮肤层',
-  'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个完整的 1×1×1 体素方块（盒装 UV，外侧面精确采样该像素）。',
+  'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个体素方块，六个面都映射到该像素（厚度与原膨胀层一致）。',
   'm3sl.dialog.warnings_header': '警告：',
   'm3sl.dialog.warnings_more': '……另有 %0 条',
 

@@ -293,7 +293,7 @@ export function addSourceCube(runtime: MockRuntime, spec: MockSourceSpec): void 
       origin: [0, 0, 0],
       rotation: [0, 0, 0],
       textureKey: 'tex',
-      uvOffset: [0, 0],
+      pixelUV: [0, 0, 1, 1],
       face: 'north',
     },
   };

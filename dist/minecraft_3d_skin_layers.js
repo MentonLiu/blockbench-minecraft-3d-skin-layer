@@ -15,6 +15,7 @@
     useUVToLocalWhenAvailable: false
   };
   var VOXEL_STANDOFF = 1e-3;
+  var FACE_EPSILON_STEP = 15e-4;
   var TEXEL_EPSILON = 0.01;
 
   // src/domain/types.ts
@@ -28,6 +29,18 @@
   };
 
   // src/geometry/faceMapper.ts
+  function adjustedBox(from, to, inflate, stretch) {
+    const inflatedFrom = [0, 0, 0];
+    const inflatedTo = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      const size = to[i] - from[i];
+      const center = from[i] + size / 2;
+      const half = (size / 2 + inflate) * stretch[i];
+      inflatedFrom[i] = center - half;
+      inflatedTo[i] = center + half;
+    }
+    return { from: inflatedFrom, to: inflatedTo };
+  }
   function facePoint(direction, box, mx, my) {
     const f = box.from;
     const t2 = box.to;
@@ -47,27 +60,9 @@
         return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
     }
   }
-  function faceSpans(direction, box) {
-    const f = box.from;
-    const t2 = box.to;
-    const width = t2[0] - f[0];
-    const height = t2[1] - f[1];
-    const depth = t2[2] - f[2];
-    switch (direction) {
-      case "north":
-      case "south":
-        return { uSpan: width, vSpan: height };
-      case "east":
-      case "west":
-        return { uSpan: depth, vSpan: height };
-      case "up":
-      case "down":
-        return { uSpan: width, vSpan: depth };
-    }
-  }
-  function voxelBounds(direction, box, mx0, mx1, my0, my1, standoff, depth) {
-    const a = facePoint(direction, box, mx0, my0);
-    const b = facePoint(direction, box, mx1, my1);
+  function voxelBounds(direction, faceBox, rawFrom, rawTo, mx0, mx1, my0, my1, standoff, depth) {
+    const a = facePoint(direction, faceBox, mx0, my0);
+    const b = facePoint(direction, faceBox, mx1, my1);
     const minX = Math.min(a[0], b[0]);
     const maxX = Math.max(a[0], b[0]);
     const minY = Math.min(a[1], b[1]);
@@ -76,33 +71,17 @@
     const maxZ = Math.max(a[2], b[2]);
     switch (direction) {
       case "north":
-        return { from: [minX, minY, box.from[2] - standoff - depth], to: [maxX, maxY, box.from[2] - standoff] };
+        return { from: [minX, minY, rawFrom[2] - standoff - depth], to: [maxX, maxY, rawFrom[2] - standoff] };
       case "south":
-        return { from: [minX, minY, box.to[2] + standoff], to: [maxX, maxY, box.to[2] + standoff + depth] };
+        return { from: [minX, minY, rawTo[2] + standoff], to: [maxX, maxY, rawTo[2] + standoff + depth] };
       case "east":
-        return { from: [box.to[0] + standoff, minY, minZ], to: [box.to[0] + standoff + depth, maxY, maxZ] };
+        return { from: [rawTo[0] + standoff, minY, minZ], to: [rawTo[0] + standoff + depth, maxY, maxZ] };
       case "west":
-        return { from: [box.from[0] - standoff - depth, minY, minZ], to: [box.from[0] - standoff, maxY, maxZ] };
+        return { from: [rawFrom[0] - standoff - depth, minY, minZ], to: [rawFrom[0] - standoff, maxY, maxZ] };
       case "up":
-        return { from: [minX, box.to[1] + standoff, minZ], to: [maxX, box.to[1] + standoff + depth, maxZ] };
+        return { from: [minX, rawTo[1] + standoff, minZ], to: [maxX, rawTo[1] + standoff + depth, maxZ] };
       case "down":
-        return { from: [minX, box.from[1] - standoff - depth, minZ], to: [maxX, box.from[1] - standoff, maxZ] };
-    }
-  }
-  function boxUvOffset(direction, pixelU, pixelV, w, d) {
-    switch (direction) {
-      case "north":
-        return [pixelU - d, pixelV - d];
-      case "south":
-        return [pixelU - 2 * d - w, pixelV - d];
-      case "west":
-        return [pixelU - d - w, pixelV - d];
-      case "east":
-        return [pixelU, pixelV - d];
-      case "up":
-        return [pixelU - d, pixelV];
-      case "down":
-        return [pixelU - d - w, pixelV];
+        return { from: [minX, rawFrom[1] - standoff - depth, minZ], to: [maxX, rawFrom[1] - standoff, maxZ] };
     }
   }
 
@@ -227,6 +206,9 @@
   function countPlanVoxels(plans) {
     return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
   }
+  function directionEpsilon(direction) {
+    return FACE_DIRECTIONS.indexOf(direction) * FACE_EPSILON_STEP;
+  }
   function snapshotFace(layer, direction) {
     return layer.faces.find((face) => face.direction === direction);
   }
@@ -238,8 +220,7 @@
         warnings.push(`${layer.name}: cube has non-positive size, skipped`);
         return;
       }
-      const standoff = VOXEL_STANDOFF;
-      const box = { from: [...layer.from], to: [...layer.to] };
+      const inflated = adjustedBox(layer.from, layer.to, layer.inflate, layer.stretch);
       const voxels = [];
       for (const direction of FACE_DIRECTIONS) {
         const face = snapshotFace(layer, direction);
@@ -251,30 +232,36 @@
           warnings.push(`${layer.name}/${direction}: face has no usable texture, face skipped`);
           continue;
         }
+        const epsilon = directionEpsilon(direction);
+        const faceBox = {
+          from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
+          to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon]
+        };
         const scan = enumerateVisibleTexels(face, texture, options.alphaThreshold);
         warnings.push(...scan.warnings.map((warning) => `${layer.name}/${warning}`));
         if (scan.cells.length === 0) {
           continue;
         }
-        const spans = faceSpans(direction, box);
-        const grid = { cols: scan.cells[0].cols, rows: scan.cells[0].rows };
-        const cellU = spans.uSpan / grid.cols;
-        const cellV = spans.vSpan / grid.rows;
-        const depth = (cellU + cellV) / 2;
-        const { sx, sy } = textureScales(texture);
+        const depth = layer.inflate + epsilon;
         for (const cell of scan.cells) {
           const bounds = voxelBounds(
             direction,
-            box,
+            faceBox,
+            layer.from,
+            layer.to,
             cell.col / cell.cols,
             (cell.col + 1) / cell.cols,
             cell.row / cell.rows,
             (cell.row + 1) / cell.rows,
-            standoff,
+            VOXEL_STANDOFF,
             depth
           );
-          const w = Math.abs(bounds.to[0] - bounds.from[0]);
-          const d = Math.abs(bounds.to[2] - bounds.from[2]);
+          const pixelUV = [
+            cell.imageX / textureScales(texture).sx,
+            cell.imageY / textureScales(texture).sy,
+            (cell.imageX + 1) / textureScales(texture).sx,
+            (cell.imageY + 1) / textureScales(texture).sy
+          ];
           voxels.push({
             name: `px_${direction}_${cell.col}_${cell.row}`,
             from: bounds.from,
@@ -282,7 +269,7 @@
             origin: [...layer.origin],
             rotation: [...layer.rotation],
             textureKey: face.textureKey,
-            uvOffset: boxUvOffset(direction, cell.imageX / sx, cell.imageY / sy, w, d),
+            pixelUV,
             face: direction
           });
         }
@@ -308,7 +295,7 @@
     "m3sl.action.name": "Generate 3D Skin Layers",
     "m3sl.action.description": 'Replace "* Layer" cubes with per-pixel voxel cubes',
     "m3sl.dialog.title": "Generate 3D Skin Layers",
-    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one full cube (box UV, shell face samples its own pixel).",
+    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).",
     "m3sl.dialog.warnings_header": "Warnings:",
     "m3sl.dialog.warnings_more": "... %0 more",
     "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
@@ -332,7 +319,7 @@
     "m3sl.action.name": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.action.description": '\u5C06 "* Layer" \u7ACB\u65B9\u4F53\u66FF\u6362\u4E3A\u9010\u50CF\u7D20\u4F53\u7D20\u65B9\u5757',
     "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
-    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u5B8C\u6574\u7684 1\xD71\xD71 \u4F53\u7D20\u65B9\u5757\uFF08\u76D2\u88C5 UV\uFF0C\u5916\u4FA7\u9762\u7CBE\u786E\u91C7\u6837\u8BE5\u50CF\u7D20\uFF09\u3002",
+    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u516D\u4E2A\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\uFF08\u539A\u5EA6\u4E0E\u539F\u81A8\u80C0\u5C42\u4E00\u81F4\uFF09\u3002",
     "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
     "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
     "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
@@ -592,9 +579,11 @@
 
   // src/blockbench/blockbenchHost.ts
   function voxelFaces(spec) {
+    const uv = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
     const texture = resolveTextureByKey(spec.textureKey);
     const make = () => ({
-      texture: texture ? texture.uuid : false
+      texture: texture ? texture.uuid : false,
+      uv: [uv[0], uv[1], uv[2], uv[3]]
     });
     const faces = {};
     for (const direction of FACE_DIRECTIONS) {
@@ -627,8 +616,7 @@
         to: [...spec.to],
         origin: [...spec.origin],
         rotation: [...spec.rotation],
-        box_uv: true,
-        uv_offset: [...spec.uvOffset],
+        box_uv: false,
         autouv: 0,
         faces: voxelFaces(spec)
       });

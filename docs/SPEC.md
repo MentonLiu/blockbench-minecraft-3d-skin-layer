@@ -63,55 +63,35 @@ Nv = |v2 - v1| * scaleY
 
 ## Geometry
 
-Voxels are **full unit-texel cubes** (edge length = one skin texel; 1 unit at
-64px, 0.5 at 128px) tiling the RAW box face (not the inflated one) and
-protruding one texel outward along the face normal:
+Voxels fill the layer's own shell: their grid tiles the **inflated box** (the
+surface the original layer renders on), thickness = `inflate`, so the outer
+surface reproduces the original layer contour. Every texel becomes a full
+voxel with **all six faces enabled** - nothing is ever hidden.
 
-```
-north: z = [from.z - standoff - depth, from.z - standoff]
-south: z = [to.z + standoff, to.z + standoff + depth]      (depth = 1 texel)
-east:  x = [to.x + standoff, to.x + standoff + depth]
-west:  x = [from.x - standoff - depth, from.x - standoff]
-up:    y = [to.y + standoff, to.y + standoff + depth]
-down:  y = [from.y - standoff - depth, from.y - standoff]
-```
+To keep a part free of z-fighting even though adjacent face grids share the
+inflated shell, each direction carries a tiny epsilon (north 0, east 0.0015,
+... down 0.0075) applied as a translation of its face grid plus extra
+thickness. All grid lines and shell planes of different directions end up
+0.0015 apart - imperceptible, but the depth buffer never sees two faces on
+the same plane. A uniform standoff (0.001) additionally lifts voxel inner
+faces off the base cube's surface.
 
-- All faces of every voxel are enabled; no voxel or pixel is ever hidden.
-- Each face direction tiles its own raw box face, so slabs of different
-  directions never overlap -> no coplanar duplicates -> no z-fighting inside
-  a part.
-- The uniform standoff (0.001) keeps voxel inner faces off the base cube's
-  surface (same-part ghosting).
-- Source cubes from DIFFERENT parts may interpenetrate (reference model legs
-  overlap by 0.2); their shared planes are kept as-is - cross-part ghosting
-  in the default pose is accepted and disappears once the model is posed.
-- Edges/corners: the inflated ring of the original layer is not covered;
-  each edge shows a one-texel-deep notch (documented limitation).
+- Same part: zero coplanar overlapping face pairs (verified by exact
+  rectangle-overlap analysis).
+- Different parts that interpenetrate in the default pose (reference model
+  legs overlap by 0.2): their shared planes are kept as-is - cross-part
+  ghosting is accepted and disappears once the model is posed.
 
 ## UV mapping
 
-Voxels use **box UV** (`box_uv: true`, matching the source model). Each
-voxel's `uv_offset` is computed from its source pixel position so the shell
-face samples exactly that pixel; the five other faces sample the neighboring
-pixels of the box unwrap (inherent to box UV - six faces cannot all map to
-one pixel):
-
-```
-north: uv_offset = (px - d, py - d)
-south: uv_offset = (px - 2d - w, py - d)
-west:  uv_offset = (px - d - w, py - d)
-east:  uv_offset = (px, py - d)
-up:    uv_offset = (px - d, py)
-down:  uv_offset = (px - d - w, py)
-```
-
-(w = voxel x-size, d = voxel z-size in UV units; px/py = the pixel's top-left
-corner in UV units.) The cell-to-texel mapping ports Blockbench
+Every voxel uses **per-face UV with all six faces mapped to the same source
+pixel**: each face carries the rectangle
+`[px/sx, py/sy, (px+1)/sx, (py+1)/sy]` and the source face's texture
+(`box_uv: false`, `autouv: 0`). The cell-to-texel mapping ports Blockbench
 `CubeFace.UVToLocal` semantics: reversed UV rects (`u2 < u1`, `v2 < v1`) and
-face rotation (0/90/180/270) are honored before the offset is applied; never
-normalize with min/max. Every voxel copies source `origin` and `rotation`
-(rotation lives on the voxels, never on the new Group, to avoid double
-rotation) and uses `autouv: 0`.
+face rotation (0/90/180/270) are honored; never normalize with min/max.
+Every voxel copies source `origin` and `rotation` (rotation lives on the
+voxels, never on the new Group, to avoid double rotation).
 
 ## Replacement
 

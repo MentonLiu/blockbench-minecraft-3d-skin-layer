@@ -6,8 +6,34 @@ export interface Box {
 }
 
 /**
+ * The inflated box the layer's faces render on: Blockbench's
+ * `adjustFromAndToForInflateAndStretch` -
+ * `from = center - (size/2 + inflate) * stretch` per axis.
+ */
+export function adjustedBox(from: Vec3, to: Vec3, inflate: number, stretch: Vec3): Box {
+  const inflatedFrom: Vec3 = [0, 0, 0];
+  const inflatedTo: Vec3 = [0, 0, 0];
+  for (let i = 0; i < 3; i++) {
+    const size = to[i] - from[i];
+    const center = from[i] + size / 2;
+    const half = (size / 2 + inflate) * stretch[i];
+    inflatedFrom[i] = center - half;
+    inflatedTo[i] = center + half;
+  }
+  return { from: inflatedFrom, to: inflatedTo };
+}
+
+/** Shrinks a box by `epsilon` on every side. */
+export function insetBox(box: Box, epsilon: number): Box {
+  return {
+    from: [box.from[0] + epsilon, box.from[1] + epsilon, box.from[2] + epsilon],
+    to: [box.to[0] - epsilon, box.to[1] - epsilon, box.to[2] - epsilon],
+  };
+}
+
+/**
  * Local coordinates of a point on the face, from the face parametrization
- * (mx, my) in [0,1]. Mirrors `CubeFace.UVToLocal` on the raw box:
+ * (mx, my) in [0,1]. Mirrors `CubeFace.UVToLocal`:
  *   north: U: x = lerp(to.x, from.x), V: y = lerp(to.y, from.y), plane z = from.z
  *   south: U: x = lerp(from.x, to.x), V: y = lerp(to.y, from.y), plane z = to.z
  *   east:  U: z = lerp(to.z, from.z), V: y = lerp(to.y, from.y), plane x = to.x
@@ -61,17 +87,17 @@ export function faceSpans(direction: FaceDirection, box: Box): { uSpan: number; 
 /**
  * Axis-aligned voxel bounds for one grid cell.
  *
- * The in-face rectangle tiles the RAW box face (not the inflated one), so
- * slabs belonging to different face directions never overlap and can never
- * produce coplanar duplicate surfaces. `standoff` lifts the slab a tiny bit
- * off the raw surface - it separates the voxel inner faces from the base
- * cube's faces and, with a per-layer offset, keeps interpenetrating source
- * cubes (overlapping legs) from flickering. `depth` is the thickness along
- * the face normal.
+ * The in-face rectangle is cut from `faceBox` (the inflated box, inset by the
+ * direction's epsilon). The slab anchors at the RAW box surface with a tiny
+ * standoff and extends outward by `depth` (the layer inflate plus the
+ * direction's epsilon), so the voxel's outer surface lands within 0.009 of
+ * the original layer surface while every direction's planes stay distinct.
  */
 export function voxelBounds(
   direction: FaceDirection,
-  box: Box,
+  faceBox: Box,
+  rawFrom: Vec3,
+  rawTo: Vec3,
   mx0: number,
   mx1: number,
   my0: number,
@@ -79,8 +105,8 @@ export function voxelBounds(
   standoff: number,
   depth: number,
 ): { from: Vec3; to: Vec3 } {
-  const a = facePoint(direction, box, mx0, my0);
-  const b = facePoint(direction, box, mx1, my1);
+  const a = facePoint(direction, faceBox, mx0, my0);
+  const b = facePoint(direction, faceBox, mx1, my1);
   const minX = Math.min(a[0], b[0]);
   const maxX = Math.max(a[0], b[0]);
   const minY = Math.min(a[1], b[1]);
@@ -90,45 +116,16 @@ export function voxelBounds(
 
   switch (direction) {
     case 'north':
-      return { from: [minX, minY, box.from[2] - standoff - depth], to: [maxX, maxY, box.from[2] - standoff] };
+      return { from: [minX, minY, rawFrom[2] - standoff - depth], to: [maxX, maxY, rawFrom[2] - standoff] };
     case 'south':
-      return { from: [minX, minY, box.to[2] + standoff], to: [maxX, maxY, box.to[2] + standoff + depth] };
+      return { from: [minX, minY, rawTo[2] + standoff], to: [maxX, maxY, rawTo[2] + standoff + depth] };
     case 'east':
-      return { from: [box.to[0] + standoff, minY, minZ], to: [box.to[0] + standoff + depth, maxY, maxZ] };
+      return { from: [rawTo[0] + standoff, minY, minZ], to: [rawTo[0] + standoff + depth, maxY, maxZ] };
     case 'west':
-      return { from: [box.from[0] - standoff - depth, minY, minZ], to: [box.from[0] - standoff, maxY, maxZ] };
+      return { from: [rawFrom[0] - standoff - depth, minY, minZ], to: [rawFrom[0] - standoff, maxY, maxZ] };
     case 'up':
-      return { from: [minX, box.to[1] + standoff, minZ], to: [maxX, box.to[1] + standoff + depth, maxZ] };
+      return { from: [minX, rawTo[1] + standoff, minZ], to: [maxX, rawTo[1] + standoff + depth, maxZ] };
     case 'down':
-      return { from: [minX, box.from[1] - standoff - depth, minZ], to: [maxX, box.from[1] - standoff, maxZ] };
-  }
-}
-
-/**
- * Box UV offset (uv_offset) that puts the voxel's shell face exactly on its
- * source pixel. The box unwrap of a cube (w, h, d) samples these rects:
- *   east [ox, oy+d], north [ox+d, oy+d], west [ox+d+w, oy+d],
- *   south [ox+2d+w, oy+d], up [ox+d, oy], down [ox+d+w, oy]
- */
-export function boxUvOffset(
-  direction: FaceDirection,
-  pixelU: number,
-  pixelV: number,
-  w: number,
-  d: number,
-): [number, number] {
-  switch (direction) {
-    case 'north':
-      return [pixelU - d, pixelV - d];
-    case 'south':
-      return [pixelU - 2 * d - w, pixelV - d];
-    case 'west':
-      return [pixelU - d - w, pixelV - d];
-    case 'east':
-      return [pixelU, pixelV - d];
-    case 'up':
-      return [pixelU - d, pixelV];
-    case 'down':
-      return [pixelU - d - w, pixelV];
+      return { from: [minX, rawFrom[1] - standoff - depth, minZ], to: [maxX, rawFrom[1] - standoff, maxZ] };
   }
 }

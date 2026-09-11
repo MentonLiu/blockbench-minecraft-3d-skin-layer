@@ -72,11 +72,8 @@ export interface VoxelSpec {
   origin: Vec3;
   rotation: Vec3;
   textureKey: string;
-  /**
-   * Box UV offset (uv_offset) of the voxel cube, chosen so that the shell face
-   * samples exactly its source pixel. All faces stay enabled.
-   */
-  uvOffset: [number, number];
+  /** UV rectangle of the source pixel; all six faces map to it. */
+  pixelUV: UVRect;
   face: FaceDirection;
 }
 

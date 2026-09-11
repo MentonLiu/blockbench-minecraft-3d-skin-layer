@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPTIONS, VOXEL_STANDOFF } from '../../src/domain/constants';
+import { DEFAULT_OPTIONS } from '../../src/domain/constants';
 import type { LayerSnapshot, PixelSource, UVRect } from '../../src/domain/types';
 import { buildVoxelPlans, countPlanVoxels } from '../../src/geometry/voxelPlanner';
 
@@ -70,22 +70,27 @@ describe('doubled texture resolution (128px image, 64 UV space)', () => {
     expect(up).toHaveLength(16 * 16);
   });
 
-  it('totals 512 half-texel cubes', () => {
+  it('totals 512 texel cubes', () => {
     expect(countPlanVoxels([plans()])).toBe(512);
   });
 
-  it('builds half-unit cubes lifted by the standoff', () => {
+  it('slices the inflated face into half-unit cells (north epsilon 0)', () => {
     const voxel = plans().voxels.find(v => v.name === 'px_north_0_0')!;
-    expect(voxel.to[0] - voxel.from[0]).toBeCloseTo(0.5, 10);
-    expect(voxel.to[1] - voxel.from[1]).toBeCloseTo(0.5, 10);
-    expect(voxel.to[2] - voxel.from[2]).toBeCloseTo(0.5, 10);
-    expect(voxel.from[2]).toBeCloseTo(-4 - VOXEL_STANDOFF - 0.5, 10);
-    expect(voxel.to[2]).toBeCloseTo(-4 - VOXEL_STANDOFF, 10);
+    expect(voxel.to[0] - voxel.from[0]).toBeCloseTo(0.5625, 10); // 9/16
+    expect(voxel.to[1] - voxel.from[1]).toBeCloseTo(0.5625, 10);
+    expect(voxel.from[0]).toBeCloseTo(3.9375, 10);
+    expect(voxel.to[0]).toBeCloseTo(4.5, 10);
+    expect(voxel.from[2]).toBeCloseTo(-4.501, 10);
+    expect(voxel.to[2]).toBeCloseTo(-4.001, 10);
   });
 
-  it('chooses the box UV offset in UV units (half-texel steps)', () => {
-    // first north cell samples image pixel (16,16) = UV (8, 8)
-    const voxel = plans().voxels.find(v => v.name === 'px_north_0_0')!;
-    expect(voxel.uvOffset).toEqual([7.5, 7.5]);
+  it('maps each face cell to its own region corner texel', () => {
+    // north cell (0,0) samples its region's u1/v1 corner: image pixel (16, 16)
+    const north = plans().voxels.find(v => v.name === 'px_north_0_0')!.pixelUV;
+    expect(north).toEqual([8, 8, 8.5, 8.5]);
+    // up region [16,8,8,0] is reversed on both axes: cell (0,0) samples its
+    // u1/v1 corner, which in image space is pixel (31, 15)
+    const up = plans().voxels.find(v => v.name === 'px_up_0_0')!.pixelUV;
+    expect(up).toEqual([15.5, 7.5, 16, 8]);
   });
 });

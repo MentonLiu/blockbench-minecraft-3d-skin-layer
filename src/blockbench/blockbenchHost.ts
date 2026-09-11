@@ -1,13 +1,15 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
-import type { VoxelSpec } from '../domain/types';
+import type { UVRect, VoxelSpec } from '../domain/types';
 import { resolveTextureByKey } from './compatibility';
 import type { GroupSpec, WriterHost } from './modelWriter';
 import { blockbenchUndo } from './undoTransaction';
 
 function voxelFaces(spec: VoxelSpec) {
+  const uv: UVRect = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
   const texture = resolveTextureByKey(spec.textureKey);
   const make = () => ({
     texture: texture ? texture.uuid : (false as const),
+    uv: [uv[0], uv[1], uv[2], uv[3]] as [number, number, number, number],
   });
   const faces: Record<string, ReturnType<typeof make>> = {};
   for (const direction of FACE_DIRECTIONS) {
@@ -44,8 +46,7 @@ export const blockbenchHost: WriterHost = {
       to: [...spec.to],
       origin: [...spec.origin],
       rotation: [...spec.rotation],
-      box_uv: true,
-      uv_offset: [...spec.uvOffset],
+      box_uv: false,
       autouv: 0,
       faces: voxelFaces(spec),
     });

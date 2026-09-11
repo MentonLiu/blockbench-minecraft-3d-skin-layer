@@ -68,36 +68,41 @@ describe('buildVoxelPlans', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('places unit cubes on the raw box, lifted by the standoff', () => {
+  it('fills the inflate gap on the raw box front (preserve depth)', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
     const voxel = plans[0].voxels.find(v => v.name === 'px_north_0_0');
-    // first north cell at the +X top corner of the raw box front
-    expect(voxel?.from).toEqual([3, 31, -4 - VOXEL_STANDOFF - 1]);
-    expect(voxel?.to).toEqual([4, 32, -4 - VOXEL_STANDOFF]);
+    // first north cell at the +X top corner; north epsilon is 0
+    expect(voxel?.from).toEqual([3.375, 31.375, -4.501]);
+    expect(voxel?.to).toEqual([4.5, 32.5, -4.001]);
   });
 
-  it('builds true unit cubes', () => {
+  it('carries a per-direction epsilon so shell planes stay distinct', () => {
     const textures = new Map([['texA', opaqueTexture()]]);
     const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
-    for (const voxel of plans[0].voxels) {
-      expect(voxel.to[0] - voxel.from[0]).toBeCloseTo(1, 10);
-      expect(voxel.to[1] - voxel.from[1]).toBeCloseTo(1, 10);
-      expect(voxel.to[2] - voxel.from[2]).toBeCloseTo(1, 10);
+    const first = (name: string) => plans[0].voxels.find(v => v.name === name)!;
+    // north epsilon 0 -> exact inflate depth 0.5; up epsilon 0.006 -> 0.506
+    const north = first('px_north_0_0');
+    expect(north.to[2] - north.from[2]).toBeCloseTo(0.5, 10);
+    const up = first('px_up_0_0');
+    expect(up.to[1] - up.from[1]).toBeCloseTo(0.506, 10);
+    expect(up.from[1]).toBeCloseTo(32.001, 10);
+    expect(up.to[1]).toBeCloseTo(32.507, 10);
+    // east slab sits outside the north grid's east edge (4.5): no shared plane
+    const east = first('px_east_0_0');
+    expect(east.from[0]).toBeCloseTo(4.001, 10);
+    expect(east.to[0]).toBeCloseTo(4.5025, 10);
+  });
+
+  it('maps all six faces of a voxel to the same source pixel', () => {
+    const textures = new Map([['texA', opaqueTexture()]]);
+    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
+    const firstOfFace = (face: string) =>
+      plans[0].voxels.find(v => v.name === `px_${face}_0_0`)!.pixelUV;
+    const rects = ['north', 'east', 'south', 'west', 'up', 'down'].map(firstOfFace);
+    for (const rect of rects) {
+      expect(rect).toEqual([40, 8, 41, 9]);
     }
-  });
-
-  it('chooses the box UV offset so the shell face samples its own pixel', () => {
-    const textures = new Map([['texA', opaqueTexture()]]);
-    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
-    // hat faces all sample the region at (40, 8); first cell of each face:
-    const byName = (name: string) => plans[0].voxels.find(v => v.name === name)!.uvOffset;
-    expect(byName('px_north_0_0')).toEqual([39, 7]); // north rect at offset+(1,1)
-    expect(byName('px_south_0_0')).toEqual([37, 7]); // south rect at offset+(3,1)
-    expect(byName('px_east_0_0')).toEqual([40, 7]); // east rect at offset+(0,1)
-    expect(byName('px_west_0_0')).toEqual([38, 7]); // west rect at offset+(2,1)
-    expect(byName('px_up_0_0')).toEqual([39, 8]); // up rect at offset+(1,0)
-    expect(byName('px_down_7_7')).toEqual([45, 15]); // down rect at offset+(2,0) for its pixel (47,15)
   });
 
   it('copies the source transform onto every voxel', () => {
@@ -163,6 +168,43 @@ describe('buildVoxelPlans', () => {
     expect(plans[0].voxels.every(v => v.textureKey === 'texB')).toBe(true);
   });
 
+  it('never produces coplanar overlapping faces inside one layer', () => {
+    const textures = new Map([['texA', opaqueTexture()]]);
+    const { plans } = buildVoxelPlans([hatLayer()], textures, opts());
+    const buckets = new Map<string, { dir: string; u0: number; u1: number; v0: number; v1: number; name: string }[]>();
+    const r6 = (n: number) => Math.round(n * 1e4) / 1e4;
+    for (const voxel of plans[0].voxels) {
+      for (const face of ['north', 'east', 'south', 'west', 'up', 'down'] as const) {
+        let key: string, u0: number, u1: number, v0: number, v1: number;
+        if (face === 'north') { key = `z:${r6(voxel.from[2])}:-`; u0 = voxel.from[0]; u1 = voxel.to[0]; v0 = voxel.from[1]; v1 = voxel.to[1]; }
+        else if (face === 'south') { key = `z:${r6(voxel.to[2])}:+`; u0 = voxel.from[0]; u1 = voxel.to[0]; v0 = voxel.from[1]; v1 = voxel.to[1]; }
+        else if (face === 'west') { key = `x:${r6(voxel.from[0])}:-`; u0 = voxel.from[2]; u1 = voxel.to[2]; v0 = voxel.from[1]; v1 = voxel.to[1]; }
+        else if (face === 'east') { key = `x:${r6(voxel.to[0])}:+`; u0 = voxel.from[2]; u1 = voxel.to[2]; v0 = voxel.from[1]; v1 = voxel.to[1]; }
+        else if (face === 'down') { key = `y:${r6(voxel.from[1])}:-`; u0 = voxel.from[0]; u1 = voxel.to[0]; v0 = voxel.from[2]; v1 = voxel.to[2]; }
+        else { key = `y:${r6(voxel.to[1])}:+`; u0 = voxel.from[0]; u1 = voxel.to[0]; v0 = voxel.from[2]; v1 = voxel.to[2]; }
+        const bucket = buckets.get(key);
+        const entry = { dir: face, u0, u1, v0, v1, name: voxel.name };
+        if (bucket) bucket.push(entry); else buckets.set(key, [entry]);
+      }
+    }
+    let overlaps = 0;
+    const samples: string[] = [];
+    for (const faces of buckets.values()) {
+      for (let i = 0; i < faces.length; i++) {
+        for (let j = i + 1; j < faces.length; j++) {
+          const a = faces[i], b = faces[j];
+          const du = Math.min(a.u1, b.u1) - Math.max(a.u0, b.u0);
+          const dv = Math.min(a.v1, b.v1) - Math.max(a.v0, b.v0);
+          if (du > 1e-6 && dv > 1e-6) {
+            overlaps++;
+            if (samples.length < 4) samples.push(`${a.name} x ${b.name}`);
+          }
+        }
+      }
+    }
+    expect(overlaps, samples.join(', ')).toBe(0);
+  });
+
   it('lets different parts keep their shared planes (accepted overlap)', () => {
     // the reference legs interpenetrate in the default pose; the user accepts
     // that cross-part ghosting (posing separates the parts again), so the
@@ -188,6 +230,6 @@ describe('buildVoxelPlans', () => {
     const rightNorthZ = plans[0].voxels.find(v => v.name === 'px_north_0_0')!.from[2];
     const leftNorthZ = plans[1].voxels.find(v => v.name === 'px_north_0_0')!.from[2];
     expect(rightNorthZ).toBe(leftNorthZ);
-    expect(rightNorthZ).toBeCloseTo(-2 - VOXEL_STANDOFF - 1, 10);
+    expect(rightNorthZ).toBeCloseTo(-2 - VOXEL_STANDOFF - 0.25, 10);
   });
 });

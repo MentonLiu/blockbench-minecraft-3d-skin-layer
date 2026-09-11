@@ -57,54 +57,57 @@ describe('reference model conversion', () => {
     }
   });
 
-  it('gives every voxel an integer box UV offset on a 64px skin', () => {
+  it('maps every voxel face to exactly one source pixel (six faces same pixel)', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
+    const { sx, sy } = { sx: model.texture.width / model.texture.uvWidth, sy: model.texture.height / model.texture.uvHeight };
     for (const plan of plans) {
       for (const voxel of plan.voxels) {
-        expect(Number.isInteger(voxel.uvOffset[0]), `${plan.sourceName}/${voxel.name}`).toBe(true);
-        expect(Number.isInteger(voxel.uvOffset[1]), `${plan.sourceName}/${voxel.name}`).toBe(true);
-        expect(voxel.uvOffset[0]).toBeGreaterThanOrEqual(-3);
-        expect(voxel.uvOffset[1]).toBeGreaterThanOrEqual(-3);
-        expect(voxel.uvOffset[0]).toBeLessThanOrEqual(63);
-        expect(voxel.uvOffset[1]).toBeLessThanOrEqual(63);
+        const [u1, v1, u2, v2] = voxel.pixelUV;
+        expect(u2 - u1).toBeCloseTo(1 / sx, 10);
+        expect(v2 - v1).toBeCloseTo(1 / sy, 10);
+        expect(u1).toBeGreaterThanOrEqual(0);
+        expect(u2).toBeLessThanOrEqual(model.texture.uvWidth);
+        expect(v1).toBeGreaterThanOrEqual(0);
+        expect(v2).toBeLessThanOrEqual(model.texture.uvHeight);
       }
     }
   });
 
-  it('sits hat voxels exactly one texel proud of the raw box', () => {
+  it('sits hat voxels inside the original inflate shell (preserve depth)', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
     const hat = plans.find(plan => plan.sourceName === 'Hat Layer');
     expect(hat).toBeDefined();
     const north = hat!.voxels.find(v => v.name === 'px_north_0_0')!;
-    expect(north.from[2]).toBeCloseTo(-5.001, 10);
+    expect(north.from[2]).toBeCloseTo(-4.501, 10);
     expect(north.to[2]).toBeCloseTo(-4.001, 10);
     const up = hat!.voxels.find(v => v.name === 'px_up_0_0')!;
     expect(up.from[1]).toBeCloseTo(32.001, 10);
-    expect(up.to[1]).toBeCloseTo(33.001, 10);
+    expect(up.to[1]).toBeCloseTo(32.507, 10);
   });
 
-  it('lifts every layer by the same uniform standoff', () => {
+  it('keeps body and legs on their shared waist plane (accepted cross-part)', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
     const planeOf = (name: string) =>
       plans.find(plan => plan.sourceName === name)!.voxels.find(v => v.name === 'px_north_0_0')!.from[2];
     // body and both legs share the waist plane on purpose (cross-part overlap
-    // is accepted; posing separates them); the hat sits one texel higher
-    expect(planeOf('Body Layer')).toBeCloseTo(-3.001, 10);
-    expect(planeOf('Right Leg Layer')).toBeCloseTo(-3.001, 10);
-    expect(planeOf('Left Leg Layer')).toBeCloseTo(-3.001, 10);
-    expect(planeOf('Hat Layer')).toBeCloseTo(-5.001, 10);
+    // is accepted; posing separates them); the hat sits far higher
+    expect(planeOf('Body Layer')).toBeCloseTo(-2.251, 10);
+    expect(planeOf('Right Leg Layer')).toBeCloseTo(-2.251, 10);
+    expect(planeOf('Left Leg Layer')).toBeCloseTo(-2.251, 10);
+    expect(planeOf('Hat Layer')).toBeCloseTo(-4.501, 10);
   });
 
   it('handles the inset leg geometry', () => {
     const { plans } = buildVoxelPlans(model.snapshots, model.textures, DEFAULT_OPTIONS);
     const leg = plans.find(plan => plan.sourceName === 'Right Leg Layer');
     const voxel = leg!.voxels.find(v => v.name === 'px_north_0_0');
-    // raw grid [-0.1, 3.9] -> 4 texel columns; first cell at the +X edge
-    expect(voxel?.from[0]).toBeCloseTo(2.9, 10);
-    expect(voxel?.to[0]).toBeCloseTo(3.9, 10);
-    // north voxels lift off the raw front plane by the uniform standoff
-    expect(voxel?.from[2]).toBeCloseTo(-3.001, 10);
+    // inflated x span [-0.35, 4.15] -> 4 texel columns of 1.125; first cell at the +X edge
+    expect(voxel?.from[0]).toBeCloseTo(3.025, 10);
+    expect(voxel?.to[0]).toBeCloseTo(4.15, 10);
+    // north voxels fill the inflate gap in z (standoff 0.001 + depth 0.25)
+    expect(voxel?.from[2]).toBeCloseTo(-2.251, 10);
     expect(voxel?.to[2]).toBeCloseTo(-2.001, 10);
+    expect(voxel?.pixelUV).toEqual([4, 36, 5, 37]);
   });
 
   it('inherits the hidden visibility of the source layer cubes', () => {

@@ -83,44 +83,43 @@ renders it. `faceGridSize` warns when a rect leaves the texture bounds
 
 ## Voxel geometry
 
-The cell grid tiles the **raw box face** (the inflated ring of the original
-layer is intentionally not covered). Each visible texel becomes a full
-unit-texel cube protruding one texel outward along the face normal, lifted by
-a tiny uniform standoff (0.001):
+Voxels fill the layer's own shell: their grid tiles the **inflated box** (the
+surface the original layer renders on) and their thickness equals `inflate`,
+so the outer surface reproduces the original layer contour. A uniform
+standoff (0.001) lifts the slab off the raw box surface:
 
 ```
-north: z = [from.z - standoff - depth, from.z - standoff]
-south: z = [to.z + standoff, to.z + standoff + depth]      (depth = 1 texel)
+north: z = [from.z - standoff - depth, from.z - standoff]      depth = inflate + eps
+south: z = [to.z + standoff, to.z + standoff + depth]
 east:  x = [to.x + standoff, to.x + standoff + depth]
 west:  x = [from.x - standoff - depth, from.x - standoff]
 up:    y = [to.y + standoff, to.y + standoff + depth]
 down:  y = [from.y - standoff - depth, from.y - standoff]
 ```
 
-Because each direction tiles its own raw face, slabs of different directions
-never intersect -> no coplanar duplicate faces -> no z-fighting within a part.
-The standoff keeps voxel inner faces off the base cube's surface. Source cubes
-from different parts may interpenetrate (the reference model's legs overlap by
-0.2 in the default pose); those shared planes are kept - cross-part ghosting
-is accepted and disappears when the model is posed.
+### The per-direction epsilon (anti z-fighting)
+
+Adjacent face grids share the inflated shell, so without countermeasures the
+corner voxels of neighbouring directions produce coplanar duplicate faces
+(severe shimmering). The planner gives every direction a tiny epsilon
+(north 0, east 0.0015, south 0.003, west 0.0045, up 0.006, down 0.0075):
+
+- the face grid box is **translated** by the epsilon (cells keep their exact
+  texel size, but every grid line shifts), and
+- the thickness gains the same epsilon.
+
+Result: grid lines and shell planes of different directions sit 0.0015 apart
+at the closest - the depth buffer never sees two coplanar faces inside a
+part. The offsets are far below visual perception (max 0.009). Source cubes
+from different parts may interpenetrate (the reference model's legs overlap
+by 0.2 in the default pose); those shared planes are kept - cross-part
+ghosting is accepted and disappears when the model is posed.
 
 ## Voxel UVs
 
-Voxels use **box UV** (`box_uv: true`), like the source model. The `uv_offset`
-of each voxel is derived from its source pixel so that the shell face samples
-exactly that pixel. With the cube extents (w, h, d) in UV units and the
-pixel's top-left corner (px, py) in UV units:
-
-```
-north: uv_offset = (px - d, py - d)
-south: uv_offset = (px - 2d - w, py - d)
-west:  uv_offset = (px - d - w, py - d)
-east:  uv_offset = (px, py - d)
-up:    uv_offset = (px - d, py)
-down:  uv_offset = (px - d - w, py)
-```
-
-The five non-shell faces sample the neighboring pixels of the box unwrap -
-box UV cannot map six faces to one pixel. All six faces stay enabled.
-Every voxel copies source `origin` and `rotation` (rotation lives on the
-voxels, never on the new Group) and uses `autouv: 0`.
+Every voxel uses **per-face UV with all six faces mapped to the same source
+texel**: each face carries the rectangle
+`[imageX/sx, imageY/sy, (imageX+1)/sx, (imageY+1)/sy]` and the source face's
+texture. The cube is created with `box_uv: false` and `autouv: 0`. Every
+voxel copies source `origin` and `rotation` (rotation lives on the voxels,
+never on the new Group).
