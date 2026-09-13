@@ -14,12 +14,21 @@ describe('layer name matching', () => {
     expect(isLayerCubeName('HAT LAYER')).toBe(true);
   });
 
+  it('matches digit-suffixed segment layers (jointed templates)', () => {
+    expect(isLayerCubeName('Body Layer1')).toBe(true);
+    expect(isLayerCubeName('Right Arm Layer2')).toBe(true);
+    expect(isLayerCubeName('body layer12')).toBe(true);
+  });
+
   it('rejects non-layer names', () => {
     expect(isLayerCubeName('MyLayer')).toBe(false);
+    expect(isLayerCubeName('MyLayer1')).toBe(false);
     expect(isLayerCubeName('Layer Helper')).toBe(false);
     expect(isLayerCubeName('LayerExtra')).toBe(false);
     expect(isLayerCubeName('Layer')).toBe(false);
     expect(isLayerCubeName('Head')).toBe(false);
+    expect(isLayerCubeName('Hat Layer Group')).toBe(false);
+    expect(isLayerCubeName('Body Layer 1')).toBe(false);
   });
 });
 

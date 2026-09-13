@@ -3,11 +3,14 @@ import type { FaceDirection, GeneratorOptions } from './types';
 export const PLUGIN_ID = 'minecraft_3d_skin_layers';
 
 /**
- * 层名称匹配规则：匹配 "Hat Layer"、"body layer"；
- * 拒绝 "MyLayer"、"Layer Helper"、"LayerExtra"。
- * Matches "Hat Layer", "body layer"; rejects "MyLayer", "Layer Helper", "LayerExtra".
+ * 层名称匹配规则：匹配 "Hat Layer"、"body layer"，以及分段模板的
+ * 数字后缀命名 "Body Layer1"、"Right Arm Layer2"；
+ * 拒绝 "MyLayer1"、"Layer Helper"、"LayerExtra"、"Hat Layer Group"。
+ * Matches "Hat Layer", "body layer", plus the digit-suffixed segment names
+ * used by jointed templates ("Body Layer1", "Right Arm Layer2"); rejects
+ * "MyLayer1", "Layer Helper", "LayerExtra", "Hat Layer Group".
  */
-export const LAYER_NAME_RE = /\sLayer$/i;
+export const LAYER_NAME_RE = /\sLayer\d*$/i;
 
 export const FACE_DIRECTIONS: readonly FaceDirection[] = ['north', 'east', 'south', 'west', 'up', 'down'];
 

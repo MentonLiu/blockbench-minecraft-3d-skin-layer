@@ -13,13 +13,13 @@ function buildReferenceRuntime() {
 
   // 复刻参考模型的大纲：Waist -> Head/Body/Right Arm/Left Arm，双腿在根级
   // mirror the reference outliner: Waist -> Head/Body/Right Arm/Left Arm, legs at root
-  const groupNodes = new Map<string, { uuid: string; name: string }>();
-  const ensureGroup = (json: { uuid: string; name: string }) => {
+  const groupNodes = new Map<string, { uuid: string; name?: string }>();
+  const ensureGroup = (json: { uuid: string; name?: string }) => {
     const existing = runtime.registry.get(json.uuid);
     if (existing) {
       return existing;
     }
-    const node = runtime.createGroup({ name: json.name, origin: [0, 0, 0], visibility: true });
+    const node = runtime.createGroup({ name: json.name ?? 'Group', origin: [0, 0, 0], visibility: true });
     // createGroup 分配的是 mock uuid；这里对齐为模型中的 uuid
     // createGroup assigned a mock uuid; align it with the model uuid
     runtime.registry.delete(node.uuid);

@@ -4,7 +4,7 @@ export interface CubeLike {
   name: string;
 }
 
-/** 名称是否匹配 `* Layer` / Does the name match the `* Layer` pattern? */
+/** 名称是否匹配 `* Layer` / `* Layer1` / Does the name match the `* Layer[digit]` pattern? */
 export function isLayerCubeName(name: string): boolean {
   return LAYER_NAME_RE.test(name);
 }

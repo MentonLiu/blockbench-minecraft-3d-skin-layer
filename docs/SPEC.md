@@ -26,7 +26,7 @@ inside Blockbench. Derived from `plan.md`; the reference model
 ## Detection
 
 ```
-Layer name pattern   /\sLayer$/i        ("Hat Layer" yes, "MyLayer" no, "Layer Helper" no)
+Layer name pattern   /\sLayer\d*$/i     ("Hat Layer", "Body Layer1" yes; "MyLayer1", "Layer Helper" no)
 Scan target          Cube.all only      (idempotency: generated Groups are never re-scanned)
 Selection filter     only when options.processSelectedOnly is true
 ```

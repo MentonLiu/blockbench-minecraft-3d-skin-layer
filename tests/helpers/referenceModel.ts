@@ -1,22 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import type { FaceDirection, LayerSnapshot, PixelSource, UVRect, Vec3 } from '../../src/domain/types';
+import { isLayerCubeName } from '../../src/scan/layerScanner';
 
-export interface ReferenceModel {
+export interface FixtureModel {
   raw: {
     meta: unknown;
-    elements: ReferenceElementJson[];
+    elements: FixtureElementJson[];
     outliner: unknown[];
-    groups: ReferenceGroupJson[];
-    textures: ReferenceTextureJson[];
+    groups: FixtureGroupJson[];
+    textures: FixtureTextureJson[];
   };
-  texture: PixelSource;
+  /** 全部已解码纹理（uuid -> 像素快照）/ All decoded textures (uuid -> pixel source). */
   textures: Map<string, PixelSource>;
-  textureKey: string;
+  textureKeys: string[];
   snapshots: LayerSnapshot[];
 }
 
-interface ReferenceElementJson {
+interface FixtureElementJson {
   name: string;
   type: 'cube';
   uuid: string;
@@ -27,24 +28,26 @@ interface ReferenceElementJson {
   origin?: number[];
   rotation?: number[];
   visibility?: boolean;
+  box_uv?: boolean;
+  uv_offset?: number[];
   faces: Record<string, { uv: number[]; texture: number | string | false | null; rotation?: number }>;
 }
 
-interface ReferenceGroupJson {
-  name: string;
+interface FixtureGroupJson {
+  name?: string;
   uuid: string;
   origin?: number[];
   rotation?: number[];
   visibility?: boolean;
 }
 
-interface ReferenceTextureJson {
+interface FixtureTextureJson {
   name: string;
   uuid: string;
   width: number;
   height: number;
-  uv_width: number;
-  uv_height: number;
+  uv_width?: number;
+  uv_height?: number;
   source: string;
 }
 
@@ -56,33 +59,39 @@ function asVec3(values: number[] | undefined, fill: number): Vec3 {
   ];
 }
 
-/**
- * 加载参考皮肤模型：解析 .bbmodel JSON、解码内嵌纹理，并生成与插件
- * Blockbench 兼容层在运行时构建的相同的层快照。
- * Loads the provided reference skin model: parses the .bbmodel JSON, decodes
- * the embedded texture, and produces the same layer snapshots the plugin's
- * Blockbench compatibility layer would build at runtime.
- */
-export function loadReferenceModel(): ReferenceModel {
-  const raw = JSON.parse(
-    readFileSync(new URL('../fixtures/skin_model.bbmodel', import.meta.url), 'utf8'),
-  ) as ReferenceModel['raw'];
-
-  const textureJson = raw.textures[0];
+function decodeTexture(textureJson: FixtureTextureJson): PixelSource {
   const png = PNG.sync.read(
     Buffer.from(textureJson.source.slice(textureJson.source.indexOf(',') + 1), 'base64'),
   );
-  const texture: PixelSource = {
+  return {
     width: png.width,
     height: png.height,
-    uvWidth: textureJson.uv_width,
-    uvHeight: textureJson.uv_height,
+    uvWidth: textureJson.uv_width ?? png.width,
+    uvHeight: textureJson.uv_height ?? png.height,
     rgba: new Uint8ClampedArray(png.data),
   };
-  const textures = new Map([[textureJson.uuid, texture]]);
+}
+
+/**
+ * 加载任一 bbmodel 夹具：解析 JSON、解码全部内嵌纹理，并生成与插件
+ * Blockbench 兼容层在运行时构建的相同的层快照（含数字后缀层命名）。
+ * Loads any .bbmodel fixture: parses the JSON, decodes every embedded texture,
+ * and produces the same layer snapshots the plugin's Blockbench compatibility
+ * layer would build at runtime (including digit-suffixed layer names).
+ */
+export function loadFixtureModel(filename: string): FixtureModel {
+  const raw = JSON.parse(
+    readFileSync(new URL(`../fixtures/${filename}`, import.meta.url), 'utf8'),
+  ) as FixtureModel['raw'];
+
+  const textures = new Map<string, PixelSource>();
+  for (const textureJson of raw.textures) {
+    textures.set(textureJson.uuid, decodeTexture(textureJson));
+  }
+  const textureKeys = raw.textures.map(textureJson => textureJson.uuid);
 
   const snapshots: LayerSnapshot[] = raw.elements
-    .filter(element => /\sLayer$/i.test(element.name))
+    .filter(element => isLayerCubeName(element.name))
     .map(element => ({
       key: element.uuid,
       name: element.name,
@@ -113,5 +122,24 @@ export function loadReferenceModel(): ReferenceModel {
         }),
     }));
 
-  return { raw, texture, textures, textureKey: textureJson.uuid, snapshots };
+  return { raw, textures, textureKeys, snapshots };
+}
+
+export interface ReferenceModel extends FixtureModel {
+  texture: PixelSource;
+  textureKey: string;
+}
+
+/**
+ * 加载原始参考皮肤模型（64×64 steve64.png）。
+ * Loads the original reference skin model (64x64 steve64.png).
+ */
+export function loadReferenceModel(): ReferenceModel {
+  const model = loadFixtureModel('skin_model.bbmodel');
+  const textureKey = model.textureKeys[0];
+  return {
+    ...model,
+    textureKey,
+    texture: model.textures.get(textureKey)!,
+  };
 }
