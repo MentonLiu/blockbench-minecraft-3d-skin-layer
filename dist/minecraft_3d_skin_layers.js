@@ -2,7 +2,7 @@
 (() => {
   // src/domain/constants.ts
   var PLUGIN_ID = "minecraft_3d_skin_layers";
-  var LAYER_NAME_RE = /\sLayer$/i;
+  var LAYER_NAME_RE = /\sLayer\d*$/i;
   var FACE_DIRECTIONS = ["north", "east", "south", "west", "up", "down"];
   var DEFAULT_OPTIONS = {
     alphaThreshold: 0,
@@ -976,7 +976,7 @@ ${t("m3sl.dialog.warnings_header")}
     author: "bbmodel-skins",
     icon: "view_in_ar",
     description: 'Convert Minecraft skin outer layers ("xxx Layer" cubes) into per-pixel voxel cubes. Every visible texel becomes one cube whose six faces map to that pixel; the layer cube is replaced by a same-named group in one reversible undo step.',
-    version: "0.2.1",
+    version: "0.3.0",
     min_version: "5.0.0",
     variant: "desktop",
     tags: ["Minecraft"],

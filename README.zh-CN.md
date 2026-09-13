@@ -1,14 +1,14 @@
 # Minecraft 3D 皮肤层
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v0.2.1-blue.svg)](../../releases)
+[![Release](https://img.shields.io/badge/release-v0.3.0-blue.svg)](../../releases)
 [![Blockbench](https://img.shields.io/badge/Blockbench-5.0%2B-orange)](https://blockbench.net)
 
 [English](README.md) | 简体中文
 
 一款 Blockbench 插件：将 Minecraft 皮肤外层转换为**逐像素体素方块**——`* Layer` 立方体上的每个可见像素都会生成一个完整的方块，六个面全部映射到该像素。原层立方体被替换为一个同名分组，整个过程可作为一次撤销完整回退。
 
-适用于任何使用标准命名（`Hat Layer`、`Body Layer`、`Right/Left Arm Layer`、`Right/Left Leg Layer`）的 Minecraft 格式或通用模型——现有层立方体的几何与 UV 就是唯一依据，因此 64×64、128×128 以及自定义 UV 布局都能直接工作，无需任何硬编码的皮肤图集。
+适用于任何使用标准命名（`Hat Layer`、`Body Layer`、`Right/Left Arm Layer`、`Right/Left Leg Layer`）的 Minecraft 格式或通用模型，也支持关节模板中带数字后缀的分段层（如 `Body Layer1`、`Right Arm Layer2`）——现有层立方体的几何与 UV 就是唯一依据，因此 64×64、128×128 以及自定义 UV 布局都能直接工作，无需任何硬编码的皮肤图集。
 
 ![Blockbench 中生成的体素层](docs/images/preview.png)
 
@@ -77,7 +77,7 @@ npm run test:watch # vitest 监听模式
 - `docs/UV_MAPPING.md` - UV/几何映射的精确数学（移植自 Blockbench）
 - `docs/TEST_PLAN.md` - 测试矩阵与手工验收步骤
 
-`tests/fixtures/skin_model.bbmodel` 为参考模型：一个 64×64 皮肤，其六个层立方体精确体素化为 **880 个方块**（黄金测试），并已在 Blockbench 5.1.6 真机验证。
+`tests/fixtures/skin_model.bbmodel` 为参考模型：一个 64×64 皮肤，其六个层立方体精确体素化为 **880 个方块**（黄金测试），并已在 Blockbench 5.1.6 真机验证。另有两个夹具覆盖新的关节模板：`skins_model_root.bbmodel`（整体包裹根分组、12 张纹理项目、2 倍像素密度——2828 个方块）与 `skins_model_root_joint.bbmodel`（躯干/四肢上下分段、数字后缀层命名、逐面 UV 层——404 个方块）。
 
 ### 参与贡献
 

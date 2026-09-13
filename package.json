@@ -1,6 +1,6 @@
 {
   "name": "blockbench-minecraft-3d-skin-layer",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Blockbench plugin: convert Minecraft skin outer layers ('xxx Layer' cubes) into per-pixel voxel cubes",
   "license": "MIT",
   "private": true,

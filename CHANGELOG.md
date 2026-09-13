@@ -4,6 +4,28 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.3.0] - 2026-09-13
+
+### Added
+
+- Support for the new jointed segment templates: layer cube names with digit
+  suffixes (`Body Layer1`, `Right Arm Layer2`, ...) are now detected via the
+  extended name pattern `/\sLayer\d*$/i`. Standard names (`Hat Layer`, ...) keep
+  matching; false positives (`MyLayer1`, `Layer Helper`, `Hat Layer Group`)
+  are still rejected.
+- New integration fixtures characterized from the two new template models:
+  `skins_model_root.bbmodel` (whole model wrapped in an extra root group, 12
+  embedded 128x128 textures with a 64x64 UV space, all layer faces sharing one
+  texture - 2828 voxels) and `skins_model_root_joint.bbmodel` (body/arms/legs
+  split into upper + lower pivot segments - 404 voxels across 11 layer cubes).
+- Segment layers with `box_uv: false` (per-face UV), reversed UV rects on the
+  lower leg layers, and deep parent-group nesting are covered by the new
+  golden tests; layer cubes without an `inflate` value voxelize to flat
+  zero-thickness cards (faithful to the original coplanar shell).
+- The fixture loader is now generic (`loadFixtureModel`): any `.bbmodel` with
+  multiple embedded textures and integer texture references can serve as a
+  test model.
+
 ## [0.2.1] - 2026-09-12
 
 ### Fixed

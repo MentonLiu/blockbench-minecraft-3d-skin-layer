@@ -1,7 +1,7 @@
 # Minecraft 3D Skin Layers
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v0.2.1-blue.svg)](../../releases)
+[![Release](https://img.shields.io/badge/release-v0.3.0-blue.svg)](../../releases)
 [![Blockbench](https://img.shields.io/badge/Blockbench-5.0%2B-orange)](https://blockbench.net)
 
 English | [简体中文](README.zh-CN.md)
@@ -13,9 +13,10 @@ same-named group in a single reversible undo step.
 
 Works on any Minecraft-format or generic model that uses the usual
 `Hat Layer`, `Body Layer`, `Right/Left Arm Layer`, `Right/Left Leg Layer`
-naming - the existing layer cube's geometry and UVs are the source of truth,
-so 64x64, 128x128 and custom UV layouts all work without any hard-coded skin
-atlas.
+naming, including digit-suffixed segment layers such as `Body Layer1` or
+`Right Arm Layer2` on jointed templates - the existing layer cube's geometry
+and UVs are the source of truth, so 64x64, 128x128 and custom UV layouts all
+work without any hard-coded skin atlas.
 
 ![Generated voxel layers in Blockbench](docs/images/preview.png)
 
@@ -110,7 +111,11 @@ npm run test:watch # vitest watch mode
 
 The `tests/fixtures/skin_model.bbmodel` fixture is the reference model: a
 64x64 skin whose six layer cubes voxelize into exactly **880 cubes**
-(golden test), verified live in Blockbench 5.1.6.
+(golden test), verified live in Blockbench 5.1.6. Two more fixtures cover the
+jointed segment templates: `skins_model_root.bbmodel` (extra root group,
+12-texture project, 2x texel density - 2828 cubes) and
+`skins_model_root_joint.bbmodel` (upper/lower body segments with digit-suffixed
+layer names and per-face UV layers - 404 cubes).
 
 ### Contributing
 
