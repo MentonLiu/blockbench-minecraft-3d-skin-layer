@@ -1,4 +1,4 @@
-import { PLUGIN_ID } from './domain/constants';
+import { GENERATED_SOURCE_PROPERTY, PLUGIN_ID } from './domain/constants';
 import { VoxelLimitError } from './domain/types';
 import type { GeneratorOptions, GenerationResult, LayerPlan, LayerSnapshot } from './domain/types';
 import { buildVoxelPlans, countPlanVoxels } from './geometry/voxelPlanner';
@@ -6,19 +6,25 @@ import { registerTranslations, t } from './i18n';
 import {
   buildTextureMap,
   collectLayerSnapshots,
+  collectRestoreCandidates,
   hasOpenProject,
+  hasRestorableGroups,
   isEditMode,
   onProjectEvent,
 } from './blockbench/compatibility';
 import type { ProjectListener } from './blockbench/compatibility';
 import { applyPlans } from './blockbench/modelWriter';
 import type { WriterHost } from './blockbench/modelWriter';
+import { applyRestores } from './blockbench/modelRestorer';
 import { blockbenchHost } from './blockbench/blockbenchHost';
 import { loadOptions, persistOptions, showGenerationDialog } from './ui/settingsDialog';
 import {
   reportBusy,
   reportError,
   reportGenerationResult,
+  reportNoRestorableGroups,
+  reportRestoreError,
+  reportRestoreResult,
   reportNoLayers,
   reportVoxelLimit,
   status,
@@ -146,8 +152,42 @@ async function runGenerationGuarded(auto: boolean): Promise<void> {
   }
 }
 
+async function runRestore(): Promise<void> {
+  if (!isEditMode()) {
+    toast(t('m3sl.toast.edit_mode_restore'), 'edit');
+    return;
+  }
+  if (!hasOpenProject()) {
+    toast(t('m3sl.toast.open_project'), 'info');
+    return;
+  }
+  const candidates = collectRestoreCandidates();
+  if (candidates.length === 0) {
+    reportNoRestorableGroups();
+    return;
+  }
+  const result = applyRestores(candidates, blockbenchHost);
+  reportRestoreResult(result);
+}
+
+async function runRestoreGuarded(): Promise<void> {
+  if (running) {
+    reportBusy();
+    return;
+  }
+  running = true;
+  try {
+    await runRestore();
+  } catch (error) {
+    reportRestoreError(error);
+  } finally {
+    running = false;
+  }
+}
+
 let actions: Action[] = [];
 let listeners: { dispose(): void }[] = [];
+let generatedSourceProperty: Property | undefined;
 
 function onProjectLoaded(): ProjectListener {
   return () => {
@@ -157,7 +197,13 @@ function onProjectLoaded(): ProjectListener {
 
 export function registerPlugin(): void {
   registerTranslations();
-  const action = new Action(`${PLUGIN_ID}.generate`, {
+  generatedSourceProperty = new Property(Group, 'object', GENERATED_SOURCE_PROPERTY, {
+    default: null,
+    export: true,
+    copy_value: true,
+  });
+
+  const generateAction = new Action(`${PLUGIN_ID}.generate`, {
     name: t('m3sl.action.name'),
     description: t('m3sl.action.description'),
     icon: 'view_in_ar',
@@ -167,10 +213,21 @@ export function registerPlugin(): void {
       void runGenerationGuarded(false);
     },
   });
-  actions = [action];
+  const restoreAction = new Action(`${PLUGIN_ID}.restore`, {
+    name: t('m3sl.restore_action.name'),
+    description: t('m3sl.restore_action.description'),
+    icon: 'unarchive',
+    category: 'edit',
+    condition: () => isEditMode() && hasOpenProject() && hasRestorableGroups(),
+    click: () => {
+      void runRestoreGuarded();
+    },
+  });
+  actions = [generateAction, restoreAction];
   // Blockbench 不会自动把插件动作插入菜单栏，这里显式挂到编辑菜单
   // plugin actions are not added to menus automatically; place it in Edit
-  MenuBar.addAction(action, 'edit');
+  MenuBar.addAction(generateAction, 'edit');
+  MenuBar.addAction(restoreAction, 'edit');
 
   listeners = [onProjectEvent('load_project', onProjectLoaded())];
 }
@@ -181,8 +238,11 @@ export function unregisterPlugin(): void {
   }
   listeners = [];
   MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
+  MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
   for (const action of actions) {
     action.delete();
   }
   actions = [];
+  generatedSourceProperty?.delete();
+  generatedSourceProperty = undefined;
 }

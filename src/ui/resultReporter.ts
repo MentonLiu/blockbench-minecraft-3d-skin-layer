@@ -1,4 +1,5 @@
 import type { GenerationResult, VoxelLimitError } from '../domain/types';
+import type { RestoreSummary } from '../blockbench/modelRestorer';
 import { t } from '../i18n';
 
 export function toast(text: string, icon = 'view_in_ar'): void {
@@ -11,6 +12,10 @@ export function status(text: string): void {
 
 export function reportNoLayers(): void {
   toast(t('m3sl.toast.no_layers'), 'info');
+}
+
+export function reportNoRestorableGroups(): void {
+  toast(t('m3sl.toast.no_restorable_groups'), 'info');
 }
 
 export function reportBusy(): void {
@@ -37,8 +42,18 @@ export function reportGenerationResult(result: ReportedResult): void {
   }
 }
 
+export function reportRestoreResult(result: RestoreSummary): void {
+  toast(t('m3sl.toast.restored', [result.restoredCubes, result.removedVoxels]), 'unarchive');
+}
+
 export function reportError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[minecraft_3d_skin_layers] generation failed:', error);
   toast(t('m3sl.toast.failed', [message]), 'error');
+}
+
+export function reportRestoreError(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('[minecraft_3d_skin_layers] restore failed:', error);
+  toast(t('m3sl.toast.restore_failed', [message]), 'error');
 }

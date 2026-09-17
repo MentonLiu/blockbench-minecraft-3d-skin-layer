@@ -6,6 +6,8 @@
 export const en = {
   'm3sl.action.name': 'Generate 3D Skin Layers',
   'm3sl.action.description': 'Replace "* Layer" cubes with per-pixel voxel cubes',
+  'm3sl.restore_action.name': 'Restore 3D Skin Layers',
+  'm3sl.restore_action.description': 'Convert generated 3D skin layer groups back to single cubes',
 
   'm3sl.dialog.title': 'Generate 3D Skin Layers',
   'm3sl.dialog.intro':
@@ -24,12 +26,16 @@ export const en = {
   'm3sl.toast.generated': 'Generated %0 cubes in %1 layer group(s) (%2s)',
   'm3sl.toast.warnings': '- %0 warning(s), see console',
   'm3sl.toast.no_layers': 'No "* Layer" cubes found - model left unchanged',
+  'm3sl.toast.no_restorable_groups': 'No generated 3D skin layer groups found - model left unchanged',
   'm3sl.toast.busy': 'A generation run is already in progress',
   'm3sl.toast.limit':
     'Aborted: run needs %0 cubes, maxVoxels is %1. Raise the limit in the settings dialog if you really want this.',
   'm3sl.toast.edit_mode': 'Switch to Edit mode to generate 3D skin layers',
   'm3sl.toast.open_project': 'Open a project first',
   'm3sl.toast.failed': 'Generation failed: %0',
+  'm3sl.toast.restored': 'Restored %0 layer cube(s) and removed %1 voxel cube(s)',
+  'm3sl.toast.restore_failed': 'Restore failed: %0',
+  'm3sl.toast.edit_mode_restore': 'Switch to Edit mode to restore 3D skin layers',
 
   'm3sl.status.detected':
     '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize',
@@ -40,6 +46,8 @@ export type TranslationKey = keyof typeof en;
 export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.action.name': '生成 3D 皮肤层',
   'm3sl.action.description': '将 "* Layer" 立方体替换为逐像素体素方块',
+  'm3sl.restore_action.name': '还原 3D 皮肤层',
+  'm3sl.restore_action.description': '将已生成的 3D 皮肤层组还原为单个立方体',
 
   'm3sl.dialog.title': '生成 3D 皮肤层',
   'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个体素方块，六个面都映射到该像素（厚度与原膨胀层一致）。',
@@ -57,11 +65,15 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.toast.generated': '已生成 %0 个方块（%1 个皮肤层组），耗时 %2 秒',
   'm3sl.toast.warnings': '- %0 条警告，详见控制台',
   'm3sl.toast.no_layers': '未找到 "* Layer" 立方体 —— 模型未做任何修改',
+  'm3sl.toast.no_restorable_groups': '未找到可还原的 3D 皮肤层组 —— 模型未做任何修改',
   'm3sl.toast.busy': '已有一次生成正在进行中',
   'm3sl.toast.limit': '已中止：本次需要 %0 个方块，超出上限 %1。如确有需要，请在设置对话框中调高上限。',
   'm3sl.toast.edit_mode': '请先切换到编辑模式再生成 3D 皮肤层',
   'm3sl.toast.open_project': '请先打开一个项目',
   'm3sl.toast.failed': '生成失败：%0',
+  'm3sl.toast.restored': '已还原 %0 个皮肤层立方体，并移除 %1 个体素方块',
+  'm3sl.toast.restore_failed': '还原失败：%0',
+  'm3sl.toast.edit_mode_restore': '请先切换到编辑模式再还原 3D 皮肤层',
 
   'm3sl.status.detected': '检测到 %0 个皮肤层立方体（%1 个像素）—— 使用"生成 3D 皮肤层"进行体素化',
 };
