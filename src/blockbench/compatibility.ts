@@ -1,5 +1,6 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
 import type {
+  GeneratedLayerMetadata,
   FaceSnapshot,
   LayerSnapshot,
   PixelSource,
@@ -71,6 +72,16 @@ export function snapshotLayerCube(cube: Cube): LayerSnapshot {
     origin: asVec3(cube.origin, 0),
     rotation: asVec3(cube.rotation, 0),
     visibility: cube.visibility !== false,
+    boxUV: cube.box_uv,
+    autouv: cube.autouv,
+    mirrorUV: cube.mirror_uv,
+    shade: cube.shade,
+    color: typeof cube.color === 'number' ? cube.color : undefined,
+    rescale: cube.rescale,
+    rotationAxis: cube.rotation_axis,
+    uvOffset: Array.isArray(cube.uv_offset)
+      ? [cube.uv_offset[0], cube.uv_offset[1]]
+      : undefined,
     faces,
   };
 }

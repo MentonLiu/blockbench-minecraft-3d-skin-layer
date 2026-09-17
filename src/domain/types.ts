@@ -56,6 +56,15 @@ export interface LayerSnapshot {
   origin: Vec3;
   rotation: Vec3;
   visibility: boolean;
+  /** 原 cube 的渲染属性，供还原操作精确重建 / Original cube render properties for exact restoration. */
+  boxUV?: boolean;
+  autouv?: 0 | 1 | 2;
+  mirrorUV?: boolean;
+  shade?: boolean;
+  color?: number;
+  rescale?: boolean;
+  rotationAxis?: 'x' | 'y' | 'z';
+  uvOffset?: [number, number];
   faces: FaceSnapshot[];
 }
 
@@ -94,6 +103,14 @@ export interface LayerPlan {
   voxels: VoxelSpec[];
   visiblePixelCount: number;
   visibility: boolean;
+  /** 用于写入可还原元数据 / Original source data persisted on the generated group. */
+  source: LayerSnapshot;
+}
+
+/** 生成组上保存的原始层数据 / Original layer data persisted on a generated group. */
+export interface GeneratedLayerMetadata {
+  schema: 1;
+  source: LayerSnapshot;
 }
 
 /** 体素数超过 maxVoxels 时抛出的预检错误 / Preflight error when the plan exceeds maxVoxels. */

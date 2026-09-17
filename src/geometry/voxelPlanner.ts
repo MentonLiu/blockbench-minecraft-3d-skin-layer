@@ -142,6 +142,7 @@ export function buildVoxelPlans(
       voxels,
       visiblePixelCount: voxels.length,
       visibility: layer.visibility,
+      source: layer,
     });
   });
 

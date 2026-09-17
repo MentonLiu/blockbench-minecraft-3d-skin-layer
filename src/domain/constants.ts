@@ -2,6 +2,9 @@ import type { FaceDirection, GeneratorOptions } from './types';
 
 export const PLUGIN_ID = 'minecraft_3d_skin_layers';
 
+/** Group property used to make generated layers exactly reversible. */
+export const GENERATED_SOURCE_PROPERTY = 'm3sl_source';
+
 /**
  * 层名称匹配规则：匹配 "Hat Layer"、"body layer"，以及分段模板的
  * 数字后缀命名 "Body Layer1"、"Right Arm Layer2"；
