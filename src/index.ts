@@ -3,7 +3,7 @@ import { registerPlugin, unregisterPlugin } from './plugin';
 
 BBPlugin.register(PLUGIN_ID, {
   title: 'Minecraft 3D Skin Layers',
-  author: 'bbmodel-skins',
+  author: '600_liang',
   icon: 'view_in_ar',
   description:
     'Convert Minecraft skin outer layers ("xxx Layer" cubes) into per-pixel voxel cubes. ' +
