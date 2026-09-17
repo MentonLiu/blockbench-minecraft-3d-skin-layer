@@ -1,5 +1,5 @@
 import { findLayerCubes } from '../../src/scan/layerScanner';
-import type { VoxelSpec } from '../../src/domain/types';
+import type { LayerSnapshot, VoxelSpec } from '../../src/domain/types';
 import type { CommitAspects, UndoAspects, WriterHost } from '../../src/blockbench/modelWriter';
 import type { GroupSpec } from '../../src/blockbench/modelWriter';
 
@@ -14,6 +14,7 @@ export interface MockNode {
   children: MockNode[];
   spec?: VoxelSpec;
   hidden?: boolean;
+  restoreData?: LayerSnapshot;
 }
 
 type SerializedNode = {
@@ -97,6 +98,7 @@ export class MockRuntime implements WriterHost {
       visibility: spec.visibility,
       parent: null,
       children: [],
+      restoreData: spec.restoreData,
     };
     this.registry.set(uuid, node);
     return node;
@@ -120,6 +122,19 @@ export class MockRuntime implements WriterHost {
     };
     this.registry.set(uuid, node);
     return node;
+  }
+
+  createCubeFromSnapshot(snapshot: LayerSnapshot): MockNode {
+    return this.createCube({
+      name: snapshot.name,
+      from: [...snapshot.from],
+      to: [...snapshot.to],
+      origin: [...snapshot.origin],
+      rotation: [...snapshot.rotation],
+      textureKey: snapshot.faces.find(face => face.textureKey)?.textureKey ?? 'tex',
+      pixelUV: snapshot.faces.find(face => face.textureKey)?.uv ?? [0, 0, 1, 1],
+      face: snapshot.faces.find(face => face.textureKey)?.direction ?? 'north',
+    });
   }
 
   initElement(element: unknown): void {

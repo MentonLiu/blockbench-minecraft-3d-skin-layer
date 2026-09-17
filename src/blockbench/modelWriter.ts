@@ -1,11 +1,12 @@
 import { VoxelLimitError } from '../domain/types';
-import type { LayerPlan, VoxelSpec } from '../domain/types';
+import type { LayerPlan, LayerSnapshot, VoxelSpec } from '../domain/types';
 import { countPlanVoxels } from '../geometry/voxelPlanner';
 
 export interface GroupSpec {
   name: string;
   origin: [number, number, number];
   visibility: boolean;
+  restoreData?: LayerSnapshot;
 }
 
 export interface UndoAspects {
@@ -40,6 +41,7 @@ export interface WriterHost {
   cancelUndo(revertChanges: boolean): void;
   createGroup(spec: GroupSpec): unknown;
   createCube(spec: VoxelSpec): unknown;
+  createCubeFromSnapshot(snapshot: LayerSnapshot): unknown;
   /** 向大纲根注册元素 / Registers the element with the outliner root. */
   initElement(element: unknown): void;
   /** 重挂载元素的父级；null 表示大纲根 / Reparents the element; null means root. */
@@ -112,6 +114,7 @@ export async function applyPlans(
         name: plan.sourceName,
         origin: [...plan.origin],
         visibility: plan.visibility,
+        restoreData: plan.source,
       });
       host.initElement(group);
       host.adopt(group, parent);

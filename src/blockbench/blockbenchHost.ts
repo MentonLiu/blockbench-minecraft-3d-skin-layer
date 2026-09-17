@@ -1,5 +1,6 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
-import type { UVRect, VoxelSpec } from '../domain/types';
+import { GENERATED_SOURCE_PROPERTY } from '../domain/constants';
+import type { LayerSnapshot, UVRect, VoxelSpec } from '../domain/types';
 import { resolveTextureByKey } from './compatibility';
 import type { GroupSpec, WriterHost } from './modelWriter';
 import { blockbenchUndo } from './undoTransaction';
@@ -14,6 +15,25 @@ function voxelFaces(spec: VoxelSpec) {
   const faces: Record<string, ReturnType<typeof make>> = {};
   for (const direction of FACE_DIRECTIONS) {
     faces[direction] = make();
+  }
+  return faces;
+}
+
+function snapshotFaces(snapshot: LayerSnapshot) {
+  const faces: Record<string, {
+    texture: string | false;
+    uv: [number, number, number, number];
+    rotation: 0 | 90 | 180 | 270;
+    enabled: boolean;
+  }> = {};
+  for (const face of snapshot.faces) {
+    const texture = resolveTextureByKey(face.textureKey ?? '');
+    faces[face.direction] = {
+      texture: texture ? texture.uuid : false,
+      uv: [...face.uv],
+      rotation: face.rotation,
+      enabled: face.enabled,
+    };
   }
   return faces;
 }
@@ -36,6 +56,11 @@ export const blockbenchHost: WriterHost = {
       origin: [...spec.origin],
       visibility: spec.visibility,
     });
+    if (spec.restoreData) {
+      (group as Group & { [GENERATED_SOURCE_PROPERTY]?: LayerSnapshot })[
+        GENERATED_SOURCE_PROPERTY
+      ] = spec.restoreData;
+    }
     return group;
   },
 
@@ -50,6 +75,33 @@ export const blockbenchHost: WriterHost = {
       autouv: 0,
       faces: voxelFaces(spec),
     });
+    return cube;
+  },
+
+  createCubeFromSnapshot(snapshot: LayerSnapshot) {
+    const cube = new Cube({
+      name: snapshot.name,
+      from: [...snapshot.from],
+      to: [...snapshot.to],
+      origin: [...snapshot.origin],
+      rotation: [...snapshot.rotation],
+      stretch: [...(snapshot.stretch ?? [1, 1, 1])],
+      inflate: snapshot.inflate,
+      visibility: snapshot.visibility,
+      box_uv: snapshot.boxUV ?? false,
+      autouv: snapshot.autouv ?? 0,
+      mirror_uv: snapshot.mirrorUV ?? false,
+      shade: snapshot.shade ?? true,
+      color: snapshot.color,
+      uv_offset: snapshot.uvOffset ? [...snapshot.uvOffset] : undefined,
+      faces: snapshotFaces(snapshot),
+    });
+    if (snapshot.rescale !== undefined) {
+      cube.rescale = snapshot.rescale;
+    }
+    if (snapshot.rotationAxis) {
+      cube.rotation_axis = snapshot.rotationAxis;
+    }
     return cube;
   },
 
