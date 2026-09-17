@@ -2,6 +2,7 @@
 (() => {
   // src/domain/constants.ts
   var PLUGIN_ID = "minecraft_3d_skin_layers";
+  var GENERATED_SOURCE_PROPERTY = "m3sl_source";
   var LAYER_NAME_RE = /\sLayer\d*$/i;
   var FACE_DIRECTIONS = ["north", "east", "south", "west", "up", "down"];
   var DEFAULT_OPTIONS = {
@@ -284,7 +285,8 @@
         origin: [...layer.origin],
         voxels,
         visiblePixelCount: voxels.length,
-        visibility: layer.visibility
+        visibility: layer.visibility,
+        source: layer
       });
     });
     return { plans, warnings };
@@ -294,6 +296,8 @@
   var en = {
     "m3sl.action.name": "Generate 3D Skin Layers",
     "m3sl.action.description": 'Replace "* Layer" cubes with per-pixel voxel cubes',
+    "m3sl.restore_action.name": "Restore 3D Skin Layers",
+    "m3sl.restore_action.description": "Convert generated 3D skin layer groups back to single cubes",
     "m3sl.dialog.title": "Generate 3D Skin Layers",
     "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).",
     "m3sl.dialog.warnings_header": "Warnings:",
@@ -308,16 +312,22 @@
     "m3sl.toast.generated": "Generated %0 cubes in %1 layer group(s) (%2s)",
     "m3sl.toast.warnings": "- %0 warning(s), see console",
     "m3sl.toast.no_layers": 'No "* Layer" cubes found - model left unchanged',
+    "m3sl.toast.no_restorable_groups": "No generated 3D skin layer groups found - model left unchanged",
     "m3sl.toast.busy": "A generation run is already in progress",
     "m3sl.toast.limit": "Aborted: run needs %0 cubes, maxVoxels is %1. Raise the limit in the settings dialog if you really want this.",
     "m3sl.toast.edit_mode": "Switch to Edit mode to generate 3D skin layers",
     "m3sl.toast.open_project": "Open a project first",
     "m3sl.toast.failed": "Generation failed: %0",
+    "m3sl.toast.restored": "Restored %0 layer cube(s) and removed %1 voxel cube(s)",
+    "m3sl.toast.restore_failed": "Restore failed: %0",
+    "m3sl.toast.edit_mode_restore": "Switch to Edit mode to restore 3D skin layers",
     "m3sl.status.detected": '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize'
   };
   var zh = {
     "m3sl.action.name": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.action.description": '\u5C06 "* Layer" \u7ACB\u65B9\u4F53\u66FF\u6362\u4E3A\u9010\u50CF\u7D20\u4F53\u7D20\u65B9\u5757',
+    "m3sl.restore_action.name": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
+    "m3sl.restore_action.description": "\u5C06\u5DF2\u751F\u6210\u7684 3D \u76AE\u80A4\u5C42\u7EC4\u8FD8\u539F\u4E3A\u5355\u4E2A\u7ACB\u65B9\u4F53",
     "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u516D\u4E2A\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\uFF08\u539A\u5EA6\u4E0E\u539F\u81A8\u80C0\u5C42\u4E00\u81F4\uFF09\u3002",
     "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
@@ -332,11 +342,15 @@
     "m3sl.toast.generated": "\u5DF2\u751F\u6210 %0 \u4E2A\u65B9\u5757\uFF08%1 \u4E2A\u76AE\u80A4\u5C42\u7EC4\uFF09\uFF0C\u8017\u65F6 %2 \u79D2",
     "m3sl.toast.warnings": "- %0 \u6761\u8B66\u544A\uFF0C\u8BE6\u89C1\u63A7\u5236\u53F0",
     "m3sl.toast.no_layers": '\u672A\u627E\u5230 "* Layer" \u7ACB\u65B9\u4F53 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539',
+    "m3sl.toast.no_restorable_groups": "\u672A\u627E\u5230\u53EF\u8FD8\u539F\u7684 3D \u76AE\u80A4\u5C42\u7EC4 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539",
     "m3sl.toast.busy": "\u5DF2\u6709\u4E00\u6B21\u751F\u6210\u6B63\u5728\u8FDB\u884C\u4E2D",
     "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u4E0A\u9650 %1\u3002\u5982\u786E\u6709\u9700\u8981\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u5BF9\u8BDD\u6846\u4E2D\u8C03\u9AD8\u4E0A\u9650\u3002",
     "m3sl.toast.edit_mode": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.toast.open_project": "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u9879\u76EE",
     "m3sl.toast.failed": "\u751F\u6210\u5931\u8D25\uFF1A%0",
+    "m3sl.toast.restored": "\u5DF2\u8FD8\u539F %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u79FB\u9664 %1 \u4E2A\u4F53\u7D20\u65B9\u5757",
+    "m3sl.toast.restore_failed": "\u8FD8\u539F\u5931\u8D25\uFF1A%0",
+    "m3sl.toast.edit_mode_restore": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
     "m3sl.status.detected": '\u68C0\u6D4B\u5230 %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08%1 \u4E2A\u50CF\u7D20\uFF09\u2014\u2014 \u4F7F\u7528"\u751F\u6210 3D \u76AE\u80A4\u5C42"\u8FDB\u884C\u4F53\u7D20\u5316'
   };
 
@@ -420,8 +434,272 @@
       origin: asVec3(cube.origin, 0),
       rotation: asVec3(cube.rotation, 0),
       visibility: cube.visibility !== false,
+      boxUV: cube.box_uv,
+      autouv: cube.autouv,
+      mirrorUV: cube.mirror_uv,
+      shade: cube.shade,
+      color: typeof cube.color === "number" ? cube.color : void 0,
+      rescale: cube.rescale,
+      rotationAxis: cube.rotation_axis,
+      uvOffset: Array.isArray(cube.uv_offset) ? [cube.uv_offset[0], cube.uv_offset[1]] : void 0,
       faces
     };
+  }
+  var VOXEL_NAME_RE = /^px_(north|east|south|west|up|down)_(\d+)_(\d+)$/i;
+  function isCubeNode(value) {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+    const node = value;
+    return typeof node.name === "string" && typeof node.uuid === "string" && Array.isArray(node.from) && Array.isArray(node.to) && typeof node.faces === "object" && node.faces !== null;
+  }
+  function isGroupNode(value) {
+    return Boolean(value && typeof value === "object" && Array.isArray(value.children));
+  }
+  function parseVoxelChild(value) {
+    if (!isCubeNode(value)) {
+      return void 0;
+    }
+    const match = VOXEL_NAME_RE.exec(value.name);
+    if (!match) {
+      return void 0;
+    }
+    return {
+      cube: value,
+      direction: match[1].toLowerCase(),
+      col: Number(match[2]),
+      row: Number(match[3])
+    };
+  }
+  function readVec3(value, fallback) {
+    return [
+      typeof value?.[0] === "number" ? value[0] : fallback[0],
+      typeof value?.[1] === "number" ? value[1] : fallback[1],
+      typeof value?.[2] === "number" ? value[2] : fallback[2]
+    ];
+  }
+  function isLayerSnapshot(value) {
+    if (!value || typeof value !== "object") {
+      return false;
+    }
+    const source = value;
+    return typeof source.key === "string" && typeof source.name === "string" && Array.isArray(source.from) && Array.isArray(source.to) && Array.isArray(source.faces);
+  }
+  function metadataSource(group) {
+    const metadata = group[GENERATED_SOURCE_PROPERTY];
+    return metadata?.schema === 1 && isLayerSnapshot(metadata.source) ? metadata.source : void 0;
+  }
+  function parentChildren(group) {
+    const parent = group.parent;
+    if (isGroupNode(parent)) {
+      return parent.children;
+    }
+    return typeof Outliner === "object" && Array.isArray(Outliner.root) ? Outliner.root : [];
+  }
+  function findSiblingCube(group, names, hiddenOnly) {
+    return parentChildren(group).find((node) => {
+      if (!isCubeNode(node) || !names.includes(node.name)) {
+        return false;
+      }
+      return !hiddenOnly || node.visibility === false;
+    });
+  }
+  function baseNamesForLayer(name) {
+    const match = /^(.*)\sLayer(\d*)$/i.exec(name);
+    if (!match) {
+      return [];
+    }
+    const base = match[1];
+    const suffix = match[2];
+    return suffix ? [`${base}${suffix}`, base] : [base];
+  }
+  function faceGridDimensions(direction, from, to) {
+    const size = [Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1]), Math.abs(to[2] - from[2])];
+    switch (direction) {
+      case "north":
+      case "south":
+        return [Math.max(1, Math.round(size[0])), Math.max(1, Math.round(size[1]))];
+      case "east":
+      case "west":
+        return [Math.max(1, Math.round(size[2])), Math.max(1, Math.round(size[1]))];
+      case "up":
+      case "down":
+        return [Math.max(1, Math.round(size[0])), Math.max(1, Math.round(size[2]))];
+    }
+  }
+  function inferFace(direction, entries, sourceFrom, sourceTo) {
+    const samples = entries.map((entry) => {
+      const face = entry.cube.faces[direction];
+      if (!face || face.texture === null || face.texture === false || !Array.isArray(face.uv)) {
+        return void 0;
+      }
+      return {
+        col: entry.col,
+        row: entry.row,
+        centerU: (face.uv[0] + face.uv[2]) / 2,
+        centerV: (face.uv[1] + face.uv[3]) / 2,
+        pixelU: Math.abs(face.uv[2] - face.uv[0]),
+        pixelV: Math.abs(face.uv[3] - face.uv[1]),
+        textureKey: faceTextureKey(face)
+      };
+    }).filter((sample) => sample !== void 0);
+    if (samples.length === 0 || samples[0].textureKey === null) {
+      return void 0;
+    }
+    const [cols, rows] = faceGridDimensions(direction, sourceFrom, sourceTo);
+    const pixelU = samples[0].pixelU || 1;
+    const pixelV = samples[0].pixelV || 1;
+    const first = samples[0];
+    const candidates = [0, 90, 180, 270];
+    let best;
+    for (const rotation of candidates) {
+      const swapped = rotation === 90 || rotation === 270;
+      const spanU = pixelU * (swapped ? rows : cols);
+      const spanV = pixelV * (swapped ? cols : rows);
+      const parameter = (col, row) => {
+        switch (rotation) {
+          case 90:
+            return [(row + 0.5) / rows, 1 - (col + 0.5) / cols];
+          case 180:
+            return [1 - (col + 0.5) / cols, 1 - (row + 0.5) / rows];
+          case 270:
+            return [1 - (row + 0.5) / rows, (col + 0.5) / cols];
+          default:
+            return [(col + 0.5) / cols, (row + 0.5) / rows];
+        }
+      };
+      const [firstU, firstV] = parameter(first.col, first.row);
+      const sourceU0 = first.centerU - firstU * spanU;
+      const sourceV0 = first.centerV - firstV * spanV;
+      const uv = [sourceU0, sourceV0, sourceU0 + spanU, sourceV0 + spanV];
+      let error = 0;
+      for (const sample of samples) {
+        const [u, v] = parameter(sample.col, sample.row);
+        error += Math.abs(sample.centerU - (sourceU0 + u * spanU));
+        error += Math.abs(sample.centerV - (sourceV0 + v * spanV));
+      }
+      if (!best || error < best.error) {
+        best = { rotation, uv, error };
+      }
+    }
+    return {
+      direction,
+      enabled: true,
+      textureKey: first.textureKey,
+      uv: best.uv,
+      rotation: best.rotation
+    };
+  }
+  function inferLegacySource(group, children) {
+    if (children.length === 0) {
+      return void 0;
+    }
+    const baseCube = findSiblingCube(group, baseNamesForLayer(group.name), false);
+    const base = baseCube ? snapshotLayerCube(baseCube) : void 0;
+    const firstRotation = readVec3(children[0].cube.rotation, base?.rotation ?? [0, 0, 0]);
+    const inflateSamples = children.map((child) => {
+      const axis = child.direction === "north" || child.direction === "south" ? 2 : child.direction === "east" || child.direction === "west" ? 0 : 1;
+      const thickness = Math.abs(child.cube.to[axis] - child.cube.from[axis]);
+      return Math.max(0, thickness - FACE_DIRECTIONS.indexOf(child.direction) * FACE_EPSILON_STEP);
+    });
+    const inflate = inflateSamples.reduce((sum, value) => sum + value, 0) / inflateSamples.length;
+    const sourceFrom = base?.from ? [...base.from] : [Infinity, Infinity, Infinity];
+    const sourceTo = base?.to ? [...base.to] : [-Infinity, -Infinity, -Infinity];
+    if (!base) {
+      for (const child of children) {
+        for (let axis = 0; axis < 3; axis++) {
+          sourceFrom[axis] = Math.min(sourceFrom[axis], child.cube.from[axis]);
+          sourceTo[axis] = Math.max(sourceTo[axis], child.cube.to[axis]);
+        }
+      }
+      for (let axis = 0; axis < 3; axis++) {
+        sourceFrom[axis] += inflate;
+        sourceTo[axis] -= inflate;
+      }
+      for (const child of children) {
+        switch (child.direction) {
+          case "north":
+            sourceFrom[2] = Math.min(sourceFrom[2], child.cube.to[2] + VOXEL_STANDOFF);
+            break;
+          case "south":
+            sourceTo[2] = Math.max(sourceTo[2], child.cube.from[2] - VOXEL_STANDOFF);
+            break;
+          case "east":
+            sourceTo[0] = Math.max(sourceTo[0], child.cube.from[0] - VOXEL_STANDOFF);
+            break;
+          case "west":
+            sourceFrom[0] = Math.min(sourceFrom[0], child.cube.to[0] + VOXEL_STANDOFF);
+            break;
+          case "up":
+            sourceTo[1] = Math.max(sourceTo[1], child.cube.from[1] - VOXEL_STANDOFF);
+            break;
+          case "down":
+            sourceFrom[1] = Math.min(sourceFrom[1], child.cube.to[1] + VOXEL_STANDOFF);
+            break;
+        }
+      }
+    }
+    const faces = FACE_DIRECTIONS.flatMap((direction) => {
+      const entries = children.filter((child) => child.direction === direction);
+      const face = inferFace(direction, entries, sourceFrom, sourceTo);
+      return face ? [face] : [];
+    });
+    if (faces.length === 0) {
+      return void 0;
+    }
+    return {
+      key: group.uuid,
+      name: group.name,
+      from: sourceFrom,
+      to: sourceTo,
+      inflate,
+      stretch: base?.stretch ?? [1, 1, 1],
+      origin: base?.origin ?? readVec3(group.origin, [0, 0, 0]),
+      rotation: base?.rotation ?? firstRotation,
+      visibility: group.visibility !== false,
+      boxUV: base?.boxUV,
+      autouv: base?.autouv,
+      mirrorUV: base?.mirrorUV,
+      shade: base?.shade,
+      color: base?.color,
+      rescale: base?.rescale,
+      rotationAxis: base?.rotationAxis,
+      uvOffset: base?.uvOffset,
+      faces
+    };
+  }
+  function candidateForGroup(group) {
+    const parsedChildren = group.children.map(parseVoxelChild);
+    const children = parsedChildren.filter((child) => child !== void 0);
+    const metadata = metadataSource(group);
+    if (!metadata && (children.length === 0 || children.length !== group.children.length)) {
+      return void 0;
+    }
+    const source = metadata ?? inferLegacySource(group, children);
+    if (!source) {
+      return void 0;
+    }
+    const existingSource = findSiblingCube(group, [group.name], true);
+    return { group, children: children.map((child) => child.cube), source, existingSource };
+  }
+  function hasRestorableGroups() {
+    return typeof Group !== "undefined" && Group.all.some((group) => {
+      const node = group;
+      return LAYER_NAME_RE.test(node.name) && Boolean(candidateForGroup(node));
+    });
+  }
+  function collectRestoreCandidates() {
+    if (typeof Group === "undefined") {
+      return [];
+    }
+    return Group.all.flatMap((group) => {
+      const node = group;
+      if (!LAYER_NAME_RE.test(node.name)) {
+        return [];
+      }
+      const candidate = candidateForGroup(node);
+      return candidate ? [candidate] : [];
+    });
   }
   function collectLayerSnapshots(options) {
     const cubes = findLayerCubes(Cube.all);
@@ -517,7 +795,8 @@
         const group = host.createGroup({
           name: plan.sourceName,
           origin: [...plan.origin],
-          visibility: plan.visibility
+          visibility: plan.visibility,
+          restoreData: { schema: 1, source: plan.source }
         });
         host.initElement(group);
         host.adopt(group, parent);
@@ -547,6 +826,44 @@
       host.updateView(created, groups);
       host.finishUndo("Generate 3D skin layers", { created, groups });
       return { createdCubes: created.length, createdGroups: groups.length, removedSources };
+    } catch (error) {
+      host.cancelUndo(true);
+      throw error;
+    }
+  }
+
+  // src/blockbench/modelRestorer.ts
+  function applyRestores(candidates, host) {
+    if (candidates.length === 0) {
+      return { restoredCubes: 0, restoredGroups: 0, removedVoxels: 0 };
+    }
+    const groups = candidates.map((candidate) => candidate.group);
+    const children = candidates.flatMap((candidate) => [...candidate.children]);
+    host.beginUndo({ sources: children, groups });
+    const restored = [];
+    let removedVoxels = 0;
+    try {
+      for (const candidate of candidates) {
+        const parent = host.parentOf(candidate.group);
+        if (candidate.existingSource !== void 0) {
+          host.setVisibility(candidate.existingSource, candidate.source.visibility);
+        } else {
+          const cube = host.createCubeFromSnapshot(candidate.source);
+          host.initElement(cube);
+          host.adopt(cube, parent);
+          host.placeBefore(cube, candidate.group);
+          restored.push(cube);
+        }
+        removedVoxels += candidate.children.length;
+        host.remove(candidate.group);
+      }
+      host.updateView(restored, []);
+      host.finishUndo("Restore 3D skin layers", { created: restored, groups: [] });
+      return {
+        restoredCubes: candidates.length,
+        restoredGroups: candidates.length,
+        removedVoxels
+      };
     } catch (error) {
       host.cancelUndo(true);
       throw error;
@@ -591,6 +908,19 @@
     }
     return faces;
   }
+  function snapshotFaces(snapshot) {
+    const faces = {};
+    for (const face of snapshot.faces) {
+      const texture = resolveTextureByKey(face.textureKey ?? "");
+      faces[face.direction] = {
+        texture: texture ? texture.uuid : false,
+        uv: [...face.uv],
+        rotation: face.rotation,
+        enabled: face.enabled
+      };
+    }
+    return faces;
+  }
   var blockbenchHost = {
     beginUndo(aspects) {
       blockbenchUndo.begin(aspects);
@@ -607,6 +937,9 @@
         origin: [...spec.origin],
         visibility: spec.visibility
       });
+      if (spec.restoreData) {
+        group[GENERATED_SOURCE_PROPERTY] = spec.restoreData;
+      }
       return group;
     },
     createCube(spec) {
@@ -620,6 +953,32 @@
         autouv: 0,
         faces: voxelFaces(spec)
       });
+      return cube;
+    },
+    createCubeFromSnapshot(snapshot) {
+      const cube = new Cube({
+        name: snapshot.name,
+        from: [...snapshot.from],
+        to: [...snapshot.to],
+        origin: [...snapshot.origin],
+        rotation: [...snapshot.rotation],
+        stretch: [...snapshot.stretch ?? [1, 1, 1]],
+        inflate: snapshot.inflate,
+        visibility: snapshot.visibility,
+        box_uv: snapshot.boxUV ?? false,
+        autouv: snapshot.autouv ?? 0,
+        mirror_uv: snapshot.mirrorUV ?? false,
+        shade: snapshot.shade ?? true,
+        color: snapshot.color,
+        uv_offset: snapshot.uvOffset ? [...snapshot.uvOffset] : void 0,
+        faces: snapshotFaces(snapshot)
+      });
+      if (snapshot.rescale !== void 0) {
+        cube.rescale = snapshot.rescale;
+      }
+      if (snapshot.rotationAxis) {
+        cube.rotation_axis = snapshot.rotationAxis;
+      }
       return cube;
     },
     initElement(element) {
@@ -798,6 +1157,9 @@ ${t("m3sl.dialog.warnings_header")}
   function reportNoLayers() {
     toast(t("m3sl.toast.no_layers"), "info");
   }
+  function reportNoRestorableGroups() {
+    toast(t("m3sl.toast.no_restorable_groups"), "info");
+  }
   function reportBusy() {
     toast(t("m3sl.toast.busy"), "hourglass_empty");
   }
@@ -814,10 +1176,18 @@ ${t("m3sl.dialog.warnings_header")}
       console.warn(`[minecraft_3d_skin_layers] ${warning}`);
     }
   }
+  function reportRestoreResult(result) {
+    toast(t("m3sl.toast.restored", [result.restoredCubes, result.removedVoxels]), "unarchive");
+  }
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[minecraft_3d_skin_layers] generation failed:", error);
     toast(t("m3sl.toast.failed", [message]), "error");
+  }
+  function reportRestoreError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[minecraft_3d_skin_layers] restore failed:", error);
+    toast(t("m3sl.toast.restore_failed", [message]), "error");
   }
 
   // src/infra/logger.ts
@@ -935,8 +1305,40 @@ ${t("m3sl.dialog.warnings_header")}
       running = false;
     }
   }
+  async function runRestore() {
+    if (!isEditMode()) {
+      toast(t("m3sl.toast.edit_mode_restore"), "edit");
+      return;
+    }
+    if (!hasOpenProject()) {
+      toast(t("m3sl.toast.open_project"), "info");
+      return;
+    }
+    const candidates = collectRestoreCandidates();
+    if (candidates.length === 0) {
+      reportNoRestorableGroups();
+      return;
+    }
+    const result = applyRestores(candidates, blockbenchHost);
+    reportRestoreResult(result);
+  }
+  async function runRestoreGuarded() {
+    if (running) {
+      reportBusy();
+      return;
+    }
+    running = true;
+    try {
+      await runRestore();
+    } catch (error) {
+      reportRestoreError(error);
+    } finally {
+      running = false;
+    }
+  }
   var actions = [];
   var listeners = [];
+  var generatedSourceProperty;
   function onProjectLoaded() {
     return () => {
       void runGenerationGuarded(true);
@@ -944,7 +1346,12 @@ ${t("m3sl.dialog.warnings_header")}
   }
   function registerPlugin() {
     registerTranslations();
-    const action = new Action(`${PLUGIN_ID}.generate`, {
+    generatedSourceProperty = new Property(Group, "object", GENERATED_SOURCE_PROPERTY, {
+      default: null,
+      export: true,
+      copy_value: true
+    });
+    const generateAction = new Action(`${PLUGIN_ID}.generate`, {
       name: t("m3sl.action.name"),
       description: t("m3sl.action.description"),
       icon: "view_in_ar",
@@ -954,8 +1361,19 @@ ${t("m3sl.dialog.warnings_header")}
         void runGenerationGuarded(false);
       }
     });
-    actions = [action];
-    MenuBar.addAction(action, "edit");
+    const restoreAction = new Action(`${PLUGIN_ID}.restore`, {
+      name: t("m3sl.restore_action.name"),
+      description: t("m3sl.restore_action.description"),
+      icon: "unarchive",
+      category: "edit",
+      condition: () => isEditMode() && hasOpenProject() && hasRestorableGroups(),
+      click: () => {
+        void runRestoreGuarded();
+      }
+    });
+    actions = [generateAction, restoreAction];
+    MenuBar.addAction(generateAction, "edit");
+    MenuBar.addAction(restoreAction, "edit");
     listeners = [onProjectEvent("load_project", onProjectLoaded())];
   }
   function unregisterPlugin() {
@@ -964,10 +1382,13 @@ ${t("m3sl.dialog.warnings_header")}
     }
     listeners = [];
     MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
+    MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
     for (const action of actions) {
       action.delete();
     }
     actions = [];
+    generatedSourceProperty?.delete();
+    generatedSourceProperty = void 0;
   }
 
   // src/index.ts
@@ -975,8 +1396,8 @@ ${t("m3sl.dialog.warnings_header")}
     title: "Minecraft 3D Skin Layers",
     author: "bbmodel-skins",
     icon: "view_in_ar",
-    description: 'Convert Minecraft skin outer layers ("xxx Layer" cubes) into per-pixel voxel cubes. Every visible texel becomes one cube whose six faces map to that pixel; the layer cube is replaced by a same-named group in one reversible undo step.',
-    version: "0.3.0",
+    description: 'Convert Minecraft skin outer layers ("xxx Layer" cubes) into per-pixel voxel cubes. Every visible texel becomes one cube whose six faces map to that pixel; the layer cube is replaced by a same-named group in one reversible undo step. Generated groups can also be restored to their original single cubes.',
+    version: "0.3.1",
     min_version: "5.0.0",
     variant: "desktop",
     tags: ["Minecraft"],

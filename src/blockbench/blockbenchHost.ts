@@ -1,6 +1,6 @@
 import { FACE_DIRECTIONS } from '../domain/constants';
 import { GENERATED_SOURCE_PROPERTY } from '../domain/constants';
-import type { LayerSnapshot, UVRect, VoxelSpec } from '../domain/types';
+import type { GeneratedLayerMetadata, LayerSnapshot, UVRect, VoxelSpec } from '../domain/types';
 import { resolveTextureByKey } from './compatibility';
 import type { GroupSpec, WriterHost } from './modelWriter';
 import { blockbenchUndo } from './undoTransaction';
@@ -57,7 +57,7 @@ export const blockbenchHost: WriterHost = {
       visibility: spec.visibility,
     });
     if (spec.restoreData) {
-      (group as Group & { [GENERATED_SOURCE_PROPERTY]?: LayerSnapshot })[
+      (group as Group & { [GENERATED_SOURCE_PROPERTY]?: GeneratedLayerMetadata })[
         GENERATED_SOURCE_PROPERTY
       ] = spec.restoreData;
     }

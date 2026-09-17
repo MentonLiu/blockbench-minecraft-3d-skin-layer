@@ -6,7 +6,7 @@ import { applyRestores } from '../../src/blockbench/modelRestorer';
 import { MockRuntime } from '../helpers/mockRuntime';
 import { loadReferenceModel } from '../helpers/referenceModel';
 
-function buildGeneratedRuntime(preserveOriginal = false) {
+function buildGeneratedRuntime() {
   const model = loadReferenceModel();
   const runtime = new MockRuntime();
   const source = model.snapshots.find(snapshot => snapshot.name === 'Hat Layer')!;
@@ -29,15 +29,15 @@ function buildGeneratedRuntime(preserveOriginal = false) {
 
 describe('applyRestores', () => {
   it('restores a metadata-backed group to the original cube in one undo step', async () => {
-    const { runtime, source, sourceNode, plans } = buildGeneratedRuntime();
+    const { runtime, source, plans } = buildGeneratedRuntime();
     await applyPlans(plans, { ...DEFAULT_OPTIONS }, runtime, key => runtime.registry.get(key));
     const group = runtime.find('Hat Layer')!;
     expect(group.kind).toBe('group');
-    expect(group.restoreData?.from).toEqual(source.from);
+    expect(group.restoreData?.source.from).toEqual(source.from);
 
     const generated = runtime.snapshot();
     const result = applyRestores(
-      [{ group, children: group.children, source: group.restoreData! }],
+      [{ group, children: group.children, source: group.restoreData!.source }],
       runtime,
     );
 
@@ -56,7 +56,7 @@ describe('applyRestores', () => {
   });
 
   it('reveals the preserved original cube instead of duplicating it', async () => {
-    const { runtime, source, sourceNode, plans } = buildGeneratedRuntime(true);
+    const { runtime, source, sourceNode, plans } = buildGeneratedRuntime();
     await applyPlans(
       plans,
       { ...DEFAULT_OPTIONS, preserveOriginal: true },

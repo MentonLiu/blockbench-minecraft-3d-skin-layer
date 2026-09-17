@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.3.1] - 2026-09-17
+
+### Added
+
+- Added **Restore 3D Skin Layers**, an Edit-menu action that converts generated
+  voxel groups back into their original single layer cubes.
+- Generated groups persist the complete source cube snapshot, including
+  geometry, transforms, visibility, render settings, textures, UVs and face
+  rotations, making the conversion reversible across saved projects.
+- Added one atomic undo transaction for restoration, support for preserved
+  hidden source cubes, and compatibility reconstruction for legacy generated
+  groups from before 0.3.1.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added

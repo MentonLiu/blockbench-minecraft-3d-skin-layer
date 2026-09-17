@@ -1,5 +1,5 @@
 import { findLayerCubes } from '../../src/scan/layerScanner';
-import type { LayerSnapshot, VoxelSpec } from '../../src/domain/types';
+import type { GeneratedLayerMetadata, LayerSnapshot, VoxelSpec } from '../../src/domain/types';
 import type { CommitAspects, UndoAspects, WriterHost } from '../../src/blockbench/modelWriter';
 import type { GroupSpec } from '../../src/blockbench/modelWriter';
 
@@ -14,7 +14,7 @@ export interface MockNode {
   children: MockNode[];
   spec?: VoxelSpec;
   hidden?: boolean;
-  restoreData?: LayerSnapshot;
+  restoreData?: GeneratedLayerMetadata;
 }
 
 type SerializedNode = {

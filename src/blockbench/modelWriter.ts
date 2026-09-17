@@ -1,12 +1,12 @@
 import { VoxelLimitError } from '../domain/types';
-import type { LayerPlan, LayerSnapshot, VoxelSpec } from '../domain/types';
+import type { GeneratedLayerMetadata, LayerPlan, LayerSnapshot, VoxelSpec } from '../domain/types';
 import { countPlanVoxels } from '../geometry/voxelPlanner';
 
 export interface GroupSpec {
   name: string;
   origin: [number, number, number];
   visibility: boolean;
-  restoreData?: LayerSnapshot;
+  restoreData?: GeneratedLayerMetadata;
 }
 
 export interface UndoAspects {
@@ -114,7 +114,7 @@ export async function applyPlans(
         name: plan.sourceName,
         origin: [...plan.origin],
         visibility: plan.visibility,
-        restoreData: plan.source,
+        restoreData: { schema: 1, source: plan.source },
       });
       host.initElement(group);
       host.adopt(group, parent);
