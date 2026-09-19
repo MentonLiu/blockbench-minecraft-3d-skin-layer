@@ -65,7 +65,7 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.restore_dialog.title': '还原 3D 皮肤层',
   'm3sl.restore_dialog.intro': '找到 **%0** 个已生成的皮肤层分组（共 **%1** 个体素方块）。还原会重建原始皮肤层立方体，并删除生成的分组。',
 
-  'm3sl.form.use_new_project': '使用新模型项目（复制当前模型并在副本上修改，原模型保持不变）',
+  'm3sl.form.use_new_project': '使用新模型项目',
 
   'm3sl.form.alpha_threshold': 'Alpha 阈值（Alpha 高于该值的像素会生成方块）',
   'm3sl.form.max_voxels': '最大方块数量（超过此数量将中止）',
