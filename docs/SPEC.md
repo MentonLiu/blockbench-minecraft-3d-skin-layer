@@ -147,7 +147,8 @@ current  modify the open project in place (previous behavior)
 copy     duplicate the project into a new tab, then run against the copy
 ```
 
-- Offered in BOTH dialogs (generate + restore preflight); manual runs only -
+- Offered in BOTH dialogs (generate + restore preflight) as a bottom checkbox
+  ("Use a new model project"; checked = copy); manual runs only -
   auto-generate on project load always targets the current project.
 - Copy recipe (same as Blockbench's `duplicate_project` action):
   `Codecs.project.compile({raw: true, bitmaps: true})` -> `setupProject` ->

@@ -19,9 +19,8 @@ export const en = {
   'm3sl.restore_dialog.intro':
     'Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.',
 
-  'm3sl.form.target_model': 'Target model',
-  'm3sl.form.target_model.current': 'Modify the current model',
-  'm3sl.form.target_model.copy': 'Copy to a new model and modify the copy',
+  'm3sl.form.use_new_project':
+    'Use a new model project (copy the current model and modify the copy; the original stays untouched)',
 
   'm3sl.form.alpha_threshold': 'Alpha threshold (texels with alpha above this become cubes)',
   'm3sl.form.max_voxels': 'Maximum cube count (run aborts above this)',
@@ -66,9 +65,7 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.restore_dialog.title': '还原 3D 皮肤层',
   'm3sl.restore_dialog.intro': '找到 **%0** 个已生成的皮肤层分组（共 **%1** 个体素方块）。还原会重建原始皮肤层立方体，并删除生成的分组。',
 
-  'm3sl.form.target_model': '目标模型',
-  'm3sl.form.target_model.current': '修改当前模型',
-  'm3sl.form.target_model.copy': '复制为新模型并在副本上修改',
+  'm3sl.form.use_new_project': '使用新模型项目（复制当前模型并在副本上修改，原模型保持不变）',
 
   'm3sl.form.alpha_threshold': 'Alpha 阈值（Alpha 高于该值的像素会生成方块）',
   'm3sl.form.max_voxels': '最大方块数量（超过此数量将中止）',

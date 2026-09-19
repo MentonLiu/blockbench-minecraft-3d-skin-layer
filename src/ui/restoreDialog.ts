@@ -27,18 +27,20 @@ export function showRestoreDialog(
         type: 'info',
         text: t('m3sl.restore_dialog.intro', [summary.groupCount, summary.voxelCount]),
       },
-      targetModel: {
-        label: t('m3sl.form.target_model'),
-        type: 'select',
-        value: options.targetModel,
-        options: {
-          current: t('m3sl.form.target_model.current'),
-          copy: t('m3sl.form.target_model.copy'),
-        },
+      useNewProject: {
+        label: t('m3sl.form.use_new_project'),
+        type: 'checkbox',
+        value: options.targetModel === 'copy',
       },
     },
     onConfirm(formResult: unknown) {
-      onConfirm(sanitizeOptions({ ...options, ...(formResult as Record<string, unknown>) }));
+      const raw = { ...options, ...(formResult as Record<string, unknown>) };
+      // 底部勾选框：勾选 = 复制为新模型项目并在副本上修改
+      // bottom checkbox: checked = duplicate into a new project and edit the copy
+      raw.targetModel = (formResult as Record<string, unknown>).useNewProject === true
+        ? 'copy'
+        : 'current';
+      onConfirm(sanitizeOptions(raw));
     },
     onClose() {
       onCancel();

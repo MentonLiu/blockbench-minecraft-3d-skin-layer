@@ -305,9 +305,7 @@
     "m3sl.dialog.warnings_more": "... %0 more",
     "m3sl.restore_dialog.title": "Restore 3D Skin Layers",
     "m3sl.restore_dialog.intro": "Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.",
-    "m3sl.form.target_model": "Target model",
-    "m3sl.form.target_model.current": "Modify the current model",
-    "m3sl.form.target_model.copy": "Copy to a new model and modify the copy",
+    "m3sl.form.use_new_project": "Use a new model project (copy the current model and modify the copy; the original stays untouched)",
     "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
     "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
     "m3sl.form.batch_size": "Cubes created per batch",
@@ -341,9 +339,7 @@
     "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
     "m3sl.restore_dialog.title": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
     "m3sl.restore_dialog.intro": "\u627E\u5230 **%0** \u4E2A\u5DF2\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4\uFF08\u5171 **%1** \u4E2A\u4F53\u7D20\u65B9\u5757\uFF09\u3002\u8FD8\u539F\u4F1A\u91CD\u5EFA\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u5220\u9664\u751F\u6210\u7684\u5206\u7EC4\u3002",
-    "m3sl.form.target_model": "\u76EE\u6807\u6A21\u578B",
-    "m3sl.form.target_model.current": "\u4FEE\u6539\u5F53\u524D\u6A21\u578B",
-    "m3sl.form.target_model.copy": "\u590D\u5236\u4E3A\u65B0\u6A21\u578B\u5E76\u5728\u526F\u672C\u4E0A\u4FEE\u6539",
+    "m3sl.form.use_new_project": "\u4F7F\u7528\u65B0\u6A21\u578B\u9879\u76EE\uFF08\u590D\u5236\u5F53\u524D\u6A21\u578B\u5E76\u5728\u526F\u672C\u4E0A\u4FEE\u6539\uFF0C\u539F\u6A21\u578B\u4FDD\u6301\u4E0D\u53D8\uFF09",
     "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
     "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
     "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
@@ -1148,15 +1144,6 @@ ${t("m3sl.dialog.warnings_header")}
           type: "info",
           text: t("m3sl.dialog.intro", [summary.layerCount, summary.voxelCount]) + warningText
         },
-        targetModel: {
-          label: t("m3sl.form.target_model"),
-          type: "select",
-          value: options.targetModel,
-          options: {
-            current: t("m3sl.form.target_model.current"),
-            copy: t("m3sl.form.target_model.copy")
-          }
-        },
         alphaThreshold: {
           label: t("m3sl.form.alpha_threshold"),
           type: "number",
@@ -1203,10 +1190,17 @@ ${t("m3sl.dialog.warnings_header")}
           label: t("m3sl.form.auto_apply"),
           type: "checkbox",
           value: options.autoApplyOnLoad
+        },
+        useNewProject: {
+          label: t("m3sl.form.use_new_project"),
+          type: "checkbox",
+          value: options.targetModel === "copy"
         }
       },
       onConfirm(formResult) {
-        onConfirm(sanitizeOptions({ ...options, ...formResult }));
+        const raw = { ...options, ...formResult };
+        raw.targetModel = formResult.useNewProject === true ? "copy" : "current";
+        onConfirm(sanitizeOptions(raw));
       },
       onClose() {
         onCancel();
@@ -1225,18 +1219,16 @@ ${t("m3sl.dialog.warnings_header")}
           type: "info",
           text: t("m3sl.restore_dialog.intro", [summary.groupCount, summary.voxelCount])
         },
-        targetModel: {
-          label: t("m3sl.form.target_model"),
-          type: "select",
-          value: options.targetModel,
-          options: {
-            current: t("m3sl.form.target_model.current"),
-            copy: t("m3sl.form.target_model.copy")
-          }
+        useNewProject: {
+          label: t("m3sl.form.use_new_project"),
+          type: "checkbox",
+          value: options.targetModel === "copy"
         }
       },
       onConfirm(formResult) {
-        onConfirm(sanitizeOptions({ ...options, ...formResult }));
+        const raw = { ...options, ...formResult };
+        raw.targetModel = formResult.useNewProject === true ? "copy" : "current";
+        onConfirm(sanitizeOptions(raw));
       },
       onClose() {
         onCancel();

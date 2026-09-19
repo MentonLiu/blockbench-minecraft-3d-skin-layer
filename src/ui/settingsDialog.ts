@@ -91,15 +91,6 @@ export function showGenerationDialog(
         type: 'info',
         text: t('m3sl.dialog.intro', [summary.layerCount, summary.voxelCount]) + warningText,
       },
-      targetModel: {
-        label: t('m3sl.form.target_model'),
-        type: 'select',
-        value: options.targetModel,
-        options: {
-          current: t('m3sl.form.target_model.current'),
-          copy: t('m3sl.form.target_model.copy'),
-        },
-      },
       alphaThreshold: {
         label: t('m3sl.form.alpha_threshold'),
         type: 'number',
@@ -147,9 +138,20 @@ export function showGenerationDialog(
         type: 'checkbox',
         value: options.autoApplyOnLoad,
       },
+      useNewProject: {
+        label: t('m3sl.form.use_new_project'),
+        type: 'checkbox',
+        value: options.targetModel === 'copy',
+      },
     },
     onConfirm(formResult: unknown) {
-      onConfirm(sanitizeOptions({ ...options, ...(formResult as Record<string, unknown>) }));
+      const raw = { ...options, ...(formResult as Record<string, unknown>) };
+      // 底部勾选框：勾选 = 复制为新模型项目并在副本上修改
+      // bottom checkbox: checked = duplicate into a new project and edit the copy
+      raw.targetModel = (formResult as Record<string, unknown>).useNewProject === true
+        ? 'copy'
+        : 'current';
+      onConfirm(sanitizeOptions(raw));
     },
     onClose() {
       onCancel();
