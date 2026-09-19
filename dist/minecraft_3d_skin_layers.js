@@ -14,7 +14,8 @@
     autoApplyOnLoad: false,
     processSelectedOnly: false,
     useUVToLocalWhenAvailable: false,
-    targetModel: "current"
+    targetModel: "current",
+    includeTransparent: false
   };
   var VOXEL_STANDOFF = 1e-3;
   var FACE_EPSILON_STEP = 15e-4;
@@ -174,7 +175,7 @@
     ];
     return { imageX, imageY, pixelUV };
   }
-  function enumerateVisibleTexels(face, texture, alphaThreshold) {
+  function enumerateVisibleTexels(face, texture, alphaThreshold, includeTransparent = false) {
     const warnings = [];
     const grid = faceGridSize(face, texture, warnings);
     const cells = [];
@@ -186,7 +187,7 @@
       for (let col = 0; col < grid.cols; col++) {
         const sample = sampleCell(face, face.uv, texture, sx, sy, grid, col, row);
         const alpha = getAlpha(texture, sample.imageX, sample.imageY);
-        if (alpha > alphaThreshold) {
+        if (includeTransparent || alpha > alphaThreshold) {
           cells.push({
             direction: face.direction,
             col,
@@ -239,7 +240,12 @@
           from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
           to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon]
         };
-        const scan = enumerateVisibleTexels(face, texture, options.alphaThreshold);
+        const scan = enumerateVisibleTexels(
+          face,
+          texture,
+          options.alphaThreshold,
+          options.includeTransparent
+        );
         warnings.push(...scan.warnings.map((warning) => `${layer.name}/${warning}`));
         if (scan.cells.length === 0) {
           continue;
@@ -291,91 +297,6 @@
       });
     });
     return { plans, warnings };
-  }
-
-  // src/i18n/strings.ts
-  var en = {
-    "m3sl.action.name": "Generate 3D Skin Layers",
-    "m3sl.action.description": 'Replace "* Layer" cubes with per-pixel voxel cubes',
-    "m3sl.restore_action.name": "Restore 3D Skin Layers",
-    "m3sl.restore_action.description": "Convert generated 3D skin layer groups back to single cubes",
-    "m3sl.dialog.title": "Generate 3D Skin Layers",
-    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).",
-    "m3sl.dialog.warnings_header": "Warnings:",
-    "m3sl.dialog.warnings_more": "... %0 more",
-    "m3sl.restore_dialog.title": "Restore 3D Skin Layers",
-    "m3sl.restore_dialog.intro": "Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.",
-    "m3sl.form.use_new_project": "Use a new model project (copy the current model and modify the copy; the original stays untouched)",
-    "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
-    "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
-    "m3sl.form.batch_size": "Cubes created per batch",
-    "m3sl.form.preserve_original": "Keep original layer cubes (hide instead of delete)",
-    "m3sl.form.replace_empty": "Replace fully transparent layers with empty groups",
-    "m3sl.form.selected_only": "Only process selected layer cubes",
-    "m3sl.form.auto_apply": "Generate automatically when a project loads",
-    "m3sl.toast.generated": "Generated %0 cubes in %1 layer group(s) (%2s)",
-    "m3sl.toast.warnings": "- %0 warning(s), see console",
-    "m3sl.toast.no_layers": 'No "* Layer" cubes found - model left unchanged',
-    "m3sl.toast.no_restorable_groups": "No generated 3D skin layer groups found - model left unchanged",
-    "m3sl.toast.busy": "A generation run is already in progress",
-    "m3sl.toast.limit": "Aborted: run needs %0 cubes, maxVoxels is %1. Raise the limit in the settings dialog if you really want this.",
-    "m3sl.toast.edit_mode": "Switch to Edit mode to generate 3D skin layers",
-    "m3sl.toast.open_project": "Open a project first",
-    "m3sl.toast.failed": "Generation failed: %0",
-    "m3sl.toast.restored": "Restored %0 layer cube(s) and removed %1 voxel cube(s)",
-    "m3sl.toast.restore_failed": "Restore failed: %0",
-    "m3sl.toast.edit_mode_restore": "Switch to Edit mode to restore 3D skin layers",
-    "m3sl.toast.copied_note": "Changes were applied to a copied model; the original is untouched.",
-    "m3sl.status.detected": '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize'
-  };
-  var zh = {
-    "m3sl.action.name": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
-    "m3sl.action.description": '\u5C06 "* Layer" \u7ACB\u65B9\u4F53\u66FF\u6362\u4E3A\u9010\u50CF\u7D20\u4F53\u7D20\u65B9\u5757',
-    "m3sl.restore_action.name": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
-    "m3sl.restore_action.description": "\u5C06\u5DF2\u751F\u6210\u7684 3D \u76AE\u80A4\u5C42\u7EC4\u8FD8\u539F\u4E3A\u5355\u4E2A\u7ACB\u65B9\u4F53",
-    "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
-    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u516D\u4E2A\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\uFF08\u539A\u5EA6\u4E0E\u539F\u81A8\u80C0\u5C42\u4E00\u81F4\uFF09\u3002",
-    "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
-    "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
-    "m3sl.restore_dialog.title": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
-    "m3sl.restore_dialog.intro": "\u627E\u5230 **%0** \u4E2A\u5DF2\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4\uFF08\u5171 **%1** \u4E2A\u4F53\u7D20\u65B9\u5757\uFF09\u3002\u8FD8\u539F\u4F1A\u91CD\u5EFA\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u5220\u9664\u751F\u6210\u7684\u5206\u7EC4\u3002",
-    "m3sl.form.use_new_project": "\u4F7F\u7528\u65B0\u6A21\u578B\u9879\u76EE",
-    "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
-    "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
-    "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
-    "m3sl.form.preserve_original": "\u4FDD\u7559\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08\u9690\u85CF\u800C\u975E\u5220\u9664\uFF09",
-    "m3sl.form.replace_empty": "\u7528\u7A7A\u7EC4\u66FF\u6362\u5B8C\u5168\u900F\u660E\u7684\u76AE\u80A4\u5C42",
-    "m3sl.form.selected_only": "\u4EC5\u5904\u7406\u9009\u4E2D\u7684\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53",
-    "m3sl.form.auto_apply": "\u6253\u5F00\u9879\u76EE\u65F6\u81EA\u52A8\u751F\u6210",
-    "m3sl.toast.generated": "\u5DF2\u751F\u6210 %0 \u4E2A\u65B9\u5757\uFF08%1 \u4E2A\u76AE\u80A4\u5C42\u7EC4\uFF09\uFF0C\u8017\u65F6 %2 \u79D2",
-    "m3sl.toast.warnings": "- %0 \u6761\u8B66\u544A\uFF0C\u8BE6\u89C1\u63A7\u5236\u53F0",
-    "m3sl.toast.no_layers": '\u672A\u627E\u5230 "* Layer" \u7ACB\u65B9\u4F53 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539',
-    "m3sl.toast.no_restorable_groups": "\u672A\u627E\u5230\u53EF\u8FD8\u539F\u7684 3D \u76AE\u80A4\u5C42\u7EC4 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539",
-    "m3sl.toast.busy": "\u5DF2\u6709\u4E00\u6B21\u751F\u6210\u6B63\u5728\u8FDB\u884C\u4E2D",
-    "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u4E0A\u9650 %1\u3002\u5982\u786E\u6709\u9700\u8981\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u5BF9\u8BDD\u6846\u4E2D\u8C03\u9AD8\u4E0A\u9650\u3002",
-    "m3sl.toast.edit_mode": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u751F\u6210 3D \u76AE\u80A4\u5C42",
-    "m3sl.toast.open_project": "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u9879\u76EE",
-    "m3sl.toast.failed": "\u751F\u6210\u5931\u8D25\uFF1A%0",
-    "m3sl.toast.restored": "\u5DF2\u8FD8\u539F %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u79FB\u9664 %1 \u4E2A\u4F53\u7D20\u65B9\u5757",
-    "m3sl.toast.restore_failed": "\u8FD8\u539F\u5931\u8D25\uFF1A%0",
-    "m3sl.toast.edit_mode_restore": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
-    "m3sl.toast.copied_note": "\u4FEE\u6539\u5DF2\u5E94\u7528\u5230\u590D\u5236\u51FA\u7684\u65B0\u6A21\u578B\uFF0C\u539F\u6A21\u578B\u4FDD\u6301\u4E0D\u53D8\u3002",
-    "m3sl.status.detected": '\u68C0\u6D4B\u5230 %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08%1 \u4E2A\u50CF\u7D20\uFF09\u2014\u2014 \u4F7F\u7528"\u751F\u6210 3D \u76AE\u80A4\u5C42"\u8FDB\u884C\u4F53\u7D20\u5316'
-  };
-
-  // src/i18n/index.ts
-  var registered = false;
-  function registerTranslations() {
-    if (registered) {
-      return;
-    }
-    Language.addTranslations("en", en);
-    Language.addTranslations("zh", zh);
-    registered = true;
-  }
-  function t(key, variables) {
-    const fallback = en[key];
-    return tl(key, variables && variables.length ? variables : void 0, fallback);
   }
 
   // src/scan/layerScanner.ts
@@ -841,85 +762,6 @@
     }
   }
 
-  // src/blockbench/modelRestorer.ts
-  function applyRestores(candidates, host) {
-    if (candidates.length === 0) {
-      return { restoredCubes: 0, restoredGroups: 0, removedVoxels: 0 };
-    }
-    const groups = candidates.map((candidate) => candidate.group);
-    const children = candidates.flatMap((candidate) => [...candidate.children]);
-    host.beginUndo({ sources: children, groups });
-    const restored = [];
-    let removedVoxels = 0;
-    try {
-      for (const candidate of candidates) {
-        const parent = host.parentOf(candidate.group);
-        if (candidate.existingSource !== void 0) {
-          host.setVisibility(candidate.existingSource, candidate.source.visibility);
-        } else {
-          const cube = host.createCubeFromSnapshot(candidate.source);
-          host.initElement(cube);
-          host.adopt(cube, parent);
-          host.placeBefore(cube, candidate.group);
-          restored.push(cube);
-        }
-        removedVoxels += candidate.children.length;
-        host.remove(candidate.group);
-      }
-      host.updateView(restored, []);
-      host.finishUndo("Restore 3D skin layers", { created: restored, groups: [] });
-      return {
-        restoredCubes: candidates.length,
-        restoredGroups: candidates.length,
-        removedVoxels
-      };
-    } catch (error) {
-      host.cancelUndo(true);
-      throw error;
-    }
-  }
-
-  // src/blockbench/projectDuplicate.ts
-  var blockbenchDuplicateHost = {
-    activeProjectName() {
-      return Project.name;
-    },
-    compileSnapshot() {
-      return Codecs.project.compile({ raw: true, bitmaps: true });
-    },
-    setupCopyProject() {
-      setupProject(Project.format);
-    },
-    loadSnapshot(model) {
-      const parse = Codecs.project.parse;
-      if (typeof parse !== "function") {
-        throw new Error("Blockbench project codec cannot parse models");
-      }
-      parse.call(Codecs.project, model, "");
-    },
-    setProjectName(name) {
-      Project.name = name;
-    }
-  };
-  var autoScanSuppressed = false;
-  function isAutoScanSuppressed() {
-    return autoScanSuppressed;
-  }
-  function duplicateCurrentProjectAsCopy(host = blockbenchDuplicateHost, suffix = " - Copy") {
-    const originalName = host.activeProjectName();
-    const model = host.compileSnapshot();
-    autoScanSuppressed = true;
-    try {
-      host.setupCopyProject();
-      host.loadSnapshot(model);
-    } finally {
-      autoScanSuppressed = false;
-    }
-    if (originalName) {
-      host.setProjectName(originalName + suffix);
-    }
-  }
-
   // src/blockbench/undoTransaction.ts
   var blockbenchUndo = {
     begin(aspects) {
@@ -1080,6 +922,350 @@
     }
   };
 
+  // src/generate.ts
+  function scanAndPlan(options) {
+    const snapshots = collectLayerSnapshots(options);
+    const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
+    const { plans, warnings: planWarnings } = buildVoxelPlans(snapshots, textures, options);
+    const warnings = [...textureWarnings, ...planWarnings];
+    return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
+  }
+  function resolveCubeByKey(key) {
+    return Cube.all.find((cube) => cube.uuid === key);
+  }
+  async function applyOutcome(outcome, options) {
+    const started = performance.now();
+    const host = blockbenchHost;
+    const summary = await applyPlans(
+      outcome.plans,
+      {
+        maxVoxels: options.maxVoxels,
+        batchSize: options.batchSize,
+        preserveOriginal: options.preserveOriginal
+      },
+      host,
+      (key) => resolveCubeByKey(key)
+    );
+    return {
+      createdCubes: summary.createdCubes,
+      createdGroups: summary.createdGroups,
+      durationMs: performance.now() - started
+    };
+  }
+
+  // src/i18n/strings.ts
+  var en = {
+    "m3sl.action.name": "Generate 3D Skin Layers",
+    "m3sl.action.description": 'Replace "* Layer" cubes with per-pixel voxel cubes',
+    "m3sl.restore_action.name": "Restore 3D Skin Layers",
+    "m3sl.restore_action.description": "Convert generated 3D skin layer groups back to single cubes",
+    "m3sl.format.name": "3D Skin Model",
+    "m3sl.format.description": "Create a Minecraft skin model from a template: pick a template and a 64/128 texture, every pixel (transparent ones included) becomes a cube",
+    "m3sl.menu.name": "3D Skin Model",
+    "m3sl.wizard.title": "New 3D Skin Model",
+    "m3sl.wizard.intro": "Choose a template model and a skin texture size. The template loads the matching texture and every pixel - transparent ones included - becomes a cube. Paint the skin, then use **3D Skin Model > Clear Transparent Cubes** to remove cubes at transparent pixels.",
+    "m3sl.wizard.template": "Template model",
+    "m3sl.wizard.template.classic": "Classic (original layout)",
+    "m3sl.wizard.template.root": "Root-wrapped",
+    "m3sl.wizard.template.joint": "Jointed segments",
+    "m3sl.wizard.size": "Skin texture size",
+    "m3sl.clear_action.name": "Clear Transparent Cubes",
+    "m3sl.clear_action.description": "Remove voxel cubes whose sampled pixel is transparent",
+    "m3sl.dialog.title": "Generate 3D Skin Layers",
+    "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).",
+    "m3sl.dialog.warnings_header": "Warnings:",
+    "m3sl.dialog.warnings_more": "... %0 more",
+    "m3sl.restore_dialog.title": "Restore 3D Skin Layers",
+    "m3sl.restore_dialog.intro": "Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.",
+    "m3sl.form.use_new_project": "Use a new model project (copy the current model and modify the copy; the original stays untouched)",
+    "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
+    "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
+    "m3sl.form.batch_size": "Cubes created per batch",
+    "m3sl.form.preserve_original": "Keep original layer cubes (hide instead of delete)",
+    "m3sl.form.replace_empty": "Replace fully transparent layers with empty groups",
+    "m3sl.form.selected_only": "Only process selected layer cubes",
+    "m3sl.form.auto_apply": "Generate automatically when a project loads",
+    "m3sl.toast.generated": "Generated %0 cubes in %1 layer group(s) (%2s)",
+    "m3sl.toast.warnings": "- %0 warning(s), see console",
+    "m3sl.toast.no_layers": 'No "* Layer" cubes found - model left unchanged',
+    "m3sl.toast.no_restorable_groups": "No generated 3D skin layer groups found - model left unchanged",
+    "m3sl.toast.busy": "A generation run is already in progress",
+    "m3sl.toast.limit": "Aborted: run needs %0 cubes, maxVoxels is %1. Raise the limit in the settings dialog if you really want this.",
+    "m3sl.toast.edit_mode": "Switch to Edit mode to generate 3D skin layers",
+    "m3sl.toast.open_project": "Open a project first",
+    "m3sl.toast.failed": "Generation failed: %0",
+    "m3sl.toast.restored": "Restored %0 layer cube(s) and removed %1 voxel cube(s)",
+    "m3sl.toast.restore_failed": "Restore failed: %0",
+    "m3sl.toast.edit_mode_restore": "Switch to Edit mode to restore 3D skin layers",
+    "m3sl.toast.copied_note": "Changes were applied to a copied model; the original is untouched.",
+    "m3sl.toast.cleared": "Removed %0 transparent voxel cube(s)",
+    "m3sl.toast.no_transparent": "No transparent voxel cubes found",
+    "m3sl.toast.wizard_created": "Created 3D skin model with %0 voxel cube(s) (%1s)",
+    "m3sl.status.detected": '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize'
+  };
+  var zh = {
+    "m3sl.action.name": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
+    "m3sl.action.description": '\u5C06 "* Layer" \u7ACB\u65B9\u4F53\u66FF\u6362\u4E3A\u9010\u50CF\u7D20\u4F53\u7D20\u65B9\u5757',
+    "m3sl.restore_action.name": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
+    "m3sl.restore_action.description": "\u5C06\u5DF2\u751F\u6210\u7684 3D \u76AE\u80A4\u5C42\u7EC4\u8FD8\u539F\u4E3A\u5355\u4E2A\u7ACB\u65B9\u4F53",
+    "m3sl.format.name": "3D \u76AE\u80A4\u6A21\u578B",
+    "m3sl.format.description": "\u4ECE\u6A21\u677F\u521B\u5EFA Minecraft \u76AE\u80A4\u6A21\u578B\uFF1A\u9009\u62E9\u6A21\u677F\u4E0E 64/128 \u7EB9\u7406\uFF0C\u6240\u6709\u50CF\u7D20\uFF08\u5305\u62EC\u900F\u660E\u50CF\u7D20\uFF09\u90FD\u4F1A\u751F\u6210\u65B9\u5757",
+    "m3sl.menu.name": "3D \u76AE\u80A4\u6A21\u578B",
+    "m3sl.wizard.title": "\u65B0\u5EFA 3D \u76AE\u80A4\u6A21\u578B",
+    "m3sl.wizard.intro": "\u9009\u62E9\u6A21\u677F\u6A21\u578B\u4E0E\u76AE\u80A4\u7EB9\u7406\u5C3A\u5BF8\u3002\u6A21\u677F\u4F1A\u52A0\u8F7D\u5BF9\u5E94\u7684\u7EB9\u7406\uFF0C\u6240\u6709\u50CF\u7D20\u2014\u2014\u5305\u62EC\u900F\u660E\u50CF\u7D20\u2014\u2014\u90FD\u4F1A\u751F\u6210\u65B9\u5757\u3002\u7ED8\u5236\u76AE\u80A4\u540E\uFF0C\u4F7F\u7528 **3D \u76AE\u80A4\u6A21\u578B > \u6E05\u9664\u900F\u660E\u65B9\u5757** \u79FB\u9664\u900F\u660E\u50CF\u7D20\u5904\u7684\u65B9\u5757\u3002",
+    "m3sl.wizard.template": "\u6A21\u677F\u6A21\u578B",
+    "m3sl.wizard.template.classic": "\u7ECF\u5178\uFF08\u539F\u59CB\u5E03\u5C40\uFF09",
+    "m3sl.wizard.template.root": "\u6839\u5206\u7EC4",
+    "m3sl.wizard.template.joint": "\u5173\u8282\u5206\u6BB5",
+    "m3sl.wizard.size": "\u76AE\u80A4\u7EB9\u7406\u5C3A\u5BF8",
+    "m3sl.clear_action.name": "\u6E05\u9664\u900F\u660E\u65B9\u5757",
+    "m3sl.clear_action.description": "\u5220\u9664\u91C7\u6837\u50CF\u7D20\u5DF2\u900F\u660E\u7684\u4F53\u7D20\u65B9\u5757",
+    "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
+    "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u516D\u4E2A\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\uFF08\u539A\u5EA6\u4E0E\u539F\u81A8\u80C0\u5C42\u4E00\u81F4\uFF09\u3002",
+    "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
+    "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
+    "m3sl.restore_dialog.title": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
+    "m3sl.restore_dialog.intro": "\u627E\u5230 **%0** \u4E2A\u5DF2\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4\uFF08\u5171 **%1** \u4E2A\u4F53\u7D20\u65B9\u5757\uFF09\u3002\u8FD8\u539F\u4F1A\u91CD\u5EFA\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u5220\u9664\u751F\u6210\u7684\u5206\u7EC4\u3002",
+    "m3sl.form.use_new_project": "\u4F7F\u7528\u65B0\u6A21\u578B\u9879\u76EE",
+    "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
+    "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
+    "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
+    "m3sl.form.preserve_original": "\u4FDD\u7559\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08\u9690\u85CF\u800C\u975E\u5220\u9664\uFF09",
+    "m3sl.form.replace_empty": "\u7528\u7A7A\u7EC4\u66FF\u6362\u5B8C\u5168\u900F\u660E\u7684\u76AE\u80A4\u5C42",
+    "m3sl.form.selected_only": "\u4EC5\u5904\u7406\u9009\u4E2D\u7684\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53",
+    "m3sl.form.auto_apply": "\u6253\u5F00\u9879\u76EE\u65F6\u81EA\u52A8\u751F\u6210",
+    "m3sl.toast.generated": "\u5DF2\u751F\u6210 %0 \u4E2A\u65B9\u5757\uFF08%1 \u4E2A\u76AE\u80A4\u5C42\u7EC4\uFF09\uFF0C\u8017\u65F6 %2 \u79D2",
+    "m3sl.toast.warnings": "- %0 \u6761\u8B66\u544A\uFF0C\u8BE6\u89C1\u63A7\u5236\u53F0",
+    "m3sl.toast.no_layers": '\u672A\u627E\u5230 "* Layer" \u7ACB\u65B9\u4F53 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539',
+    "m3sl.toast.no_restorable_groups": "\u672A\u627E\u5230\u53EF\u8FD8\u539F\u7684 3D \u76AE\u80A4\u5C42\u7EC4 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539",
+    "m3sl.toast.busy": "\u5DF2\u6709\u4E00\u6B21\u751F\u6210\u6B63\u5728\u8FDB\u884C\u4E2D",
+    "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u4E0A\u9650 %1\u3002\u5982\u786E\u6709\u9700\u8981\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u5BF9\u8BDD\u6846\u4E2D\u8C03\u9AD8\u4E0A\u9650\u3002",
+    "m3sl.toast.edit_mode": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u751F\u6210 3D \u76AE\u80A4\u5C42",
+    "m3sl.toast.open_project": "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u9879\u76EE",
+    "m3sl.toast.failed": "\u751F\u6210\u5931\u8D25\uFF1A%0",
+    "m3sl.toast.restored": "\u5DF2\u8FD8\u539F %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u79FB\u9664 %1 \u4E2A\u4F53\u7D20\u65B9\u5757",
+    "m3sl.toast.restore_failed": "\u8FD8\u539F\u5931\u8D25\uFF1A%0",
+    "m3sl.toast.edit_mode_restore": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
+    "m3sl.toast.copied_note": "\u4FEE\u6539\u5DF2\u5E94\u7528\u5230\u590D\u5236\u51FA\u7684\u65B0\u6A21\u578B\uFF0C\u539F\u6A21\u578B\u4FDD\u6301\u4E0D\u53D8\u3002",
+    "m3sl.toast.cleared": "\u5DF2\u6E05\u9664 %0 \u4E2A\u900F\u660E\u4F53\u7D20\u65B9\u5757",
+    "m3sl.toast.no_transparent": "\u6CA1\u6709\u9700\u8981\u6E05\u9664\u7684\u900F\u660E\u4F53\u7D20\u65B9\u5757",
+    "m3sl.toast.wizard_created": "\u5DF2\u521B\u5EFA 3D \u76AE\u80A4\u6A21\u578B\uFF08%0 \u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u8017\u65F6 %1 \u79D2\uFF09",
+    "m3sl.status.detected": '\u68C0\u6D4B\u5230 %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08%1 \u4E2A\u50CF\u7D20\uFF09\u2014\u2014 \u4F7F\u7528"\u751F\u6210 3D \u76AE\u80A4\u5C42"\u8FDB\u884C\u4F53\u7D20\u5316'
+  };
+
+  // src/i18n/index.ts
+  var registered = false;
+  function registerTranslations() {
+    if (registered) {
+      return;
+    }
+    Language.addTranslations("en", en);
+    Language.addTranslations("zh", zh);
+    registered = true;
+  }
+  function t(key, variables) {
+    const fallback = en[key];
+    return tl(key, variables && variables.length ? variables : void 0, fallback);
+  }
+
+  // src/blockbench/modelRestorer.ts
+  function applyRestores(candidates, host) {
+    if (candidates.length === 0) {
+      return { restoredCubes: 0, restoredGroups: 0, removedVoxels: 0 };
+    }
+    const groups = candidates.map((candidate) => candidate.group);
+    const children = candidates.flatMap((candidate) => [...candidate.children]);
+    host.beginUndo({ sources: children, groups });
+    const restored = [];
+    let removedVoxels = 0;
+    try {
+      for (const candidate of candidates) {
+        const parent = host.parentOf(candidate.group);
+        if (candidate.existingSource !== void 0) {
+          host.setVisibility(candidate.existingSource, candidate.source.visibility);
+        } else {
+          const cube = host.createCubeFromSnapshot(candidate.source);
+          host.initElement(cube);
+          host.adopt(cube, parent);
+          host.placeBefore(cube, candidate.group);
+          restored.push(cube);
+        }
+        removedVoxels += candidate.children.length;
+        host.remove(candidate.group);
+      }
+      host.updateView(restored, []);
+      host.finishUndo("Restore 3D skin layers", { created: restored, groups: [] });
+      return {
+        restoredCubes: candidates.length,
+        restoredGroups: candidates.length,
+        removedVoxels
+      };
+    } catch (error) {
+      host.cancelUndo(true);
+      throw error;
+    }
+  }
+
+  // src/blockbench/projectDuplicate.ts
+  var blockbenchDuplicateHost = {
+    activeProjectName() {
+      return Project.name;
+    },
+    compileSnapshot() {
+      return Codecs.project.compile({ raw: true, bitmaps: true });
+    },
+    setupCopyProject() {
+      setupProject(Project.format);
+    },
+    loadSnapshot(model) {
+      const parse = Codecs.project.parse;
+      if (typeof parse !== "function") {
+        throw new Error("Blockbench project codec cannot parse models");
+      }
+      parse.call(Codecs.project, model, "");
+    },
+    setProjectName(name) {
+      Project.name = name;
+    }
+  };
+  var autoScanSuppressed = false;
+  function isAutoScanSuppressed() {
+    return autoScanSuppressed;
+  }
+  function suppressAutoScanDuring(fn) {
+    autoScanSuppressed = true;
+    try {
+      return fn();
+    } finally {
+      autoScanSuppressed = false;
+    }
+  }
+  function duplicateCurrentProjectAsCopy(host = blockbenchDuplicateHost, suffix = " - Copy") {
+    const originalName = host.activeProjectName();
+    const model = host.compileSnapshot();
+    suppressAutoScanDuring(() => {
+      host.setupCopyProject();
+      host.loadSnapshot(model);
+    });
+    if (originalName) {
+      host.setProjectName(originalName + suffix);
+    }
+  }
+
+  // src/blockbench/transparentCleaner.ts
+  function isSingleTexelUV(pixelUV, texture) {
+    const { sx, sy } = textureScales(texture);
+    const width = Math.abs(pixelUV[2] - pixelUV[0]) * sx;
+    const height = Math.abs(pixelUV[3] - pixelUV[1]) * sy;
+    return Math.abs(width - 1) < 0.01 && Math.abs(height - 1) < 0.01;
+  }
+  function planTransparentRemovals(items, textures, alphaThreshold) {
+    const warnings = [];
+    const removable = [];
+    let keptCount = 0;
+    for (const item of items) {
+      const texture = item.textureKey !== null ? textures.get(item.textureKey) : void 0;
+      if (!texture) {
+        warnings.push(`${item.name}: texture not readable, cube kept`);
+        keptCount++;
+        continue;
+      }
+      if (!isSingleTexelUV(item.pixelUV, texture)) {
+        warnings.push(`${item.name}: face UV is not a single texel, cube kept`);
+        keptCount++;
+        continue;
+      }
+      const { sx, sy } = textureScales(texture);
+      const x = Math.round(item.pixelUV[0] * sx);
+      const y = Math.round(item.pixelUV[1] * sy);
+      if (x < 0 || y < 0 || x >= texture.width || y >= texture.height) {
+        warnings.push(`${item.name}: sample (${x}, ${y}) is outside the texture, cube kept`);
+        keptCount++;
+        continue;
+      }
+      const alpha = getAlpha(texture, x, y);
+      if (alpha <= alphaThreshold) {
+        removable.push(item);
+      } else {
+        keptCount++;
+      }
+    }
+    return { removable, keptCount, warnings };
+  }
+  function collectVoxelPixelRefs() {
+    if (typeof Group === "undefined") {
+      return [];
+    }
+    const refs = [];
+    const groups = Group.all.filter((group) => {
+      const metadata = group[GENERATED_SOURCE_PROPERTY];
+      return metadata !== null && metadata !== void 0;
+    });
+    for (const group of groups) {
+      for (const child of group.children) {
+        const cube = child;
+        if (!cube || !cube.faces || cube.type !== "cube") {
+          continue;
+        }
+        const face = cube.faces.north ?? cube.faces.south ?? cube.faces.east ?? cube.faces.west;
+        if (!face || face.texture === null) {
+          continue;
+        }
+        const uv = face.uv;
+        refs.push({
+          cube,
+          name: cube.name,
+          pixelUV: [uv[0], uv[1], uv[2], uv[3]],
+          textureKey: faceTextureKey(face)
+        });
+      }
+    }
+    return refs;
+  }
+  function decodeReferencedTextures(items) {
+    const textures = /* @__PURE__ */ new Map();
+    const warnings = [];
+    for (const item of items) {
+      if (item.textureKey === null || textures.has(item.textureKey)) {
+        continue;
+      }
+      const texture = resolveTextureByKey(item.textureKey);
+      if (!texture) {
+        warnings.push(`texture ${item.textureKey} is not loaded`);
+        continue;
+      }
+      try {
+        textures.set(item.textureKey, textureToPixelSource(texture));
+      } catch (error) {
+        warnings.push(`failed to read texture pixels (${String(error)})`);
+      }
+    }
+    return { textures, warnings };
+  }
+  function clearTransparentCubes(host, alphaThreshold) {
+    const refs = collectVoxelPixelRefs();
+    if (refs.length === 0) {
+      return { removed: 0, warnings: [] };
+    }
+    const { textures, warnings: decodeWarnings } = decodeReferencedTextures(refs);
+    const plan = planTransparentRemovals(refs, textures, alphaThreshold);
+    const warnings = [...decodeWarnings, ...plan.warnings];
+    if (plan.removable.length === 0) {
+      return { removed: 0, warnings };
+    }
+    host.beginUndo({ sources: plan.removable.map((item) => item.cube), groups: [] });
+    try {
+      for (const item of plan.removable) {
+        host.remove(item.cube);
+      }
+      host.finishUndo("Clear transparent cubes", { created: [], groups: [] });
+      return { removed: plan.removable.length, warnings };
+    } catch (error) {
+      host.cancelUndo(true);
+      throw error;
+    }
+  }
+
   // src/ui/settingsDialog.ts
   var STORAGE_KEY = `${PLUGIN_ID}.options`;
   function toNumber(value, fallback, min, max) {
@@ -1109,7 +1295,8 @@
         source.useUVToLocalWhenAvailable,
         DEFAULT_OPTIONS.useUVToLocalWhenAvailable
       ),
-      targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel)
+      targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel),
+      includeTransparent: toBool(source.includeTransparent, DEFAULT_OPTIONS.includeTransparent)
     };
   }
   function loadOptions() {
@@ -1236,6 +1423,18 @@ ${t("m3sl.dialog.warnings_header")}
     }).show();
   }
 
+  // src/assets/embedded.ts
+  var NEW_SKIN_FORMAT_ID = "m3sl_3d_skin";
+  var EMBEDDED_TEMPLATES = {
+    "classic": { "meta": { "format_version": "5.0", "model_format": "m3sl_3d_skin", "box_uv": true }, "name": "skins_model", "model_identifier": "skins_model", "visible_box": [1, 1, 0], "variable_placeholders": "", "multi_file_ruleset": "", "variable_placeholder_buttons": [], "timeline_setups": [], "unhandled_root_fields": {}, "resolution": { "width": 64, "height": 64 }, "elements": [{ "name": "Head", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 24, -4], "to": [4, 32, 4], "autouv": 0, "color": 0, "origin": [0, 0, 0], "faces": { "north": { "uv": [8, 8, 16, 16], "texture": 0 }, "east": { "uv": [0, 8, 8, 16], "texture": 0 }, "south": { "uv": [24, 8, 32, 16], "texture": 0 }, "west": { "uv": [16, 8, 24, 16], "texture": 0 }, "up": { "uv": [16, 8, 8, 0], "texture": 0 }, "down": { "uv": [24, 0, 16, 8], "texture": 0 } }, "type": "cube", "uuid": "dcd7e8b4-f58c-cc99-2da3-b12ec0f84e26" }, { "name": "Hat Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 24, -4], "to": [4, 32, 4], "autouv": 0, "color": 0, "inflate": 0.5, "origin": [0, 0, 0], "uv_offset": [32, 0], "faces": { "north": { "uv": [40, 8, 48, 16], "texture": 0 }, "east": { "uv": [32, 8, 40, 16], "texture": 0 }, "south": { "uv": [56, 8, 64, 16], "texture": 0 }, "west": { "uv": [48, 8, 56, 16], "texture": 0 }, "up": { "uv": [48, 8, 40, 0], "texture": 0 }, "down": { "uv": [56, 0, 48, 8], "texture": 0 } }, "type": "cube", "uuid": "e7eba86e-ea3e-ba2b-83ed-234f05cb4e5a" }, { "name": "Body", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [16, 16], "faces": { "north": { "uv": [20, 20, 28, 32], "texture": 0 }, "east": { "uv": [16, 20, 20, 32], "texture": 0 }, "south": { "uv": [32, 20, 40, 32], "texture": 0 }, "west": { "uv": [28, 20, 32, 32], "texture": 0 }, "up": { "uv": [28, 20, 20, 16], "texture": 0 }, "down": { "uv": [36, 16, 28, 20], "texture": 0 } }, "type": "cube", "uuid": "f8dedc1b-c1fa-41d8-b626-a8277bcc34cb" }, { "name": "Body Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [16, 32], "faces": { "north": { "uv": [20, 36, 28, 48], "texture": 0 }, "east": { "uv": [16, 36, 20, 48], "texture": 0 }, "south": { "uv": [32, 36, 40, 48], "texture": 0 }, "west": { "uv": [28, 36, 32, 48], "texture": 0 }, "up": { "uv": [28, 36, 20, 32], "texture": 0 }, "down": { "uv": [36, 32, 28, 36], "texture": 0 } }, "type": "cube", "uuid": "28198e2f-03f4-2693-6abc-38aa0ea27713" }, { "name": "Right Arm", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 12, -2], "to": [8, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [40, 16], "faces": { "north": { "uv": [44, 20, 48, 32], "texture": 0 }, "east": { "uv": [40, 20, 44, 32], "texture": 0 }, "south": { "uv": [52, 20, 56, 32], "texture": 0 }, "west": { "uv": [48, 20, 52, 32], "texture": 0 }, "up": { "uv": [48, 20, 44, 16], "texture": 0 }, "down": { "uv": [52, 16, 48, 20], "texture": 0 } }, "type": "cube", "uuid": "40941e09-3206-f7a6-276e-71da0d22d66a" }, { "name": "Right Arm Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 12, -2], "to": [8, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [40, 32], "faces": { "north": { "uv": [44, 36, 48, 48], "texture": 0 }, "east": { "uv": [40, 36, 44, 48], "texture": 0 }, "south": { "uv": [52, 36, 56, 48], "texture": 0 }, "west": { "uv": [48, 36, 52, 48], "texture": 0 }, "up": { "uv": [48, 36, 44, 32], "texture": 0 }, "down": { "uv": [52, 32, 48, 36], "texture": 0 } }, "type": "cube", "uuid": "3d4cdef6-a626-a1c6-1d10-019ca9668f23" }, { "name": "Left Arm", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 12, -2], "to": [-4, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [32, 48], "faces": { "north": { "uv": [36, 52, 40, 64], "texture": 0 }, "east": { "uv": [32, 52, 36, 64], "texture": 0 }, "south": { "uv": [44, 52, 48, 64], "texture": 0 }, "west": { "uv": [40, 52, 44, 64], "texture": 0 }, "up": { "uv": [40, 52, 36, 48], "texture": 0 }, "down": { "uv": [44, 48, 40, 52], "texture": 0 } }, "type": "cube", "uuid": "36c7f60a-6539-aba5-b1f3-5b30e1c41296" }, { "name": "Left Arm Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 12, -2], "to": [-4, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [48, 48], "faces": { "north": { "uv": [52, 52, 56, 64], "texture": 0 }, "east": { "uv": [48, 52, 52, 64], "texture": 0 }, "south": { "uv": [60, 52, 64, 64], "texture": 0 }, "west": { "uv": [56, 52, 60, 64], "texture": 0 }, "up": { "uv": [56, 52, 52, 48], "texture": 0 }, "down": { "uv": [60, 48, 56, 52], "texture": 0 } }, "type": "cube", "uuid": "031606c4-21ce-ab2b-3816-04fa634a0aff" }, { "name": "Right Leg", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 0, -2], "to": [3.9, 12, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [0, 16], "faces": { "north": { "uv": [4, 20, 8, 32], "texture": 0 }, "east": { "uv": [0, 20, 4, 32], "texture": 0 }, "south": { "uv": [12, 20, 16, 32], "texture": 0 }, "west": { "uv": [8, 20, 12, 32], "texture": 0 }, "up": { "uv": [8, 20, 4, 16], "texture": 0 }, "down": { "uv": [12, 16, 8, 20], "texture": 0 } }, "type": "cube", "uuid": "1cf9b045-7021-1d51-a272-f449bb18e430" }, { "name": "Right Leg Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 0, -2], "to": [3.9, 12, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 32], "faces": { "north": { "uv": [4, 36, 8, 48], "texture": 0 }, "east": { "uv": [0, 36, 4, 48], "texture": 0 }, "south": { "uv": [12, 36, 16, 48], "texture": 0 }, "west": { "uv": [8, 36, 12, 48], "texture": 0 }, "up": { "uv": [8, 36, 4, 32], "texture": 0 }, "down": { "uv": [12, 32, 8, 36], "texture": 0 } }, "type": "cube", "uuid": "11f097f8-e1ce-844b-0d50-22caf024d66a" }, { "name": "Left Leg", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 0, -2], "to": [0.1, 12, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [16, 48], "faces": { "north": { "uv": [20, 52, 24, 64], "texture": 0 }, "east": { "uv": [16, 52, 20, 64], "texture": 0 }, "south": { "uv": [28, 52, 32, 64], "texture": 0 }, "west": { "uv": [24, 52, 28, 64], "texture": 0 }, "up": { "uv": [24, 52, 20, 48], "texture": 0 }, "down": { "uv": [28, 48, 24, 52], "texture": 0 } }, "type": "cube", "uuid": "6f882190-eb9f-072c-f2ea-1a6ba7097f38" }, { "name": "Left Leg Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 0, -2], "to": [0.1, 12, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 48], "faces": { "north": { "uv": [4, 52, 8, 64], "texture": 0 }, "east": { "uv": [0, 52, 4, 64], "texture": 0 }, "south": { "uv": [12, 52, 16, 64], "texture": 0 }, "west": { "uv": [8, 52, 12, 64], "texture": 0 }, "up": { "uv": [8, 52, 4, 48], "texture": 0 }, "down": { "uv": [12, 48, 8, 52], "texture": 0 } }, "type": "cube", "uuid": "04df0ec5-447d-5897-5394-3e864b89034d" }], "groups": [{ "name": "Waist", "uuid": "be57e35c-0d1f-73d0-a744-2ab50d9e9e7e", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Head", "uuid": "e9bfbcb2-c6aa-e6fb-2100-8206858b9808", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 24, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Body", "uuid": "fb3feba2-4753-2fb8-a4b8-73959be48ec9", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 24, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Arm", "uuid": "34d4c77c-3dab-0399-9415-895c7defb209", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [5, 22, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Arm", "uuid": "89763db0-9f19-9086-7b02-d5a3c6c1d2eb", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-5, 22, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Leg", "uuid": "ce0b7e2e-8994-95b6-191f-fe20e22e804b", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [1.9, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Leg", "uuid": "1b0596d6-5d55-b7a8-11ef-c0e5a6726ee0", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-1.9, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }], "outliner": [{ "uuid": "be57e35c-0d1f-73d0-a744-2ab50d9e9e7e", "isOpen": true, "children": [{ "uuid": "e9bfbcb2-c6aa-e6fb-2100-8206858b9808", "isOpen": true, "children": ["dcd7e8b4-f58c-cc99-2da3-b12ec0f84e26", "e7eba86e-ea3e-ba2b-83ed-234f05cb4e5a"] }, { "uuid": "fb3feba2-4753-2fb8-a4b8-73959be48ec9", "isOpen": true, "children": ["f8dedc1b-c1fa-41d8-b626-a8277bcc34cb", "28198e2f-03f4-2693-6abc-38aa0ea27713"] }, { "uuid": "34d4c77c-3dab-0399-9415-895c7defb209", "isOpen": true, "children": ["40941e09-3206-f7a6-276e-71da0d22d66a", "3d4cdef6-a626-a1c6-1d10-019ca9668f23"] }, { "uuid": "89763db0-9f19-9086-7b02-d5a3c6c1d2eb", "isOpen": true, "children": ["36c7f60a-6539-aba5-b1f3-5b30e1c41296", "031606c4-21ce-ab2b-3816-04fa634a0aff"] }] }, { "uuid": "ce0b7e2e-8994-95b6-191f-fe20e22e804b", "isOpen": true, "children": ["1cf9b045-7021-1d51-a272-f449bb18e430", "11f097f8-e1ce-844b-0d50-22caf024d66a"] }, { "uuid": "1b0596d6-5d55-b7a8-11ef-c0e5a6726ee0", "isOpen": true, "children": ["6f882190-eb9f-072c-f2ea-1a6ba7097f38", "04df0ec5-447d-5897-5394-3e864b89034d"] }], "textures": [{ "name": "steve64.png", "folder": "", "namespace": "", "id": "0", "group": "", "scope": 0, "width": 64, "height": 64, "uv_width": 64, "uv_height": 64, "particle": false, "use_as_default": false, "layers_enabled": false, "sync_to_project": "", "file_format": "png", "render_mode": "default", "render_sides": "auto", "wrap_mode": "limited", "pbr_channel": "color", "fps": 7, "frame_time": 1, "frame_order_type": "loop", "frame_order": "", "frame_interpolate": false, "visible": true, "internal": true, "saved": true, "uuid": "af233fb5-e15d-5eb1-7397-21ddfaab6bb3" }] },
+    "root": { "meta": { "format_version": "5.0", "model_format": "m3sl_3d_skin", "box_uv": true }, "name": "skins_model_root", "model_identifier": "skins_model_root", "visible_box": [1, 1, 0], "variable_placeholders": "", "multi_file_ruleset": "", "variable_placeholder_buttons": [], "timeline_setups": [], "unhandled_root_fields": {}, "resolution": { "width": 64, "height": 64 }, "elements": [{ "name": "Head", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 24, -4], "to": [4, 32, 4], "autouv": 0, "color": 0, "origin": [0, 0, 0], "faces": { "north": { "uv": [8, 8, 16, 16], "texture": 0 }, "east": { "uv": [0, 8, 8, 16], "texture": 0 }, "south": { "uv": [24, 8, 32, 16], "texture": 0 }, "west": { "uv": [16, 8, 24, 16], "texture": 0 }, "up": { "uv": [16, 8, 8, 0], "texture": 0 }, "down": { "uv": [24, 0, 16, 8], "texture": 0 } }, "type": "cube", "uuid": "02509d8d-5e85-a913-eac6-229cc02e6d94" }, { "name": "Hat Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 24, -4], "to": [4, 32, 4], "autouv": 0, "color": 0, "inflate": 0.5, "origin": [0, 0, 0], "uv_offset": [32, 0], "faces": { "north": { "uv": [40, 8, 48, 16], "texture": 0 }, "east": { "uv": [32, 8, 40, 16], "texture": 0 }, "south": { "uv": [56, 8, 64, 16], "texture": 0 }, "west": { "uv": [48, 8, 56, 16], "texture": 0 }, "up": { "uv": [48, 8, 40, 0], "texture": 0 }, "down": { "uv": [56, 0, 48, 8], "texture": 0 } }, "type": "cube", "uuid": "413f5c34-ee39-552c-6d3b-61ac97a27182" }, { "name": "Body", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [16, 16], "faces": { "north": { "uv": [20, 20, 28, 32], "texture": 0 }, "east": { "uv": [16, 20, 20, 32], "texture": 0 }, "south": { "uv": [32, 20, 40, 32], "texture": 0 }, "west": { "uv": [28, 20, 32, 32], "texture": 0 }, "up": { "uv": [28, 20, 20, 16], "texture": 0 }, "down": { "uv": [36, 16, 28, 20], "texture": 0 } }, "type": "cube", "uuid": "b05b7996-be6b-85cc-c224-34982e29531a" }, { "name": "Body Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [16, 32], "faces": { "north": { "uv": [20, 36, 28, 48], "texture": 0 }, "east": { "uv": [16, 36, 20, 48], "texture": 0 }, "south": { "uv": [32, 36, 40, 48], "texture": 0 }, "west": { "uv": [28, 36, 32, 48], "texture": 0 }, "up": { "uv": [28, 36, 20, 32], "texture": 0 }, "down": { "uv": [36, 32, 28, 36], "texture": 0 } }, "type": "cube", "uuid": "dc4c6873-b97e-e953-f7f1-3447e55a910b" }, { "name": "Right Arm", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 12, -2], "to": [8, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [40, 16], "faces": { "north": { "uv": [44, 20, 48, 32], "texture": 0 }, "east": { "uv": [40, 20, 44, 32], "texture": 0 }, "south": { "uv": [52, 20, 56, 32], "texture": 0 }, "west": { "uv": [48, 20, 52, 32], "texture": 0 }, "up": { "uv": [48, 20, 44, 16], "texture": 0 }, "down": { "uv": [52, 16, 48, 20], "texture": 0 } }, "type": "cube", "uuid": "de994ad3-b261-7c62-ac5e-4773c4d72183" }, { "name": "Right Arm Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 12, -2], "to": [8, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [40, 32], "faces": { "north": { "uv": [44, 36, 48, 48], "texture": 0 }, "east": { "uv": [40, 36, 44, 48], "texture": 0 }, "south": { "uv": [52, 36, 56, 48], "texture": 0 }, "west": { "uv": [48, 36, 52, 48], "texture": 0 }, "up": { "uv": [48, 36, 44, 32], "texture": 0 }, "down": { "uv": [52, 32, 48, 36], "texture": 0 } }, "type": "cube", "uuid": "fd5db088-9792-9f65-9aa5-e0f960a41c2d" }, { "name": "Left Arm", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 12, -2], "to": [-4, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [32, 48], "faces": { "north": { "uv": [36, 52, 40, 64], "texture": 0 }, "east": { "uv": [32, 52, 36, 64], "texture": 0 }, "south": { "uv": [44, 52, 48, 64], "texture": 0 }, "west": { "uv": [40, 52, 44, 64], "texture": 0 }, "up": { "uv": [40, 52, 36, 48], "texture": 0 }, "down": { "uv": [44, 48, 40, 52], "texture": 0 } }, "type": "cube", "uuid": "34e4f132-2ade-6013-1c36-2472e33a5fdc" }, { "name": "Left Arm Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 12, -2], "to": [-4, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [48, 48], "faces": { "north": { "uv": [52, 52, 56, 64], "texture": 0 }, "east": { "uv": [48, 52, 52, 64], "texture": 0 }, "south": { "uv": [60, 52, 64, 64], "texture": 0 }, "west": { "uv": [56, 52, 60, 64], "texture": 0 }, "up": { "uv": [56, 52, 52, 48], "texture": 0 }, "down": { "uv": [60, 48, 56, 52], "texture": 0 } }, "type": "cube", "uuid": "00677be3-5ca5-a8ef-cb5a-36e37a5c9b4d" }, { "name": "Right Leg", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 0, -2], "to": [3.9, 12, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [0, 16], "faces": { "north": { "uv": [4, 20, 8, 32], "texture": 0 }, "east": { "uv": [0, 20, 4, 32], "texture": 0 }, "south": { "uv": [12, 20, 16, 32], "texture": 0 }, "west": { "uv": [8, 20, 12, 32], "texture": 0 }, "up": { "uv": [8, 20, 4, 16], "texture": 0 }, "down": { "uv": [12, 16, 8, 20], "texture": 0 } }, "type": "cube", "uuid": "967d0c46-9394-c41a-1164-b20abe727dcb" }, { "name": "Right Leg Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 0, -2], "to": [3.9, 12, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 32], "faces": { "north": { "uv": [4, 36, 8, 48], "texture": 0 }, "east": { "uv": [0, 36, 4, 48], "texture": 0 }, "south": { "uv": [12, 36, 16, 48], "texture": 0 }, "west": { "uv": [8, 36, 12, 48], "texture": 0 }, "up": { "uv": [8, 36, 4, 32], "texture": 0 }, "down": { "uv": [12, 32, 8, 36], "texture": 0 } }, "type": "cube", "uuid": "7e4e6ea2-053b-c784-7207-e68c70501694" }, { "name": "Left Leg", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 0, -2], "to": [0.1, 12, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [16, 48], "faces": { "north": { "uv": [20, 52, 24, 64], "texture": 0 }, "east": { "uv": [16, 52, 20, 64], "texture": 0 }, "south": { "uv": [28, 52, 32, 64], "texture": 0 }, "west": { "uv": [24, 52, 28, 64], "texture": 0 }, "up": { "uv": [24, 52, 20, 48], "texture": 0 }, "down": { "uv": [28, 48, 24, 52], "texture": 0 } }, "type": "cube", "uuid": "c0564ffb-302e-2e59-2d8f-08a4f2bbff0d" }, { "name": "Left Leg Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 0, -2], "to": [0.1, 12, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 48], "faces": { "north": { "uv": [4, 52, 8, 64], "texture": 0 }, "east": { "uv": [0, 52, 4, 64], "texture": 0 }, "south": { "uv": [12, 52, 16, 64], "texture": 0 }, "west": { "uv": [8, 52, 12, 64], "texture": 0 }, "up": { "uv": [8, 52, 4, 48], "texture": 0 }, "down": { "uv": [12, 48, 8, 52], "texture": 0 } }, "type": "cube", "uuid": "faab2e47-d1e7-c095-622a-b973b4fcfa00" }], "groups": [{ "name": "Waist", "uuid": "0c205e67-3cfe-a79e-5ae5-0cc8f5a3f5b0", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Head", "uuid": "bd1dd13e-30c7-92c2-5a14-293e01b0de33", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 24, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Body", "uuid": "8fc16d45-9fba-4034-37e9-2f46c2292e19", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 24, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Arm", "uuid": "e2322f0b-b048-6263-c046-532172162379", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [5, 22, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Arm", "uuid": "504dcfee-e14e-3f72-6b81-3ce135634938", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-5, 22, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Leg", "uuid": "d0bac479-6214-1441-b31a-b7ff5ae26b4a", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [1.9, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Leg", "uuid": "a9812c3c-d97d-5456-443a-234fe66df480", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-1.9, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "root", "uuid": "e07e4769-599f-8ab1-2101-90885fdbe299", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": true }], "outliner": [{ "uuid": "e07e4769-599f-8ab1-2101-90885fdbe299", "isOpen": true, "children": [{ "uuid": "0c205e67-3cfe-a79e-5ae5-0cc8f5a3f5b0", "isOpen": true, "children": [{ "uuid": "bd1dd13e-30c7-92c2-5a14-293e01b0de33", "isOpen": true, "children": ["02509d8d-5e85-a913-eac6-229cc02e6d94", "413f5c34-ee39-552c-6d3b-61ac97a27182"] }, { "uuid": "8fc16d45-9fba-4034-37e9-2f46c2292e19", "isOpen": true, "children": ["b05b7996-be6b-85cc-c224-34982e29531a", "dc4c6873-b97e-e953-f7f1-3447e55a910b"] }, { "uuid": "e2322f0b-b048-6263-c046-532172162379", "isOpen": true, "children": ["de994ad3-b261-7c62-ac5e-4773c4d72183", "fd5db088-9792-9f65-9aa5-e0f960a41c2d"] }, { "uuid": "504dcfee-e14e-3f72-6b81-3ce135634938", "isOpen": true, "children": ["34e4f132-2ade-6013-1c36-2472e33a5fdc", "00677be3-5ca5-a8ef-cb5a-36e37a5c9b4d"] }] }, { "uuid": "d0bac479-6214-1441-b31a-b7ff5ae26b4a", "isOpen": true, "children": ["967d0c46-9394-c41a-1164-b20abe727dcb", "7e4e6ea2-053b-c784-7207-e68c70501694"] }, { "uuid": "a9812c3c-d97d-5456-443a-234fe66df480", "isOpen": true, "children": ["c0564ffb-302e-2e59-2d8f-08a4f2bbff0d", "faab2e47-d1e7-c095-622a-b973b4fcfa00"] }] }], "textures": [{ "name": "temp-64.png", "folder": "", "namespace": "", "id": "0", "group": "", "scope": 0, "width": 64, "height": 64, "uv_width": 64, "uv_height": 64, "particle": false, "use_as_default": false, "layers_enabled": false, "sync_to_project": "", "file_format": "png", "render_mode": "default", "render_sides": "auto", "wrap_mode": "limited", "pbr_channel": "color", "fps": 7, "frame_time": 1, "frame_order_type": "loop", "frame_order": "", "frame_interpolate": false, "visible": true, "internal": true, "saved": true, "uuid": "69a5197e-c856-2e26-2d2c-2d905a8a7945" }] },
+    "joint": { "meta": { "format_version": "5.0", "model_format": "m3sl_3d_skin", "box_uv": true }, "name": "skins_model_root_joint", "model_identifier": "skins_model_root", "visible_box": [1, 1, 0], "variable_placeholders": "", "multi_file_ruleset": "", "variable_placeholder_buttons": [], "timeline_setups": [], "unhandled_root_fields": {}, "resolution": { "width": 64, "height": 64 }, "elements": [{ "name": "Head", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 24, -4], "to": [4, 32, 4], "autouv": 0, "color": 0, "origin": [0, 0, 0], "faces": { "north": { "uv": [8, 8, 16, 16], "texture": 0 }, "east": { "uv": [0, 8, 8, 16], "texture": 0 }, "south": { "uv": [24, 8, 32, 16], "texture": 0 }, "west": { "uv": [16, 8, 24, 16], "texture": 0 }, "up": { "uv": [16, 8, 8, 0], "texture": 0 }, "down": { "uv": [24, 0, 16, 8], "texture": 0 } }, "type": "cube", "uuid": "02509d8d-5e85-a913-eac6-229cc02e6d94" }, { "name": "Hat Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 24, -4], "to": [4, 32, 4], "autouv": 0, "color": 0, "inflate": 0.5, "origin": [0, 0, 0], "uv_offset": [32, 0], "faces": { "north": { "uv": [40, 8, 48, 16], "texture": 0 }, "east": { "uv": [32, 8, 40, 16], "texture": 0 }, "south": { "uv": [56, 8, 64, 16], "texture": 0 }, "west": { "uv": [48, 8, 56, 16], "texture": 0 }, "up": { "uv": [48, 8, 40, 0], "texture": 0 }, "down": { "uv": [56, 0, 48, 8], "texture": 0 } }, "type": "cube", "uuid": "413f5c34-ee39-552c-6d3b-61ac97a27182" }, { "name": "Body1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 16, -2], "to": [4, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [16, 16], "faces": { "north": { "uv": [20, 20, 28, 28], "texture": 0 }, "east": { "uv": [16, 20, 20, 28], "texture": 0 }, "south": { "uv": [32, 20, 40, 28], "texture": 0 }, "west": { "uv": [28, 20, 32, 28], "texture": 0 }, "up": { "uv": [28, 20, 20, 16], "texture": 0 }, "down": { "uv": [36, 16, 28, 20], "texture": 0 } }, "type": "cube", "uuid": "b05b7996-be6b-85cc-c224-34982e29531a" }, { "name": "Body Layer1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 24, 2], "autouv": 0, "color": 0, "visibility": false, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [16, 32], "faces": { "north": { "uv": [20, 36, 28, 48], "texture": 0 }, "east": { "uv": [16, 36, 20, 48], "texture": 0 }, "south": { "uv": [32, 36, 40, 48], "texture": 0 }, "west": { "uv": [28, 36, 32, 48], "texture": 0 }, "up": { "uv": [28, 36, 20, 32], "texture": 0 }, "down": { "uv": [36, 32, 28, 36], "texture": 0 } }, "type": "cube", "uuid": "dc4c6873-b97e-e953-f7f1-3447e55a910b" }, { "name": "Right Arm Layer1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 18, -2], "to": [8, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [40, 32], "faces": { "north": { "uv": [44, 36, 48, 42], "texture": 0 }, "east": { "uv": [40, 36, 44, 42], "texture": 0 }, "south": { "uv": [52, 36, 56, 42], "texture": 0 }, "west": { "uv": [48, 36, 52, 42], "texture": 0 }, "up": { "uv": [48, 36, 44, 32], "texture": 0 }, "down": { "uv": [52, 32, 48, 36], "texture": 0 } }, "type": "cube", "uuid": "fd5db088-9792-9f65-9aa5-e0f960a41c2d" }, { "name": "Left Arm", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 18, -2], "to": [-4, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [32, 48], "faces": { "north": { "uv": [36, 52, 40, 58], "texture": 0 }, "east": { "uv": [32, 52, 36, 58], "texture": 0 }, "south": { "uv": [44, 52, 48, 58], "texture": 0 }, "west": { "uv": [40, 52, 44, 58], "texture": 0 }, "up": { "uv": [40, 52, 36, 48], "texture": 0 }, "down": { "uv": [44, 48, 40, 52], "texture": 0 } }, "type": "cube", "uuid": "34e4f132-2ade-6013-1c36-2472e33a5fdc" }, { "name": "Left Arm Layer", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 18, -2], "to": [-4, 24, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [48, 48], "faces": { "north": { "uv": [52, 52, 56, 58], "texture": 0 }, "east": { "uv": [48, 52, 52, 58], "texture": 0 }, "south": { "uv": [60, 52, 64, 58], "texture": 0 }, "west": { "uv": [56, 52, 60, 58], "texture": 0 }, "up": { "uv": [56, 52, 52, 48], "texture": 0 }, "down": { "uv": [60, 48, 56, 52], "texture": 0 } }, "type": "cube", "uuid": "00677be3-5ca5-a8ef-cb5a-36e37a5c9b4d" }, { "name": "Right Leg1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 6, -2], "to": [3.9, 12, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [0, 16], "faces": { "north": { "uv": [4, 20, 8, 26], "texture": 0 }, "east": { "uv": [0, 20, 4, 26], "texture": 0 }, "south": { "uv": [12, 20, 16, 26], "texture": 0 }, "west": { "uv": [8, 20, 12, 26], "texture": 0 }, "up": { "uv": [8, 20, 4, 16], "texture": 0 }, "down": { "uv": [12, 16, 8, 20], "texture": 0 } }, "type": "cube", "uuid": "967d0c46-9394-c41a-1164-b20abe727dcb" }, { "name": "Right Leg Layer1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 6, -2], "to": [3.9, 12, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 32], "faces": { "north": { "uv": [4, 36, 8, 42], "texture": 0 }, "east": { "uv": [0, 36, 4, 42], "texture": 0 }, "south": { "uv": [12, 36, 16, 42], "texture": 0 }, "west": { "uv": [8, 36, 12, 42], "texture": 0 }, "up": { "uv": [8, 36, 4, 32], "texture": 0 }, "down": { "uv": [12, 32, 8, 36], "texture": 0 } }, "type": "cube", "uuid": "7e4e6ea2-053b-c784-7207-e68c70501694" }, { "name": "Left Leg1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 6, -2], "to": [0.1, 12, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [16, 48], "faces": { "north": { "uv": [20, 52, 24, 58], "texture": 0 }, "east": { "uv": [16, 52, 20, 58], "texture": 0 }, "south": { "uv": [28, 52, 32, 58], "texture": 0 }, "west": { "uv": [24, 52, 28, 58], "texture": 0 }, "up": { "uv": [24, 52, 20, 48], "texture": 0 }, "down": { "uv": [28, 48, 24, 52], "texture": 0 } }, "type": "cube", "uuid": "c0564ffb-302e-2e59-2d8f-08a4f2bbff0d" }, { "name": "Left Leg Layer1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 6, -2], "to": [0.1, 12, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 48], "faces": { "north": { "uv": [4, 52, 8, 58], "texture": 0 }, "east": { "uv": [0, 52, 4, 58], "texture": 0 }, "south": { "uv": [12, 52, 16, 58], "texture": 0 }, "west": { "uv": [8, 52, 12, 58], "texture": 0 }, "up": { "uv": [8, 52, 4, 48], "texture": 0 }, "down": { "uv": [12, 48, 8, 52], "texture": 0 } }, "type": "cube", "uuid": "faab2e47-d1e7-c095-622a-b973b4fcfa00" }, { "name": "Body2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 16, 2], "autouv": 0, "color": 0, "origin": [0, -4, 0], "uv_offset": [16, 24], "faces": { "north": { "uv": [20, 28, 28, 32], "texture": 0 }, "east": { "uv": [16, 28, 20, 32], "texture": 0 }, "south": { "uv": [32, 28, 40, 32], "texture": 0 }, "west": { "uv": [28, 28, 32, 32], "texture": 0 }, "up": { "uv": [36, 20, 28, 16], "texture": 0 }, "down": { "uv": [28, 16, 20, 20], "texture": 0 } }, "type": "cube", "uuid": "4ae22003-e541-bdf6-3f1b-8a2f6c2a05cd" }, { "name": "Right Arm1", "box_uv": true, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 18, -2], "to": [8, 24, 2], "autouv": 0, "color": 0, "origin": [0, 0, 0], "uv_offset": [40, 16], "faces": { "north": { "uv": [44, 20, 48, 26], "texture": 0 }, "east": { "uv": [40, 20, 44, 26], "texture": 0 }, "south": { "uv": [52, 20, 56, 26], "texture": 0 }, "west": { "uv": [48, 20, 52, 26], "texture": 0 }, "up": { "uv": [48, 20, 44, 16], "texture": 0 }, "down": { "uv": [52, 16, 48, 20], "texture": 0 } }, "type": "cube", "uuid": "de994ad3-b261-7c62-ac5e-4773c4d72183" }, { "name": "Right Arm2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [4, 12, -2], "to": [8, 18, 2], "autouv": 0, "color": 0, "origin": [0, -6, 0], "uv_offset": [40, 22], "faces": { "north": { "uv": [44, 26, 48, 32], "texture": 0 }, "east": { "uv": [40, 26, 44, 32], "texture": 0 }, "south": { "uv": [52, 26, 56, 32], "texture": 0 }, "west": { "uv": [48, 26, 52, 32], "texture": 0 }, "up": { "uv": [48, 20, 44, 16], "texture": 0 }, "down": { "uv": [52, 16, 48, 20], "texture": 0 } }, "type": "cube", "uuid": "43be4fe2-4031-8bea-5fed-1f40691681ea" }, { "name": "Left Arm2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 12, -2], "to": [-4, 18, 2], "autouv": 0, "color": 0, "origin": [0, -6, 0], "uv_offset": [32, 54], "faces": { "north": { "uv": [36, 58, 40, 64], "texture": 0 }, "east": { "uv": [32, 58, 36, 64], "texture": 0 }, "south": { "uv": [44, 58, 48, 64], "texture": 0 }, "west": { "uv": [40, 58, 44, 64], "texture": 0 }, "up": { "uv": [40, 52, 36, 48], "texture": 0 }, "down": { "uv": [44, 48, 40, 52], "texture": 0 } }, "type": "cube", "uuid": "10ba3614-240a-cedd-4216-4d79128b4ff2" }, { "name": "Body Layer2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-4, 12, -2], "to": [4, 16, 2], "autouv": 0, "color": 0, "origin": [0, -4, 0], "uv_offset": [16, 24], "faces": { "north": { "uv": [20, 44, 28, 48], "texture": 0 }, "east": { "uv": [16, 44, 20, 48], "texture": 0 }, "south": { "uv": [32, 44, 40, 48], "texture": 0 }, "west": { "uv": [28, 44, 32, 48], "texture": 0 }, "up": { "uv": [36, 36, 28, 32], "texture": 0 }, "down": { "uv": [28, 32, 20, 36], "texture": 0 } }, "type": "cube", "uuid": "48269300-2009-1c36-4f8c-8602f4dd869c" }, { "name": "Left Arm Layer2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-8, 12, -2], "to": [-4, 18, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, -6, 0], "uv_offset": [48, 48], "faces": { "north": { "uv": [52, 58, 56, 64], "texture": 0 }, "east": { "uv": [48, 58, 52, 64], "texture": 0 }, "south": { "uv": [60, 58, 64, 64], "texture": 0 }, "west": { "uv": [56, 58, 60, 64], "texture": 0 }, "up": { "uv": [56, 52, 52, 48], "texture": 0 }, "down": { "uv": [60, 48, 56, 52], "texture": 0 } }, "type": "cube", "uuid": "76a8df64-3712-6097-ad75-b4bb8530d6ba" }, { "name": "Right Leg2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 0, -2], "to": [3.9, 6, 2], "autouv": 0, "color": 0, "origin": [0, -6, 0], "uv_offset": [0, 22], "faces": { "north": { "uv": [4, 26, 8, 32], "texture": 0 }, "east": { "uv": [0, 26, 4, 32], "texture": 0 }, "south": { "uv": [12, 26, 16, 32], "texture": 0 }, "west": { "uv": [8, 26, 12, 32], "texture": 0 }, "up": { "uv": [8, 20, 4, 16], "texture": 0 }, "down": { "uv": [12, 16, 8, 20], "texture": 0 } }, "type": "cube", "uuid": "d78dc7b8-034b-33d0-7958-cea4e8f1cb20" }, { "name": "Right Leg Layer2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-0.1, 0, -2], "to": [3.9, 6, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [0, 0, 0], "uv_offset": [0, 38], "faces": { "north": { "uv": [4, 42, 8, 48], "texture": 0 }, "east": { "uv": [0, 42, 4, 48], "texture": 0 }, "south": { "uv": [12, 42, 16, 48], "texture": 0 }, "west": { "uv": [8, 42, 12, 48], "texture": 0 }, "up": { "uv": [11, 36, 7, 32], "texture": 0 }, "down": { "uv": [11, 32, 7, 36], "texture": 0 } }, "type": "cube", "uuid": "04c9cf0e-a669-0ca9-7276-a98231a20609" }, { "name": "Left Leg2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 0, -2], "to": [0.1, 6, 2], "autouv": 0, "color": 0, "origin": [0, -6, 0], "uv_offset": [16, 54], "faces": { "north": { "uv": [20, 58, 24, 64], "texture": 0 }, "east": { "uv": [16, 58, 20, 64], "texture": 0 }, "south": { "uv": [28, 58, 32, 64], "texture": 0 }, "west": { "uv": [24, 58, 28, 64], "texture": 0 }, "up": { "uv": [24, 52, 20, 48], "texture": 0 }, "down": { "uv": [28, 48, 24, 52], "texture": 0 } }, "type": "cube", "uuid": "d605b7e8-7854-164f-77be-f9ecadf2fdc5" }, { "name": "Left Leg Layer2", "box_uv": false, "render_order": "default", "locked": false, "export": true, "scope": 0, "allow_mirror_modeling": true, "from": [-3.9, 0, -2], "to": [0.1, 6, 2], "autouv": 0, "color": 0, "inflate": 0.25, "origin": [-2, 6, 0], "uv_offset": [0, 53], "faces": { "north": { "uv": [4, 57, 8, 63], "texture": 0 }, "east": { "uv": [0, 57, 4, 63], "texture": 0 }, "south": { "uv": [12, 57, 16, 63], "texture": 0 }, "west": { "uv": [8, 57, 12, 63], "texture": 0 }, "up": { "uv": [11, 52, 7, 48], "texture": 0 }, "down": { "uv": [11, 48, 7, 52], "texture": 0 } }, "type": "cube", "uuid": "a5f7bbdf-ebc1-f81c-48c3-c6f8a2fce36c" }], "groups": [{ "name": "Waist", "uuid": "0c205e67-3cfe-a79e-5ae5-0cc8f5a3f5b0", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Head", "uuid": "bd1dd13e-30c7-92c2-5a14-293e01b0de33", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 24, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": false, "primary_selected": false }, { "name": "Body", "uuid": "8fc16d45-9fba-4034-37e9-2f46c2292e19", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 24, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Arm", "uuid": "e2322f0b-b048-6263-c046-532172162379", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [5, 22, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Arm", "uuid": "504dcfee-e14e-3f72-6b81-3ce135634938", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-5, 22, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Leg", "uuid": "d0bac479-6214-1441-b31a-b7ff5ae26b4a", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [1.9, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Leg", "uuid": "a9812c3c-d97d-5456-443a-234fe66df480", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-1.9, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "root", "uuid": "e07e4769-599f-8ab1-2101-90885fdbe299", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Arm1", "uuid": "1f5fd7de-b5b3-aed9-32c5-9010dfcd6a5b", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 0, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Arm2", "uuid": "71fcaaf8-9416-d98f-a058-857921ba019c", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [6, 18, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Body2", "uuid": "442e502f-7669-0738-3c3f-db0a761783da", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, -4, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Body1", "uuid": "f7782bd2-92b5-dbc0-1153-4f01c7bf1ec5", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 0, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Arm2", "uuid": "b582a6b5-a0a2-f4a0-6264-007d06e273f0", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-6, 18, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left Arm1", "uuid": "4a9bc1fd-f0a9-2105-3d95-860a127fda44", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 0, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left_Leg2", "uuid": "7f4f3a11-3275-2537-385a-26619b318587", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-2, 6, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Left_Leg1", "uuid": "26a7c291-0fa8-c533-e16d-11f735c0ec49", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [-2, 11, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Leg2", "uuid": "5a6b3441-1a4e-7d6a-e49b-1259918f2df0", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [2, 6, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "Right Leg1", "uuid": "dbad7ac0-a112-a028-7707-b01fa886e5ca", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [2, 11, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }, { "name": "group", "uuid": "7ef13f09-0217-0d18-6de3-dc090d4d6132", "export": true, "locked": false, "scope": 0, "selected": false, "_static": { "properties": {}, "temp_data": {} }, "origin": [0, 12, 0], "rotation": [0, 0, 0], "color": 0, "m3sl_source": {}, "children": [], "reset": false, "shade": true, "mirror_uv": false, "visibility": true, "autouv": 0, "isOpen": true, "primary_selected": false }], "outliner": [{ "uuid": "e07e4769-599f-8ab1-2101-90885fdbe299", "isOpen": true, "children": [{ "uuid": "0c205e67-3cfe-a79e-5ae5-0cc8f5a3f5b0", "isOpen": true, "children": [{ "uuid": "bd1dd13e-30c7-92c2-5a14-293e01b0de33", "isOpen": false, "children": ["02509d8d-5e85-a913-eac6-229cc02e6d94", "413f5c34-ee39-552c-6d3b-61ac97a27182"] }, { "uuid": "8fc16d45-9fba-4034-37e9-2f46c2292e19", "isOpen": true, "children": [{ "uuid": "f7782bd2-92b5-dbc0-1153-4f01c7bf1ec5", "isOpen": true, "children": ["b05b7996-be6b-85cc-c224-34982e29531a", "dc4c6873-b97e-e953-f7f1-3447e55a910b"] }, { "uuid": "442e502f-7669-0738-3c3f-db0a761783da", "isOpen": true, "children": ["4ae22003-e541-bdf6-3f1b-8a2f6c2a05cd", "48269300-2009-1c36-4f8c-8602f4dd869c"] }] }, { "uuid": "e2322f0b-b048-6263-c046-532172162379", "isOpen": true, "children": [{ "uuid": "1f5fd7de-b5b3-aed9-32c5-9010dfcd6a5b", "isOpen": true, "children": ["de994ad3-b261-7c62-ac5e-4773c4d72183", "fd5db088-9792-9f65-9aa5-e0f960a41c2d"] }, { "uuid": "71fcaaf8-9416-d98f-a058-857921ba019c", "isOpen": true, "children": ["43be4fe2-4031-8bea-5fed-1f40691681ea"] }] }, { "uuid": "504dcfee-e14e-3f72-6b81-3ce135634938", "isOpen": true, "children": [{ "uuid": "4a9bc1fd-f0a9-2105-3d95-860a127fda44", "isOpen": true, "children": ["34e4f132-2ade-6013-1c36-2472e33a5fdc", "00677be3-5ca5-a8ef-cb5a-36e37a5c9b4d"] }, { "uuid": "b582a6b5-a0a2-f4a0-6264-007d06e273f0", "isOpen": true, "children": ["10ba3614-240a-cedd-4216-4d79128b4ff2", "76a8df64-3712-6097-ad75-b4bb8530d6ba"] }] }] }, { "uuid": "d0bac479-6214-1441-b31a-b7ff5ae26b4a", "isOpen": true, "children": [{ "uuid": "dbad7ac0-a112-a028-7707-b01fa886e5ca", "isOpen": true, "children": ["967d0c46-9394-c41a-1164-b20abe727dcb", "7e4e6ea2-053b-c784-7207-e68c70501694"] }, { "uuid": "5a6b3441-1a4e-7d6a-e49b-1259918f2df0", "isOpen": true, "children": ["d78dc7b8-034b-33d0-7958-cea4e8f1cb20", "04c9cf0e-a669-0ca9-7276-a98231a20609"] }] }, { "uuid": "a9812c3c-d97d-5456-443a-234fe66df480", "isOpen": true, "children": [{ "uuid": "26a7c291-0fa8-c533-e16d-11f735c0ec49", "isOpen": true, "children": ["c0564ffb-302e-2e59-2d8f-08a4f2bbff0d", "faab2e47-d1e7-c095-622a-b973b4fcfa00"] }, { "uuid": "7f4f3a11-3275-2537-385a-26619b318587", "isOpen": true, "children": ["d605b7e8-7854-164f-77be-f9ecadf2fdc5", "a5f7bbdf-ebc1-f81c-48c3-c6f8a2fce36c"] }] }, { "uuid": "7ef13f09-0217-0d18-6de3-dc090d4d6132", "isOpen": true, "children": [] }] }], "textures": [{ "name": "temp-64.png", "folder": "", "namespace": "", "id": "0", "group": "", "scope": 0, "width": 64, "height": 64, "uv_width": 64, "uv_height": 64, "particle": false, "use_as_default": false, "layers_enabled": false, "sync_to_project": "", "file_format": "png", "render_mode": "default", "render_sides": "auto", "wrap_mode": "limited", "pbr_channel": "color", "fps": 7, "frame_time": 1, "frame_order_type": "loop", "frame_order": "", "frame_interpolate": false, "visible": true, "internal": true, "saved": true, "uuid": "fb556ec0-5586-f2b9-a6ea-bf626558a960" }], "animations": [{ "uuid": "daa28a6e-edb2-384f-56df-726ca420eee1", "name": "animation", "loop": "once", "override": false, "length": 0, "snapping": 24, "selected": true, "group_name": "", "scope": 0, "anim_time_update": "", "blend_weight": "", "start_delay": "", "loop_delay": "", "animators": { "0c205e67-3cfe-a79e-5ae5-0cc8f5a3f5b0": { "name": "Waist", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "bd1dd13e-30c7-92c2-5a14-293e01b0de33": { "name": "Head", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "12.5", "y": "45", "z": "0" }], "uuid": "9ff9f8bc-ee90-c8d5-63c1-c0e0f3161b10", "time": 0, "color": -1, "interpolation": "linear" }] }, "8fc16d45-9fba-4034-37e9-2f46c2292e19": { "name": "Body", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "e2322f0b-b048-6263-c046-532172162379": { "name": "Right Arm", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "55", "y": "-30", "z": "0" }], "uuid": "7a89722e-6753-bf2f-524d-ce001bd4f4e8", "time": 0, "color": -1, "interpolation": "linear" }] }, "504dcfee-e14e-3f72-6b81-3ce135634938": { "name": "Left Arm", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "36.4201", "y": "-20.3441", "z": "-51.3908" }], "uuid": "bbf77a60-c941-cf1c-fb50-34c08061a9e7", "time": 0, "color": -1, "interpolation": "linear" }] }, "d0bac479-6214-1441-b31a-b7ff5ae26b4a": { "name": "Right Leg", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "62.5", "y": "0", "z": "0" }], "uuid": "ca512544-0fa6-21c5-5e8f-0f3d4ab8f23a", "time": 0, "color": -1, "interpolation": "linear" }] }, "a9812c3c-d97d-5456-443a-234fe66df480": { "name": "Left Leg", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "-27.5", "y": "-17.5", "z": "-17.5" }], "uuid": "c0336bc0-4d40-5797-f22e-26a61af62ee3", "time": 0, "color": -1, "interpolation": "linear" }] }, "e07e4769-599f-8ab1-2101-90885fdbe299": { "name": "root", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "-21.6297", "y": "-31.7742", "z": "-41.1709" }], "uuid": "41856b5b-cbd9-7a5c-1e3d-10b11a0f41bc", "time": 0, "color": -1, "interpolation": "linear" }] }, "1f5fd7de-b5b3-aed9-32c5-9010dfcd6a5b": { "name": "Right Arm1", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "71fcaaf8-9416-d98f-a058-857921ba019c": { "name": "Right Arm2", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "17.5", "y": "0", "z": "0" }], "uuid": "71269d33-f526-3f3a-08fb-c97875b94dff", "time": 0, "color": -1, "interpolation": "linear" }] }, "442e502f-7669-0738-3c3f-db0a761783da": { "name": "Body2", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "f7782bd2-92b5-dbc0-1153-4f01c7bf1ec5": { "name": "Body1", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "b582a6b5-a0a2-f4a0-6264-007d06e273f0": { "name": "Left Arm2", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "42.5", "y": "0", "z": "0" }], "uuid": "cdc5615c-bc73-e4e0-1fd9-09714cb6a373", "time": 0, "color": -1, "interpolation": "linear" }] }, "4a9bc1fd-f0a9-2105-3d95-860a127fda44": { "name": "Left Arm1", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "7f4f3a11-3275-2537-385a-26619b318587": { "name": "Left_Leg2", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "-17.5", "y": "0", "z": "0" }], "uuid": "5e0242c0-b419-c032-e5b3-72a2704a3252", "time": 0, "color": -1, "interpolation": "linear" }] }, "26a7c291-0fa8-c533-e16d-11f735c0ec49": { "name": "Left_Leg1", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "5a6b3441-1a4e-7d6a-e49b-1259918f2df0": { "name": "Right Leg2", "type": "bone", "rotation_global": false, "quaternion_interpolation": false, "keyframes": [{ "channel": "rotation", "data_points": [{ "x": "-70", "y": "0", "z": "0" }], "uuid": "8609d951-34d2-2924-695c-ea492f70bed6", "time": 0, "color": -1, "interpolation": "linear" }] }, "dbad7ac0-a112-a028-7707-b01fa886e5ca": { "name": "Right Leg1", "type": "bone", "rotation_global": false, "quaternion_interpolation": false }, "7ef13f09-0217-0d18-6de3-dc090d4d6132": { "name": "group", "type": "bone", "rotation_global": false, "quaternion_interpolation": false } } }] }
+  };
+  var TEMP_TEXTURE_DATA_URLS = {
+    64: "data:image/png;base64,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",
+    128: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAfYklEQVR4nO19a4wlx13vr6of5zXH65mdncfO7niGsA7WgIlviKMbg7ATYkIcB2OJRx6IRAogbhRE+AICkThXV4Dgg5EgHyC58lVwAhgJgpxEiSF2DDgCR2aTwGJ7k3h3Z72zs7Ov2Z05Z87p7qq6H6qrurpP9+nTc86Zc2a9P2nmVHdXVXfX/1//Vz2aoE8sLy8J3w9AKYFlWT2XC4IAAPDf//54X/evH76X9FXBALC8vCRarTY4Z+CcgxAaaw/LshAEAYQQAABKKQDg3Lm1kT+73W8FQRCELw5QaoF0eSWZl0MIASEEbLvv248FPM8DYwE4FyCE6DbgnAMAGGMdxC/SWYYJOohKhJAvy1iQm5cxhiCIGuRGgXodxdyc8xizm+fHCX0zgGV17/VJmA11o0D1ZkIiBgAIhECM+OOIvhlAvlyvuaV4LMIw+wGcC1gWhXq/CHHiq99xkgIDYQCgNw6wLApCZM8gNxQXCP2r3otSAkppx3sqhlBG8KgxEAbgXP71mv9GA2MMQPzdzF4uDUMSY4ZxaYcBGIFEv0xer5bXVQ+xbhgvAJAE7VWqEUK0NzBqDOApeiO+zj2GenBQyOvV46j2BuQFSOOnVzUgDcHxa4zdIqJ793caF7FvYiByiNLI5eklLyEEjuMM4tZjhvF197LQNwMova584F7yj4v+GxSE4JnusGkbKEOQMT42jNI3JUx3Jk+qRy9944h/IFKDlEZGLiFEnzcR2UA3CAMAkvCU0tyeTQjRIdIbFYreQggjQih7vm3buo0ks4weA/HD5AhY/gsFQTB2DTAIUEp1GyTdwWQwSDICHRsXeGBegBAiVwKol7Ys64aSApRSOI4TEpt22DmWZcGyLLiuC8dxxob4AECWl5diysgcugRk71YWuyJyMoypImGu64IxFot8JRkjCBhUyFSJSLM+dX/Vk9TAiikxHMcB51zXa4rbeB1R+DlLQp06dbpvUbS0dJsAoJ+pUqmiWqvA9320220ILuC4DnzPh+/7ur1WV88ORAwuLy8JIQQ8zwelBIwxrW5UGyXpSqmFM2fOEHL06BHBuYgN5apCkWgnqaN+5bJ8SUCO7ROiCC2JpuC6jq5ze3sbQRCAMaZ7jnxADiF4SEgCz2vLmoQAY53SQrmTkciVvU4yQ7YkSva+dlveR0ol2Q6E0LBe2VCK+dLsHEppbMJHtVqVHYEzed6X7UooQbvVxvb2tmZgk2nle0Yh5aSEDAKm4ydKrTiOo9tAEV+Vs20LlFq6TgBGh5KxC0oJyNzcrJAFHKPhSKyhLIuiVCqBMQ7LkvrOtm1UKhUwxtBqtVGtVhAEAVqtVugOifBhLdRqVf1iANBsNtFs7qBUKqFarcRetFRyEQQMvu+j1WprZpEvALTbXtgggX4pRXhCCILA1++gCBYZZrIO892S0ixqeKLjG4REqo4xpgnnOA6EENje3katVkOp5MLzPLTbHnzfR61WizEKAGxtbenz6t62bccIZcLzZAeL5hgITWBJG0t3VMZ42BZx5jLbx5ykAgB2uVzRRkylUg4bxxS3NlzXTW0s2agCpZIU/Z7ndfSQUsmF7/uaaaSIrGR6DYxxuK6DUslFpVLW5+TLUrRabTSbTfh+JEVKpRLa7XYojfSTARDgnOn7mGonDYwxcC5g25H7ZqYBKTEk40qmvnbtGjjnKJVK+jpjHPV6PdbYinHUSKDrumi32yiXy2CMaUmYJJDrOrrtLcsK6+Ja3SjRLqWKCM/HRXWpVILneboD2rYdTuDhsCklKJdLAAh839eixrLkYM3Vq1cBAN9+7v/pCu+85wMdjWdeT2JrewcXLl4BCxgY5yiXXTz03t/JrOPOez6AiYmJjuulUgmEEN2DhBBot9shZzNQSuC6bmL2DdE9JC36qHq4guotSrSb09cajQYIkfeQjR/EprZtbW1pZuWc47vf/V6Hjp+bmxXtdhuu64ZEYKH6lO3v+0qVSMnYarU0LQCE+aWaVPpedVg5A4mjVKqGKoDqTuH7vu54vu/DcRz4fhO2vKmvDSXVW8yCaYRKYwIF7jWiBnVrmKiV0WzWsLl5HSDA5cvXU+s0sb293ZEn7ZyJtB5uSq0gYFp0RmXkr+M4qFQqaDQa2loHoI8VY9TrE6G6tNBut2IBH8/z4DgOgiBIJT4ArK9fMNSuFP2VSqQGHUcyGqWSyZWkVO/leZ7uAJFkteA4Lgih8Ly2lhoqv7I52u22ZoIgkJKR2rYN27ZhWVaM+OovCybBzLRJ/KiRCWZnbsX09AFUyyWUSg7+6lO/l1o+7bgfqN4FpMcelIumepjrSj2uoMSz49ia2EqVSY8Goe0RgBCCs2dfJXnusGVZOHnyO0QRxpwx9Morp4jS857nodncAWMcrVZLExyQjKnUimVZcBwbpZIbs/QV/dT7M8ZDL4RD2RVdHVLf92Pcl0SSUGnEN3Fw6gAq5TJKZReccXzpb/8Y83MHu5YZBLrpfWWNq8ZqtVpaTN5ySx1bW9dRqZRBCNVGmAxokVgHMd3SvOne6vrp02fI3Nys8DwPp0+fiZVpt9sIAoZbbqlje7sR2kUlzZyKURWDE0Kws7OjjUI5+TaA53lotVpgjKNUsrSBDoRBKfOm6oWSFumLz38WB468NfOFrr36NIi9CMsG/u9DDwEAPvC5PwB1Iyv4j974HgDA77z8Mm6ZAa6u/yuO3vFg5qDItVef7qpmBgXVi+SvFPOu68C2LTSbTW0Ab21dDw3eElqtlnb7hBA4e/ZVcM47iE4pVfGBzGvKs0hiZ6cFx7FDgjIQ4mJz8xqq1UpMaijVpIxLZYwqSaGm30nPwEYQBHAcKfU9z4sYwAxQqGCOEAInX/hrHDjyVlx79emOhzxw5K1YOTYP7jVgJWSJSfw01Ceq+iWuvfp0h/RQ97zj7vfFzg9yGNl1HXieB9d14PuRq+c4kuhS5Apcu3ZdG5KtVksTjXOuGSQJSqlQhDfTSaTNJLp48SJZXDwqyuWylsIqLgFErp+SXpRSGXAK61KxDfnM8WhtpVKGZVloNGR7kyNHFoQivBl8oJTi5At/rY8Vgbi/A+rEfXcAsKp3AABKP3oP7JPnsb32tdj1icP3AgBa16UBGGz/R6zejgY0GCjJBMDuGUFJOUW4ZrOJarWqxSUhRHsbrVYrZqELIbC+foEcPXpEKAngOA7OnVvr6OV5DKDOLSwcFt1UxvLyktjZ2YHruqFaukW/R6PRQL1eh23baLfbaLVaKJfL+nmVy2pZUppRSnHgwAEQQrC5uSntGcXJCt89/kRuI2YxAQDYJ8/nltf1eA1wfwcAIIRkQmqXU/MmxaR5nAwDp+VP9jIzNiBX9kThbOU5qB7FGEO5HD3X2bOvkoWFw2IQE1t6WR6mQt1CCDQaTR10U71aBeAUsaXR6qDdbuv4S9RGUdjcsiyQmZlDWhd1I74pARSoU9HH1Kl0FftmT2detjtnV6YAAMTKbtjvv+vnuk6oMEOeWdfNGLkZGVxbO697eLlc1j2nXq/j5MnvaGItLy8JxhhWV88Spc9NpPX4vDxpWFw8KnZ2djAxMYFTp06TQ4cOiYmJWsxTUTbMuXNrWnXYto1Lly7rKOypU6fJwsJh4bouyuUyNjc35QCWapC8nq+Ia/Z8kxmAfC8AAARPnw9P7XJm708i71mLzrZRRpUKPilXToV6S6VSjPgp5Unybzd50iDdPDt30EpJEqXf2+12h9t77twa8TxPG7CMMZD5+Tlh6vo8JCWBCMLBlMqtALKNP1VO8AA8aMWuUbsM6khO7dbzk7j9jb+Qfi/DJcuCEpWtVvQs58+vx1psYeGw8H0fGxsXUxt/eXlJDGI0MQ+Li0dF2sjh4uJR4XkeKpVKjEEWF48Kx3HQbDZRLpdTmWd+fk5QSkG21r5WqLuYvZz7Oz0zgIJgPrjfBAAQaufmHzbuvOcDWpym6eP5+TmRZIxxwvz8nEgj8sLCYQFk2xiLi0el6s+9wds+nsogHpE99j/+/GGQYBPCvhUAwJ3pWL7lxcm+Gk88d3ikk+fIPf2t4b/7XW8RAPDA3CQ+v7oBz/fxM4uH8PerFwEA//bZPzFyx4fRgeHvf9DT1BSeMnHIFi1QcEnwBNFvogAEN34FQB1AsDCCM/w9BAozAMVopnJtL3+uUP6JU+/tqzwA3P6LzwD4ROFyJlYO3woAIFOTWGFteL4PMj2JFeYZuUS4ukQAnEVpkj5HYJAYn8lpQ8RuiD8onFjbBAAscYIT567B833cbrk4ce5amIOEvT2RFgDE8E2PG2uFxn6E4KH4D4ltei9k+OZPIQnAQUABcCoHHPbiAUcFKf77R74KCGekEBoygwjTDMAY2ACCWOBCZuMgoWSyQMTw9dNucGFTBpq2t2qYq0uXNWkPdMPhj/3yQJ/n+e+sAQCWXpehAggNR2dND0BtozImEoBZLkSonmzOwS0XFlhxc/DeT87p9Nc+vF60+DAwaIInoUKxmSA0pLsy/EIVQPbGPCNpfj63opCsANB0bpUPxjkq3lUwpwYSDijY3hYok9G0pLfArTICTmFTDspa4KA6Dw2P1v73pzoean0rCg6pXmwiy6ibOPXe3LKDxpv/YAkA8NDRGXz+7EZHWiErDqAYJKt8o9FErVbNLH/imW/2ZSlqNlNEF8QCt0oQhIIIjkDwkCspBCHgVklLgJ5uQDvlBAdBP/bnxKn3djBBETE/SGgdb+j1Tjcv2waoVWtdyzeaDmrVWmb5E30+f6qcYWE8nggCRirgQs5CJeh9YyMOCh66MTTFWFQG5W7RC8HXDTtgWFBu3jHLTU0rZLmBtZrftbyUAD6WOMHx05cAIOFG9gcbiIjF7AqEUwYnFij3IMIVMnpfnx60PgdFAAoKAQiSSXyVdzcg96xlXjv/5WO7qvO1Ci0BmF2RBA+JI5Qxwrk2UoiQEoASgBMXlEdiThLeAgcJe3cn4Sl4IaJvNCIDSvVkcs9a5nAvIQRz9UbMDhg29lIF3DVsFSCSmxmwAIKUIUOVHJQARPBM54SnjC11lwBR/jyirW/VMP/uC7hwtQlSOhBd8DrXGOwlbggVAACcWuDEAawSKGuD0xI4KUFYJRCvCRACGnjd6tIQcMHBAcsGRFufT+v9veppJQ0oIZidmcE3P03Ccp0riG6id2Q7myoyFYJSgAgB2C44dTsCQUEiakWJGMqwUbVczD9++pVFTFfl5JU75y4O/HmKqoAovTsVkCw/EBXArKokLgEgOAS1gcCTmx1AgFACCgZKhIxXdRC/GFHS7AOFjUYVMzU5YUT9mvCD8dpYoqgKSKaLqIC08v2CmmKZQIBAQFDlBvLwlyUKefIv5EJTl3O4sIY8ZHxhY6Pr9b0IAN0o6Oi6FmvLEI9gECCw/CYsBLD8lmQIwSC6DFKo3s0z5vZ18xKSSFr0E7dMgYcewPy7L3QYgOK5w7FjZTdcala0Ghg09lIFpJXvWwVwWgIRDERwWIbFTiAgiA3Hvw5CLdCM2bxJUCKiABDzBzrg7Pnypc+fl2sP5qbicXZCSAcTDBv7XQVoCUCZBxCAWy6IEODEARU+KPNARDoVueUCgdfRmymR9oQKA6uxgiQoxK7E9fz8fKr7p/cVeu4w5uqNWBwhzZ64CcCO/PQACAIpDSw2NkP9Sg1calYQtCMinv/ysRjzdIsODhP7XgWknaTMyxyKpqwte34GNEMNYTaT7ZbR9hjg5Pv+exUNvGFUABAX1VroE4SzU8x8EXdTIkDDQaKApq8XjJWF0H+9QolyL9xxC/42gHwC3xT7+bCT+tk8NucFxPO0U8/ngeoZAb1bhutbtYiQpUmwAnvsKsYZJiN89S9+X6c/AuhNhz6Skvc3jfRvAVGgLdzmzizTUV5w/KbxwY3fCk/Xw1XXu0XXCE4vzBDLbxgO1MsWUclRxSLi2gm3spt/x3d6LrN3CGf1qHl9qVkEAB7OAAunfQlIKUtoejk1+JXc0WoAsL/+2G/ETrzlf/5wasbkY/HSZHTQljuJoTSJJ7/wVQDAoYkeJzSejWYEmVZ7Gr76pwcxe/T70dq+gpLTWX83N3BPgkNpu6ELJuf6K+KqLGomMLXCcqqMMOox6xrOHEE7jeBTU9O4fn0TAFCvT2BmZgZTk5N6bzxARuM2NjawsXFRl7ly5RJ++u3/o9ADrCUW+nYT19PVHXzrM4dQnlwEGp1W/17HAKIbK1EOo2erayJuEBMRnSMUmqhEAKDRwhAl7dXaABIyCulcPtYP7M/+zT92nPzIr71Hb0darVSxtHQbbj92DPNzck7nhY0N4L+AjURINq2ufNyXelb1WPP32+uHAADf+swh3DmXWmwEUOKZy7kTQDSQRigAHhKVAVZIOGGF1xUxBUC4zCsEwEU46YKG52GsHBIAHdyE0Q6F876ffzsA6J2m/MDXu3LmQZUdFmZqTf23l5M+ukMRNRT1nAEsCH/DPx4SmkEeBz6AILweAL4PeEL+Bm3A94AgAIJmeI4BgQcwD2A+wNpRut+nn19YTFUsan19tVrBzMwMpqenUQ83UEiK/36w9kQUYs6b0Zsk+ly9UXhad9os5H6wvfy5sPcH4a+IRLde8AlEMj0AuAVQEYp3s/k5gHCauDBtASJ7vTIC1TIyQjDxny+VyTt/fXduGbowgIK50cIw9vgvwgAqzxv++P3y2foYdRwUI2gG6FjYKT8lqz0DQF6jNrQoJ8Z5QiMCq18eMo82FKPNvCUTcNQXfqIvgyC38Cc+9ID4/Go4X31xBsn0h37217uW//Av/2LvD5iycCTv/nlpAIXLmOmPf/qLPT2/EIIQkh9AF+IRSsgjuZx76plHygCwVJ9n5Ed+tX9Zn4Gbi0MHhF6IL/PlEx8AgiNTsr5XJoc6uSLXnJQDE+2OtO4ZPztA5zRluVjy/sfD+x438pjpn/nt9wszP4DU5+81PSocO7Z7vV4E+YtDL13VAw/HrBIef+yfYiLxwZ/88a7lP9zP0yXun7x3Gj72h4+Tu+5/kwDk8wKIPX/R9I0O+5lHf+NWALjvo3+yOdpHScfnVzdierlXqDLKDlA4/tQ3ukqQhz70wJgMhO8NCquAJJ78yrOZUuDJrzzb5+MBKwsH9DMcz8/eUaaoSB8XFbBXsPN6flIF7DVOnLumxfJd979JqB6chbvuf5MwyxQV6aN+373GQGKKg+jpNzEa2MpgyvKF89DNz1+57w1i5b43CLWe3XUcPLQ4gy+uy9HDB+Ym8cT3zgFAbM27mU4+V54aUPmV/jfrf+J752A+DwD83OsWusYD7rr/TWIQcYJxhb2yINfZ9ewWLT4sjaSgCax9uevLx+v24DqOTIf7JpOpSay0tmN50tO71+FF6y+a/uCvvFMAwO2zszh54QKSaYXlqSmcvLAOz/fx+tlZvLq1Xej6kfoEXr5wAa7j4PbZOZy6cgUA8NhffKm/DSKKuEWPf/WWqGSQP76uyqnFjK7jyPrWNwHE57aZCx7N9Ep5oi8dXrT+ounHPv0lcve73iLS5vQ9/4WvE0DuFtqxOPRyo9D1hYN+Rxuq6/2gmA2w+nf7WtwNC89/4evkefM453pyJm/R6716Q72gZxXw+L/9EIBvyFKLDwu0LgKs+1y7lYUJo46bKmB/q4AXHy18o9eKCijaLuME+/hLRwEAx18CEBwE1r5MsqJkuOOjAi8+ShAMZpbtx58qYeV1A6lqpLj7XW8Rabt8mTo8ucvXUwkdn3f9/oO1Dk9qcDaAImjQAGZ+TGDjX4gmNhAR/sVHCQ6/QyBo5Ip/ADjxbSv8vQJYdcCu4fh/McCORn2TnkJ6enxVALDPbQD5PzEbd/FhSXDl8plpEz0wAQDAqgJ2rfM+6FQTyfS4qwCgmAQAgAfmb82UAFnX7z9YwxfPb8r6ByoBuln25rVheQCve8NravBl3GCn9uxe0IMXoGFVgfKh1EsrC5cB7F8VoLyAtPpXwmsAOhd3lpxi1+sTkfcUelIrv/JO0bcX0E/hQWC/q4CigSAg9H4yAkFZ1xcO+jhx3niGkQSCYiVrvUsAe1ymcA8HRY3ApBHX7/V+MHIJsN+9gKKBIJXOCgRlXT9Sn9DBn4EGgkYd3j1xThqB+1kF9NUAI4aNOz5a3AhUcYCgCTTOdM9bu026f8oV7MAzhW8/TlCfhet1u3ggcvOKXE9zAwH0bQfEVYAa4cvS2eq6In6vSOY16t/vKuD5cD5ANxsgeS5Nh/d7fbewdxPjL4TLL3S9fGJuf6uA/Y6bC0Ne47jpBQxgLGA/w15dXRWLi4tDUQOrq6u5BuZP/dK7AdxUAaMCBSSh1F+/FabVpWYNP/mVZ2Ppmxg9bEUItbjDJJySDJ/81F+mMoaaEZzGOCaBH/zJH48tIFHpJ7/y7E0VMGJoG8AkCiCJtrq6Krr11E9+6i+FSVRVLlkmrderdC8i+ptn5Law80H2BpUKN1VAMeTq/rx58dNv/oWu5QvtD5CC+bd9XHDjSyXUjjNBcpezJJYXJ/u6/8p90k3NWttg7hOYhvrhe8c6UjhyL6BX8CC+R0KSEW5id8hlgONPfYMcB/D+D/6EMe594+jAPOQtbpEIt4chFuJbxHGceuaR8tK98HrdGGKv0bMEUGvzP/GhB4SpAx/8X8PdHyAJUxLshRTIm9kMwPi2EgcERcduni/MW/Li+GHfqAAT1E7/GsnoQBBtESvim0Uu3Qay/MGh7fHTLwozQFIFDHt/AAXOzJ6/dwzQkwrQ+/uK6FdtF3c6Z7R0xCjMAB3r50c8r//i5U2dPnTw1oHX35MK0IQn0W+4Z5Te7GlMMb77Axy6dw4AeOB1eAAmLl+9FhVJY4CwHgDAxa91bEI1GJCE3o/29NurzZ52i8I+ar/79iXT6+ydsfqVz88DX4t6HvgxFWCX5PoCarsIWtHECbvcOY+BZ3ztVBmQU/wfAGTvT6CQFQdQ6HVCiFr5o+o/8cw3Rxon6E0CHH6HUIs6yHS1r9BpMr2+mk0kBZ7YE1d9O6jbw6cxUhryQtEK3d3AHspnfDz67hEvLu2NAYKGXtXzsc81cdcP7D50mpYGJFE5k9vG2m76p2c4C0Ct7EfOYySZJ85MeaFihe42wO4/Hn3imWdHur/AWLqB3Sx+ajkdEmG/Y5RrC3tjgI1/iemp46syMlhU7DdqB/B902kqQBJU9fC8ng5IRtgNksx1UwUcfGO+m5KytOvEubOFRf184OLldTmyd2c1Op/Xo5PEVqqiH3AmbYNvndmCbfORqoC+X6YP9K4CgmZsde/xl47KPQWQ2F8AwPGXSrHzd/0A4Afp75nU25EEkESnttvVDeTM70kaJD2JccIo9xcgPUkAID6vP7nM29xfAEjPJzjAdqL84bKy2R+8X1v1gdeC7ZbBWaANQbtc066eInbg7YBatrYHImaJ3EZ1rLyANAawS1W8efbrKLvA62dn8XIods20wutnZ1NX5igUXRmk6n/i8f0gAbqs75e1VLsf63qUdR++M2vGB3dS9H6aZa/y9dOjFdO8fL6ACkgszjSx2y+HAqPdX6B3FZBF1KJ5VD5jmzlThJv6vWjMP83nV8dZ51/rsHH5heGLoEP3zoFYcttuwTbiIdn7BBCJ9ywDzxT1MSbJ8RZ0+Qw74vXzdZTdHr2AxPr8juu7+Hj03SPeX2DXXkAhqG/qyNsDiw+HG0zs6Cym4acgDcBsFdAtJpDWw9POjVoFFA0E6fID2l+gt+7Tz/r+GPETdbKdSESz7raACUX43doAWYw1Koxyf4GxiQT2Gtgxe3GaC2iK+rxxAGB8VMCo9hfYAwYwG4qkTJ6QUK5aGqjthH+uHh6WEkCqjeS1IhgHFVDogQeM4RuBM2+7U6dNA/DQvXOgEwBw3syu/Ht9fIPP/h31/gLp+/8lYVeBVx6PM0qvG0sYn6AHsQDqSBcw2AKCHcx+3x36shnAkb+dxDclAICYBFDXzfrM4JBZr8r33J/dg9mDEz29yjAw6nUDvamAVx6XO4SaePFR0sEEuRtMNOWXM1kTCCIPYFi93NT/JpPcRITRcV84Vev5px47r6ZyXby8iQff9VYAAEX6x6o5LP2n8qk/APiHL0TT03qZIzhtfys60NO7k1O8Bg2hvws8cfKfHXLfI/2Pbu0SI2eAWffM+SSxp6amcf36JgCgXp/AzMwMpiYnQewSWp4k0oWNK7i6eRXXNy+DgmF6ahJXrlwq/Bgnv/GZMCXk598JEJvcqb8D3Af0dPGwPn2eY2L9e+4wPw2bh5HvD/Dd1Z2Ocx/5tfeAUgpCCKqVKpaWbsPtx46hWjuA640WLl++grbPsXX9Sqz3f/Zv/nEXT2nYoOrDzfqDzzykV9g8gocfclYSgofXwo9GC0hmMT0dQmU5ofKHRbgAqIX/rpwfqQ0wdvsDvO/n3w5AfqmcMQY/8OH7ARiLS4kDNRs2FTFVocruDiEdaEhcgugT7iKIvgwe+EDQBvwWwPzwjwEBC/MwQPjyc/KcSanCGcCC+F/IbCsrj4w0IkXU2v+0xR17sT/A/3nkd1MfTH22vlqtYGZmBtPT07DdCloex5UrV3B98zKuXLqQWrYItAoQPOr9PFTJHFEkU12zADAAlMpjEsY2BCTzMBFJEiHCfDBUCw+9IRsgdOReADGJm9wfAMif89/L/gDdkMUACooRACDgUVtlGYlFEWMAQBKN+wCoEcYWibhVKNJFSGwp+yUDqHPhKR38oha0SiCWrmnUDPD/AZZ8zTPH0j78AAAAAElFTkSuQmCC"
+  };
+
   // src/ui/resultReporter.ts
   function toast(text, icon = "view_in_ar") {
     Blockbench.showToastNotification({ text, icon });
@@ -1268,6 +1467,19 @@ ${t("m3sl.dialog.warnings_header")}
   function reportRestoreResult(result, note) {
     toast(t("m3sl.toast.restored", [result.restoredCubes, result.removedVoxels]) + (note ? " " + note : ""), "unarchive");
   }
+  function reportCleared(summary) {
+    if (summary.removed === 0) {
+      toast(t("m3sl.toast.no_transparent"), "info");
+    } else {
+      toast(
+        t("m3sl.toast.cleared", [summary.removed]) + (summary.warnings.length ? " " + t("m3sl.toast.warnings", [summary.warnings.length]) : ""),
+        "layers_clear"
+      );
+    }
+    for (const warning of summary.warnings) {
+      console.warn(`[minecraft_3d_skin_layers] ${warning}`);
+    }
+  }
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[minecraft_3d_skin_layers] generation failed:", error);
@@ -1277,6 +1489,167 @@ ${t("m3sl.dialog.warnings_header")}
     const message = error instanceof Error ? error.message : String(error);
     console.error("[minecraft_3d_skin_layers] restore failed:", error);
     toast(t("m3sl.toast.restore_failed", [message]), "error");
+  }
+
+  // src/newSkin/templates.ts
+  var TEMPLATE_IDS = ["classic", "root", "joint"];
+  var SKIN_SIZES = [64, 128];
+  function buildTemplateModel(id, size) {
+    const source = EMBEDDED_TEMPLATES[id];
+    if (!source) {
+      throw new Error(`Unknown template: ${id}`);
+    }
+    const dataUrl = TEMP_TEXTURE_DATA_URLS[size];
+    if (!dataUrl) {
+      throw new Error(`No temp skin texture embedded for size ${size}`);
+    }
+    const model = JSON.parse(JSON.stringify(source));
+    if (Array.isArray(model.textures)) {
+      for (const texture of model.textures) {
+        texture.source = dataUrl;
+        texture.width = size;
+        texture.height = size;
+        texture.internal = true;
+      }
+    }
+    if (model.meta) {
+      model.meta.model_format = NEW_SKIN_FORMAT_ID;
+    }
+    return { model, projectName: `temp-${size}` };
+  }
+
+  // src/newSkin/newSkinDialog.ts
+  function showNewSkinDialog(onConfirm, onCancel) {
+    new Dialog({
+      id: `${PLUGIN_ID}.new_skin_dialog`,
+      title: t("m3sl.wizard.title"),
+      width: 512,
+      form: {
+        intro: { type: "info", text: t("m3sl.wizard.intro") },
+        template: {
+          label: t("m3sl.wizard.template"),
+          type: "select",
+          value: "classic",
+          options: {
+            classic: t("m3sl.wizard.template.classic"),
+            root: t("m3sl.wizard.template.root"),
+            joint: t("m3sl.wizard.template.joint")
+          }
+        },
+        size: {
+          label: t("m3sl.wizard.size"),
+          type: "select",
+          value: "64",
+          options: {
+            64: "64 \xD7 64",
+            128: "128 \xD7 128"
+          }
+        }
+      },
+      onConfirm(formResult) {
+        const raw = formResult ?? {};
+        const template = TEMPLATE_IDS.includes(raw.template) ? raw.template : "classic";
+        const size = SKIN_SIZES.includes(raw.size) ? raw.size : 64;
+        onConfirm({ template, size });
+      },
+      onClose() {
+        onCancel();
+      }
+    }).show();
+  }
+
+  // src/newSkin/newSkinFormat.ts
+  var registeredFormat;
+  var creating = false;
+  async function waitForTexturePixels(texture) {
+    const img = texture.img;
+    if (!img || img.complete) {
+      return;
+    }
+    await new Promise((resolve) => {
+      img.addEventListener("load", () => resolve(), { once: true });
+      img.addEventListener("error", () => resolve(), { once: true });
+    });
+  }
+  async function waitForProjectTextures(timeoutMs = 1e4) {
+    const pending = Texture.all.map((texture) => waitForTexturePixels(texture));
+    if (pending.length === 0) {
+      return;
+    }
+    await Promise.race([
+      Promise.all(pending),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs))
+    ]);
+  }
+  async function createSkinProject(template, size) {
+    if (creating || !registeredFormat) {
+      return;
+    }
+    creating = true;
+    try {
+      const { model, projectName } = buildTemplateModel(template, size);
+      newProject(registeredFormat);
+      suppressAutoScanDuring(() => {
+        const parse = Codecs.project.parse;
+        if (typeof parse !== "function") {
+          throw new Error("Blockbench project codec cannot parse models");
+        }
+        parse.call(Codecs.project, model, "");
+      });
+      Project.name = projectName;
+      await waitForProjectTextures();
+      const options = { ...loadOptions(), includeTransparent: true };
+      const outcome = scanAndPlan(options);
+      if (outcome.snapshots.length === 0) {
+        reportNoLayers();
+        return;
+      }
+      if (outcome.voxelCount > options.maxVoxels) {
+        reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
+        return;
+      }
+      for (const plan of outcome.plans) {
+        plan.visibility = true;
+      }
+      const result = await applyOutcome(outcome, options);
+      toast(t("m3sl.toast.wizard_created", [result.createdCubes, (result.durationMs / 1e3).toFixed(2)]), "view_in_ar");
+    } catch (error) {
+      reportError(error);
+    } finally {
+      creating = false;
+    }
+  }
+  function openWizard() {
+    showNewSkinDialog(
+      (selection) => {
+        void createSkinProject(selection.template, selection.size);
+      },
+      () => void 0
+    );
+  }
+  function registerNewSkinFormat() {
+    registeredFormat = new ModelFormat(NEW_SKIN_FORMAT_ID, {
+      icon: "view_in_ar",
+      category: "minecraft",
+      name: t("m3sl.format.name"),
+      description: t("m3sl.format.description"),
+      rotate_cubes: true,
+      bone_rig: true,
+      centered_grid: true,
+      optional_box_uv: true,
+      uv_rotation: true,
+      animation_mode: true,
+      new: () => {
+        openWizard();
+        return true;
+      }
+    });
+  }
+  function unregisterNewSkinFormat() {
+    if (registeredFormat && typeof registeredFormat.delete === "function") {
+      registeredFormat.delete();
+    }
+    registeredFormat = void 0;
   }
 
   // src/infra/logger.ts
@@ -1294,35 +1667,6 @@ ${t("m3sl.dialog.warnings_header")}
   var PLUGIN_NAME = "minecraft_3d_skin_layers";
 
   // src/plugin.ts
-  function scanAndPlan(options) {
-    const snapshots = collectLayerSnapshots(options);
-    const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
-    const { plans, warnings: planWarnings } = buildVoxelPlans(snapshots, textures, options);
-    const warnings = [...textureWarnings, ...planWarnings];
-    return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
-  }
-  function resolveCubeByKey(key) {
-    return Cube.all.find((cube) => cube.uuid === key);
-  }
-  async function applyOutcome(outcome, options) {
-    const started = performance.now();
-    const host = blockbenchHost;
-    const summary = await applyPlans(
-      outcome.plans,
-      {
-        maxVoxels: options.maxVoxels,
-        batchSize: options.batchSize,
-        preserveOriginal: options.preserveOriginal
-      },
-      host,
-      (key) => resolveCubeByKey(key)
-    );
-    return {
-      createdCubes: summary.createdCubes,
-      createdGroups: summary.createdGroups,
-      durationMs: performance.now() - started
-    };
-  }
   async function runGeneration(auto) {
     if (!isEditMode()) {
       if (!auto) {
@@ -1468,9 +1812,34 @@ ${t("m3sl.dialog.warnings_header")}
       running = false;
     }
   }
+  function runClearTransparent() {
+    if (!hasOpenProject()) {
+      toast(t("m3sl.toast.open_project"), "info");
+      return;
+    }
+    const options = loadOptions();
+    const summary = clearTransparentCubes(blockbenchHost, options.alphaThreshold);
+    reportCleared(summary);
+  }
+  function runClearTransparentGuarded() {
+    if (running) {
+      reportBusy();
+      return;
+    }
+    running = true;
+    try {
+      runClearTransparent();
+    } catch (error) {
+      logger.error("transparent cleanup failed", error);
+      reportError(error);
+    } finally {
+      running = false;
+    }
+  }
   var actions = [];
   var listeners = [];
   var generatedSourceProperty;
+  var skinMenu;
   function onProjectLoaded() {
     return () => {
       if (isAutoScanSuppressed()) {
@@ -1506,9 +1875,26 @@ ${t("m3sl.dialog.warnings_header")}
         void runRestoreGuarded();
       }
     });
-    actions = [generateAction, restoreAction];
+    const clearTransparentAction = new Action(`${PLUGIN_ID}.clear_transparent`, {
+      name: t("m3sl.clear_action.name"),
+      description: t("m3sl.clear_action.description"),
+      icon: "layers_clear",
+      category: "edit",
+      condition: () => hasOpenProject(),
+      click: () => {
+        runClearTransparentGuarded();
+      }
+    });
+    actions = [generateAction, restoreAction, clearTransparentAction];
     MenuBar.addAction(generateAction, "edit");
     MenuBar.addAction(restoreAction, "edit");
+    skinMenu = new BarMenu(`${PLUGIN_ID}.menu`, [`${PLUGIN_ID}.clear_transparent`], {
+      name: "m3sl.menu.name",
+      condition: () => hasOpenProject(),
+      icon: "view_in_ar"
+    });
+    MenuBar.addMenu(skinMenu, "file");
+    registerNewSkinFormat();
     listeners = [onProjectEvent("load_project", onProjectLoaded())];
   }
   function unregisterPlugin() {
@@ -1518,6 +1904,12 @@ ${t("m3sl.dialog.warnings_header")}
     listeners = [];
     MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
     MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
+    unregisterNewSkinFormat();
+    if (skinMenu && typeof skinMenu.delete === "function") {
+      skinMenu.delete();
+      MenuBar.update();
+    }
+    skinMenu = void 0;
     for (const action of actions) {
       action.delete();
     }

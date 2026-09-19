@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- A **3D Skin Model** format now appears on the start screen and in
+  File > New. Its wizard picks one of three embedded template models (classic
+  layout, root-wrapped, jointed segments) and a skin texture size (64 or 128);
+  the matching temp skin texture is loaded into the template (128 doubles the
+  texel density over the same 64-unit UV space) and the model is voxelized
+  immediately - **every pixel becomes a cube, transparent ones included** -
+  ready for the paint-then-cleanup workflow.
+- A top-level **3D Skin Model** menu (next to File) with a one-click
+  **Clear Transparent Cubes** action: it removes generated voxel cubes whose
+  sampled pixel has become transparent, in one atomic undo transaction.
+  Non-voxel cubes, missing textures and out-of-range samples are never touched.
+- Generation gained an `includeTransparent` mode used by the wizard; standard
+  generation keeps skipping transparent pixels.
+
 ## [0.3.1] - 2026-09-20
 
 ### Added

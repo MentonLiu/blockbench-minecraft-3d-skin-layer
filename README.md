@@ -52,6 +52,15 @@ work without any hard-coded skin atlas.
    File**, or copy the file into Blockbench's `plugins` folder.
 3. Requires Blockbench **5.0.0+** (desktop variant).
 
+## New: 3D skin model from a template
+
+On the start screen (or **File > New**) pick the **3D Skin Model** format:
+choose a template (classic / root-wrapped / jointed segments) and a skin
+texture size (64 or 128). The matching texture loads into the template and
+**every pixel becomes a cube - transparent pixels included**. Paint your skin,
+then use **3D Skin Model > Clear Transparent Cubes** (top-level menu) to
+remove the cubes at transparent pixels in one undo step.
+
 ## Usage
 
 1. Open your skin model in **Edit** mode.

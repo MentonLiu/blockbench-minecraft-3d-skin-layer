@@ -135,6 +135,7 @@ before the model is touched. If the total voxel count exceeds `maxVoxels`
   processSelectedOnly: false,
   useUVToLocalWhenAvailable: false,
   targetModel: 'current',
+  includeTransparent: false,
 }
 ```
 
@@ -163,6 +164,37 @@ copy     duplicate the project into a new tab, then run against the copy
   the copy.
 - Preflight (scan + maxVoxels) runs BEFORE duplicating; a failed preflight
   never creates a stray copy tab.
+
+## New 3D skin model flow (format m3sl_3d_skin)
+
+```
+Entry points   start screen card + File > New (custom ModelFormat.new)
+Wizard         template (classic / root / joint) + skin texture size (64 / 128)
+Creation       newProject -> Codecs.project.parse(embedded template) ->
+               inject temp-64.png / temp-128.png as the texture data URL
+               (UV space stays 64; 128 = 2x texel density) ->
+               wait for texture img.onload -> voxelize with
+               includeTransparent: true -> created groups forced visible
+```
+
+- The embedded templates carry NO texture source; the plugin injects the
+  matching temp texture per chosen size. Template meta points at the plugin
+  format so parse never falls back to `free`.
+- All pixels become cubes, transparent ones included (paint-then-cleanup
+  workflow); preflight maxVoxels still applies and leaves the bare template
+  untouched when exceeded.
+- Project name after creation: `temp-64` / `temp-128`.
+
+## Clear transparent cubes (top-level menu "3D Skin Model")
+
+- Menu entry via `MenuBar.addMenu` (BarMenu), placed right after File.
+- Removal candidates: cubes inside groups carrying the `m3sl_source` metadata
+  (plus legacy generated groups); a cube only participates when its north-face
+  UV spans exactly one texel.
+- A cube is removed when its sampled pixel's alpha <= alphaThreshold
+  (default 0 = fully transparent only). Missing textures, non-texel UVs and
+  out-of-bounds samples are kept and reported as warnings.
+- One atomic undo transaction; planning completes before any mutation.
 
 ## Acceptance (reference model, alphaThreshold 0)
 
