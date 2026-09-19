@@ -30,6 +30,14 @@ export interface GeneratorOptions {
    * Copying only applies to manual runs (dialog-based).
    */
   targetModel: 'current' | 'copy';
+  /**
+   * 为 true 时透明像素也生成方块（新建 3D 皮肤流程使用，先全量体素化，
+   * 后续用"清除透明方块"清理）。默认 false：alpha 低于阈值的像素跳过。
+   * When true, transparent pixels get cubes too (used by the new-skin flow:
+   * voxelize everything first, clean up with "Clear Transparent Cubes").
+   * Default false: texels at or below the alpha threshold are skipped.
+   */
+  includeTransparent: boolean;
 }
 
 export interface FaceSnapshot {

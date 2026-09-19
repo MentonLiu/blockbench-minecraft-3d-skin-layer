@@ -90,7 +90,12 @@ export function buildVoxelPlans(
         from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
         to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon],
       };
-      const scan = enumerateVisibleTexels(face, texture, options.alphaThreshold);
+      const scan = enumerateVisibleTexels(
+        face,
+        texture,
+        options.alphaThreshold,
+        options.includeTransparent,
+      );
       warnings.push(...scan.warnings.map(warning => `${layer.name}/${warning}`));
       if (scan.cells.length === 0) {
         continue;

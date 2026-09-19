@@ -36,6 +36,7 @@ export function sanitizeOptions(raw: unknown): GeneratorOptions {
       DEFAULT_OPTIONS.useUVToLocalWhenAvailable,
     ),
     targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel),
+    includeTransparent: toBool(source.includeTransparent, DEFAULT_OPTIONS.includeTransparent),
   };
 }
 

@@ -162,16 +162,21 @@ export function sampleCell(
 
 /**
  * 枚举一个面上所有可见像素：alpha 高于阈值的每个网格单元格各生成一个
- * 体素候选。单元格之间永不合并；同一图像像素也可以出现在多个面上。
- * Enumerates the visible texels of one face: every grid cell whose sampled
- * pixel's alpha exceeds the threshold. Each cell is an independent voxel
- * candidate - cells are never merged, and the same image pixel can appear on
- * several faces.
+ * 体素候选。includeTransparent 时跳过 alpha 检查（新建 3D 皮肤流程先
+ * 全量体素化，透明像素稍后用"清除透明方块"清理）。单元格之间永不合并；
+ * 同一图像像素也可以出现在多个面上。
+ * Enumerates the texels of one face: every grid cell whose sampled pixel's
+ * alpha exceeds the threshold. With includeTransparent the alpha check is
+ * skipped (the new-skin flow voxelizes everything first; transparent cubes are
+ * cleaned up later via "Clear Transparent Cubes"). Each cell is an independent
+ * voxel candidate - cells are never merged, and the same image pixel can
+ * appear on several faces.
  */
 export function enumerateVisibleTexels(
   face: FaceSnapshot,
   texture: PixelSource,
   alphaThreshold: number,
+  includeTransparent = false,
 ): FaceScan {
   const warnings: string[] = [];
   const grid = faceGridSize(face, texture, warnings);
@@ -185,7 +190,7 @@ export function enumerateVisibleTexels(
     for (let col = 0; col < grid.cols; col++) {
       const sample = sampleCell(face, face.uv, texture, sx, sy, grid, col, row);
       const alpha = getAlpha(texture, sample.imageX, sample.imageY);
-      if (alpha > alphaThreshold) {
+      if (includeTransparent || alpha > alphaThreshold) {
         cells.push({
           direction: face.direction,
           col,
