@@ -30,10 +30,11 @@ export interface ReportedResult extends GenerationResult {
   warnings: readonly string[];
 }
 
-export function reportGenerationResult(result: ReportedResult): void {
+export function reportGenerationResult(result: ReportedResult, note?: string): void {
   const seconds = (result.durationMs / 1000).toFixed(2);
   toast(
     t('m3sl.toast.generated', [result.createdCubes, result.createdGroups, seconds]) +
+      (note ? ' ' + note : '') +
       (result.warnings.length ? ' ' + t('m3sl.toast.warnings', [result.warnings.length]) : ''),
     'view_in_ar',
   );
@@ -42,8 +43,8 @@ export function reportGenerationResult(result: ReportedResult): void {
   }
 }
 
-export function reportRestoreResult(result: RestoreSummary): void {
-  toast(t('m3sl.toast.restored', [result.restoredCubes, result.removedVoxels]), 'unarchive');
+export function reportRestoreResult(result: RestoreSummary, note?: string): void {
+  toast(t('m3sl.toast.restored', [result.restoredCubes, result.removedVoxels]) + (note ? ' ' + note : ''), 'unarchive');
 }
 
 export function reportError(error: unknown): void {

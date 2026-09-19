@@ -15,6 +15,14 @@ export const en = {
   'm3sl.dialog.warnings_header': 'Warnings:',
   'm3sl.dialog.warnings_more': '... %0 more',
 
+  'm3sl.restore_dialog.title': 'Restore 3D Skin Layers',
+  'm3sl.restore_dialog.intro':
+    'Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.',
+
+  'm3sl.form.target_model': 'Target model',
+  'm3sl.form.target_model.current': 'Modify the current model',
+  'm3sl.form.target_model.copy': 'Copy to a new model and modify the copy',
+
   'm3sl.form.alpha_threshold': 'Alpha threshold (texels with alpha above this become cubes)',
   'm3sl.form.max_voxels': 'Maximum cube count (run aborts above this)',
   'm3sl.form.batch_size': 'Cubes created per batch',
@@ -36,6 +44,7 @@ export const en = {
   'm3sl.toast.restored': 'Restored %0 layer cube(s) and removed %1 voxel cube(s)',
   'm3sl.toast.restore_failed': 'Restore failed: %0',
   'm3sl.toast.edit_mode_restore': 'Switch to Edit mode to restore 3D skin layers',
+  'm3sl.toast.copied_note': 'Changes were applied to a copied model; the original is untouched.',
 
   'm3sl.status.detected':
     '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize',
@@ -53,6 +62,13 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个体素方块，六个面都映射到该像素（厚度与原膨胀层一致）。',
   'm3sl.dialog.warnings_header': '警告：',
   'm3sl.dialog.warnings_more': '……另有 %0 条',
+
+  'm3sl.restore_dialog.title': '还原 3D 皮肤层',
+  'm3sl.restore_dialog.intro': '找到 **%0** 个已生成的皮肤层分组（共 **%1** 个体素方块）。还原会重建原始皮肤层立方体，并删除生成的分组。',
+
+  'm3sl.form.target_model': '目标模型',
+  'm3sl.form.target_model.current': '修改当前模型',
+  'm3sl.form.target_model.copy': '复制为新模型并在副本上修改',
 
   'm3sl.form.alpha_threshold': 'Alpha 阈值（Alpha 高于该值的像素会生成方块）',
   'm3sl.form.max_voxels': '最大方块数量（超过此数量将中止）',
@@ -74,6 +90,7 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.toast.restored': '已还原 %0 个皮肤层立方体，并移除 %1 个体素方块',
   'm3sl.toast.restore_failed': '还原失败：%0',
   'm3sl.toast.edit_mode_restore': '请先切换到编辑模式再还原 3D 皮肤层',
+  'm3sl.toast.copied_note': '修改已应用到复制出的新模型，原模型保持不变。',
 
   'm3sl.status.detected': '检测到 %0 个皮肤层立方体（%1 个像素）—— 使用"生成 3D 皮肤层"进行体素化',
 };

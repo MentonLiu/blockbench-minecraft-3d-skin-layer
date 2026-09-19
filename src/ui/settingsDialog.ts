@@ -16,6 +16,10 @@ function toBool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function toTargetModel(value: unknown, fallback: 'current' | 'copy'): 'current' | 'copy' {
+  return value === 'copy' || value === 'current' ? value : fallback;
+}
+
 /** 清洗并校验用户输入，得到合法的生成选项 / Validate raw input into legal options. */
 export function sanitizeOptions(raw: unknown): GeneratorOptions {
   const source = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
@@ -31,6 +35,7 @@ export function sanitizeOptions(raw: unknown): GeneratorOptions {
       source.useUVToLocalWhenAvailable,
       DEFAULT_OPTIONS.useUVToLocalWhenAvailable,
     ),
+    targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel),
   };
 }
 
@@ -85,6 +90,15 @@ export function showGenerationDialog(
       intro: {
         type: 'info',
         text: t('m3sl.dialog.intro', [summary.layerCount, summary.voxelCount]) + warningText,
+      },
+      targetModel: {
+        label: t('m3sl.form.target_model'),
+        type: 'select',
+        value: options.targetModel,
+        options: {
+          current: t('m3sl.form.target_model.current'),
+          copy: t('m3sl.form.target_model.copy'),
+        },
       },
       alphaThreshold: {
         label: t('m3sl.form.alpha_threshold'),

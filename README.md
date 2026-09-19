@@ -57,14 +57,18 @@ work without any hard-coded skin atlas.
 1. Open your skin model in **Edit** mode.
 2. Run **Edit > Generate 3D Skin Layers**.
 3. The preflight dialog reports how many layer cubes and visible texels were
-   found. Adjust the options and confirm.
-4. To reverse a conversion, run **Edit > Restore 3D Skin Layers**. The action
-   restores the original layer cubes and removes their generated voxel groups.
+   found. Adjust the options, choose the **target model** - modify the current
+   model or copy everything into a new model and voxelize the copy (the
+   original tab stays untouched) - and confirm.
+4. To reverse a conversion, run **Edit > Restore 3D Skin Layers**. Its dialog
+   offers the same target model choice; restoring in a copy leaves the
+   voxelized original intact.
 
 ### Options
 
 | Option | Default | Meaning |
 |---|---|---|
+| Target model | Modify the current model | or copy to a new model and modify the copy; the duplicate never inherits the original's save path |
 | Alpha threshold | 0 | texels with alpha above this become cubes (0 = every non-transparent pixel) |
 | Maximum cube count | 10,000 | preflight aborts above this; nothing is modified |
 | Batch size | 200 | cubes created per UI batch |

@@ -26,6 +26,7 @@ export const DEFAULT_OPTIONS: GeneratorOptions = {
   autoApplyOnLoad: false,
   processSelectedOnly: false,
   useUVToLocalWhenAvailable: false,
+  targetModel: 'current',
 };
 
 /** 体素抬离原始表面的距离（同部位防共面闪烁）/ Lift of the voxels off the raw surface. */

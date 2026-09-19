@@ -22,6 +22,14 @@ export interface GeneratorOptions {
   processSelectedOnly: boolean;
   /** 实验开关：可用时用 Blockbench 的 UVToLocal 交叉验证 / Optional UVToLocal cross-check. */
   useUVToLocalWhenAvailable: boolean;
+  /**
+   * 修改目标：'current' 直接修改当前模型；'copy' 先复制出新模型再修改副本，
+   * 原模型保持不变。复制仅在手动运行（有对话框）时生效。
+   * Run target: 'current' modifies the open model; 'copy' duplicates the model
+   * first and applies changes to the copy, leaving the original untouched.
+   * Copying only applies to manual runs (dialog-based).
+   */
+  targetModel: 'current' | 'copy';
 }
 
 export interface FaceSnapshot {

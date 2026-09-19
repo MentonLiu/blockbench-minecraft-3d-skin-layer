@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- Both dialogs (Generate and Restore) now offer a **target model** choice:
+  modify the current model as before, or duplicate the project into a new tab
+  and apply the changes to the copy. Copies use Blockbench's own
+  `duplicate_project` recipe (`Codecs.project.compile` with embedded bitmaps →
+  `setupProject` → `Codecs.project.parse`), receive a descriptive name suffix
+  (`- 3D Layers` / `- Restored`), and do not inherit the original's save path,
+  so saving the copy always goes through "Save As" and can never overwrite the
+  original file.
+- The restore flow now shows a preflight dialog (previously it ran silently)
+  reporting how many generated groups and voxels will be restored, with the
+  same target model choice.
+- Project duplication suppresses the plugin's `load_project` auto-scan while
+  `Codecs.project.parse` dispatches the event, so a fresh copy is never
+  auto-voxelized; the choice is remembered like every other option.
+
+### Fixed
+
+- The manual generation run previously applied the plan computed *before* the
+  dialog, so changing the alpha threshold inside the dialog had no effect on
+  the generated result. The plan is now recomputed with the confirmed options
+  (and serves as the final preflight before a copy is created).
+
 ## [0.3.1] - 2026-09-17
 
 ### Added

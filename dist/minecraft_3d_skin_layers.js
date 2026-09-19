@@ -13,7 +13,8 @@
     replaceEmptyLayer: false,
     autoApplyOnLoad: false,
     processSelectedOnly: false,
-    useUVToLocalWhenAvailable: false
+    useUVToLocalWhenAvailable: false,
+    targetModel: "current"
   };
   var VOXEL_STANDOFF = 1e-3;
   var FACE_EPSILON_STEP = 15e-4;
@@ -302,6 +303,11 @@
     "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).",
     "m3sl.dialog.warnings_header": "Warnings:",
     "m3sl.dialog.warnings_more": "... %0 more",
+    "m3sl.restore_dialog.title": "Restore 3D Skin Layers",
+    "m3sl.restore_dialog.intro": "Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.",
+    "m3sl.form.target_model": "Target model",
+    "m3sl.form.target_model.current": "Modify the current model",
+    "m3sl.form.target_model.copy": "Copy to a new model and modify the copy",
     "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
     "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
     "m3sl.form.batch_size": "Cubes created per batch",
@@ -321,6 +327,7 @@
     "m3sl.toast.restored": "Restored %0 layer cube(s) and removed %1 voxel cube(s)",
     "m3sl.toast.restore_failed": "Restore failed: %0",
     "m3sl.toast.edit_mode_restore": "Switch to Edit mode to restore 3D skin layers",
+    "m3sl.toast.copied_note": "Changes were applied to a copied model; the original is untouched.",
     "m3sl.status.detected": '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize'
   };
   var zh = {
@@ -332,6 +339,11 @@
     "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u516D\u4E2A\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\uFF08\u539A\u5EA6\u4E0E\u539F\u81A8\u80C0\u5C42\u4E00\u81F4\uFF09\u3002",
     "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
     "m3sl.dialog.warnings_more": "\u2026\u2026\u53E6\u6709 %0 \u6761",
+    "m3sl.restore_dialog.title": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
+    "m3sl.restore_dialog.intro": "\u627E\u5230 **%0** \u4E2A\u5DF2\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4\uFF08\u5171 **%1** \u4E2A\u4F53\u7D20\u65B9\u5757\uFF09\u3002\u8FD8\u539F\u4F1A\u91CD\u5EFA\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u5220\u9664\u751F\u6210\u7684\u5206\u7EC4\u3002",
+    "m3sl.form.target_model": "\u76EE\u6807\u6A21\u578B",
+    "m3sl.form.target_model.current": "\u4FEE\u6539\u5F53\u524D\u6A21\u578B",
+    "m3sl.form.target_model.copy": "\u590D\u5236\u4E3A\u65B0\u6A21\u578B\u5E76\u5728\u526F\u672C\u4E0A\u4FEE\u6539",
     "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
     "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
     "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
@@ -351,6 +363,7 @@
     "m3sl.toast.restored": "\u5DF2\u8FD8\u539F %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u79FB\u9664 %1 \u4E2A\u4F53\u7D20\u65B9\u5757",
     "m3sl.toast.restore_failed": "\u8FD8\u539F\u5931\u8D25\uFF1A%0",
     "m3sl.toast.edit_mode_restore": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
+    "m3sl.toast.copied_note": "\u4FEE\u6539\u5DF2\u5E94\u7528\u5230\u590D\u5236\u51FA\u7684\u65B0\u6A21\u578B\uFF0C\u539F\u6A21\u578B\u4FDD\u6301\u4E0D\u53D8\u3002",
     "m3sl.status.detected": '\u68C0\u6D4B\u5230 %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08%1 \u4E2A\u50CF\u7D20\uFF09\u2014\u2014 \u4F7F\u7528"\u751F\u6210 3D \u76AE\u80A4\u5C42"\u8FDB\u884C\u4F53\u7D20\u5316'
   };
 
@@ -870,6 +883,47 @@
     }
   }
 
+  // src/blockbench/projectDuplicate.ts
+  var blockbenchDuplicateHost = {
+    activeProjectName() {
+      return Project.name;
+    },
+    compileSnapshot() {
+      return Codecs.project.compile({ raw: true, bitmaps: true });
+    },
+    setupCopyProject() {
+      setupProject(Project.format);
+    },
+    loadSnapshot(model) {
+      const parse = Codecs.project.parse;
+      if (typeof parse !== "function") {
+        throw new Error("Blockbench project codec cannot parse models");
+      }
+      parse.call(Codecs.project, model, "");
+    },
+    setProjectName(name) {
+      Project.name = name;
+    }
+  };
+  var autoScanSuppressed = false;
+  function isAutoScanSuppressed() {
+    return autoScanSuppressed;
+  }
+  function duplicateCurrentProjectAsCopy(host = blockbenchDuplicateHost, suffix = " - Copy") {
+    const originalName = host.activeProjectName();
+    const model = host.compileSnapshot();
+    autoScanSuppressed = true;
+    try {
+      host.setupCopyProject();
+      host.loadSnapshot(model);
+    } finally {
+      autoScanSuppressed = false;
+    }
+    if (originalName) {
+      host.setProjectName(originalName + suffix);
+    }
+  }
+
   // src/blockbench/undoTransaction.ts
   var blockbenchUndo = {
     begin(aspects) {
@@ -1042,6 +1096,9 @@
   function toBool(value, fallback) {
     return typeof value === "boolean" ? value : fallback;
   }
+  function toTargetModel(value, fallback) {
+    return value === "copy" || value === "current" ? value : fallback;
+  }
   function sanitizeOptions(raw) {
     const source = typeof raw === "object" && raw !== null ? raw : {};
     return {
@@ -1055,7 +1112,8 @@
       useUVToLocalWhenAvailable: toBool(
         source.useUVToLocalWhenAvailable,
         DEFAULT_OPTIONS.useUVToLocalWhenAvailable
-      )
+      ),
+      targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel)
     };
   }
   function loadOptions() {
@@ -1089,6 +1147,15 @@ ${t("m3sl.dialog.warnings_header")}
         intro: {
           type: "info",
           text: t("m3sl.dialog.intro", [summary.layerCount, summary.voxelCount]) + warningText
+        },
+        targetModel: {
+          label: t("m3sl.form.target_model"),
+          type: "select",
+          value: options.targetModel,
+          options: {
+            current: t("m3sl.form.target_model.current"),
+            copy: t("m3sl.form.target_model.copy")
+          }
         },
         alphaThreshold: {
           label: t("m3sl.form.alpha_threshold"),
@@ -1147,6 +1214,36 @@ ${t("m3sl.dialog.warnings_header")}
     }).show();
   }
 
+  // src/ui/restoreDialog.ts
+  function showRestoreDialog(summary, options, onConfirm, onCancel) {
+    new Dialog({
+      id: `${PLUGIN_ID}.restore_dialog`,
+      title: t("m3sl.restore_dialog.title"),
+      width: 512,
+      form: {
+        intro: {
+          type: "info",
+          text: t("m3sl.restore_dialog.intro", [summary.groupCount, summary.voxelCount])
+        },
+        targetModel: {
+          label: t("m3sl.form.target_model"),
+          type: "select",
+          value: options.targetModel,
+          options: {
+            current: t("m3sl.form.target_model.current"),
+            copy: t("m3sl.form.target_model.copy")
+          }
+        }
+      },
+      onConfirm(formResult) {
+        onConfirm(sanitizeOptions({ ...options, ...formResult }));
+      },
+      onClose() {
+        onCancel();
+      }
+    }).show();
+  }
+
   // src/ui/resultReporter.ts
   function toast(text, icon = "view_in_ar") {
     Blockbench.showToastNotification({ text, icon });
@@ -1166,18 +1263,18 @@ ${t("m3sl.dialog.warnings_header")}
   function reportVoxelLimit(error) {
     toast(t("m3sl.toast.limit", [error.voxelCount, error.limit]), "warning");
   }
-  function reportGenerationResult(result) {
+  function reportGenerationResult(result, note) {
     const seconds = (result.durationMs / 1e3).toFixed(2);
     toast(
-      t("m3sl.toast.generated", [result.createdCubes, result.createdGroups, seconds]) + (result.warnings.length ? " " + t("m3sl.toast.warnings", [result.warnings.length]) : ""),
+      t("m3sl.toast.generated", [result.createdCubes, result.createdGroups, seconds]) + (note ? " " + note : "") + (result.warnings.length ? " " + t("m3sl.toast.warnings", [result.warnings.length]) : ""),
       "view_in_ar"
     );
     for (const warning of result.warnings) {
       console.warn(`[minecraft_3d_skin_layers] ${warning}`);
     }
   }
-  function reportRestoreResult(result) {
-    toast(t("m3sl.toast.restored", [result.restoredCubes, result.removedVoxels]), "unarchive");
+  function reportRestoreResult(result, note) {
+    toast(t("m3sl.toast.restored", [result.restoredCubes, result.removedVoxels]) + (note ? " " + note : ""), "unarchive");
   }
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -1282,8 +1379,24 @@ ${t("m3sl.dialog.warnings_header")}
     if (!confirmed) {
       return;
     }
-    const result = await applyOutcome(outcome, confirmed);
-    reportGenerationResult({ ...result, warnings: outcome.warnings });
+    const fresh = scanAndPlan(confirmed);
+    if (fresh.snapshots.length === 0) {
+      reportNoLayers();
+      return;
+    }
+    if (fresh.voxelCount > confirmed.maxVoxels) {
+      reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
+      return;
+    }
+    const appliedToCopy = confirmed.targetModel === "copy";
+    if (appliedToCopy) {
+      duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, " - 3D Layers");
+    }
+    const result = await applyOutcome(fresh, confirmed);
+    reportGenerationResult(
+      { ...result, warnings: fresh.warnings },
+      appliedToCopy ? t("m3sl.toast.copied_note") : void 0
+    );
   }
   var running = false;
   async function runGenerationGuarded(auto) {
@@ -1319,8 +1432,35 @@ ${t("m3sl.dialog.warnings_header")}
       reportNoRestorableGroups();
       return;
     }
-    const result = applyRestores(candidates, blockbenchHost);
-    reportRestoreResult(result);
+    const voxelCount = candidates.reduce((sum, candidate) => sum + candidate.children.length, 0);
+    const confirmed = await new Promise((resolve) => {
+      showRestoreDialog(
+        { groupCount: candidates.length, voxelCount },
+        loadOptions(),
+        (merged) => {
+          persistOptions(merged);
+          resolve(merged);
+        },
+        () => resolve(null)
+      );
+    });
+    if (!confirmed) {
+      return;
+    }
+    const appliedToCopy = confirmed.targetModel === "copy";
+    if (appliedToCopy) {
+      duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, " - Restored");
+    }
+    const activeCandidates = collectRestoreCandidates();
+    if (activeCandidates.length === 0) {
+      reportNoRestorableGroups();
+      return;
+    }
+    const result = applyRestores(activeCandidates, blockbenchHost);
+    reportRestoreResult(
+      result,
+      appliedToCopy ? t("m3sl.toast.copied_note") : void 0
+    );
   }
   async function runRestoreGuarded() {
     if (running) {
@@ -1341,6 +1481,9 @@ ${t("m3sl.dialog.warnings_header")}
   var generatedSourceProperty;
   function onProjectLoaded() {
     return () => {
+      if (isAutoScanSuppressed()) {
+        return;
+      }
       void runGenerationGuarded(true);
     };
   }

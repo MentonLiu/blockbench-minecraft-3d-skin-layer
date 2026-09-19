@@ -22,6 +22,9 @@ inside Blockbench. Derived from `plan.md`; the reference model
 13. One logical change per commit.
 14. Do not silently increase `maxVoxels`.
 15. Do not add hard-coded support for untested Blockbench internals.
+16. Never change the version number (package.json, plugin metadata, README
+   badges, CHANGELOG release headers) without the user's explicit approval.
+   Unreleased work goes under a `## [Unreleased]` CHANGELOG heading.
 
 ## Detection
 
@@ -131,10 +134,34 @@ before the model is touched. If the total voxel count exceeds `maxVoxels`
   autoApplyOnLoad: false,
   processSelectedOnly: false,
   useUVToLocalWhenAvailable: false,
+  targetModel: 'current',
 }
 ```
 
 `10_000` / `200` are engineering defaults, not Blockbench limits.
+
+## Run target (targetModel)
+
+```
+current  modify the open project in place (previous behavior)
+copy     duplicate the project into a new tab, then run against the copy
+```
+
+- Offered in BOTH dialogs (generate + restore preflight); manual runs only -
+  auto-generate on project load always targets the current project.
+- Copy recipe (same as Blockbench's `duplicate_project` action):
+  `Codecs.project.compile({raw: true, bitmaps: true})` -> `setupProject` ->
+  `Codecs.project.parse(model, '')`; rename the copy with a suffix
+  (`- 3D Layers` / `- Restored`).
+- The copy does NOT inherit `save_path` (empty path on parse), so saving it
+  always goes through "Save As" - the original file can never be overwritten.
+- The plugin's `load_project` auto-scan is suppressed while parsing, otherwise
+  the fresh copy would be auto-voxelized.
+- Plans are pure data + uuids and resolve against the active project at write
+  time; restore candidates hold live object references and are re-collected in
+  the copy.
+- Preflight (scan + maxVoxels) runs BEFORE duplicating; a failed preflight
+  never creates a stray copy tab.
 
 ## Acceptance (reference model, alphaThreshold 0)
 

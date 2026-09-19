@@ -16,8 +16,14 @@ import type { ProjectListener } from './blockbench/compatibility';
 import { applyPlans } from './blockbench/modelWriter';
 import type { WriterHost } from './blockbench/modelWriter';
 import { applyRestores } from './blockbench/modelRestorer';
+import {
+  blockbenchDuplicateHost,
+  duplicateCurrentProjectAsCopy,
+  isAutoScanSuppressed,
+} from './blockbench/projectDuplicate';
 import { blockbenchHost } from './blockbench/blockbenchHost';
 import { loadOptions, persistOptions, showGenerationDialog } from './ui/settingsDialog';
+import { showRestoreDialog } from './ui/restoreDialog';
 import {
   reportBusy,
   reportError,
@@ -126,8 +132,36 @@ async function runGeneration(auto: boolean): Promise<void> {
     return;
   }
 
-  const result = await applyOutcome(outcome, confirmed);
-  reportGenerationResult({ ...result, warnings: outcome.warnings });
+  // 用确认后的选项重新扫描：对话框里可能改了 alpha 阈值等参数，
+  // 对话框之前的计划已经过期。此次扫描也作为复制/应用前的最终预检。
+  // Re-plan with the confirmed options: the dialog may have changed the alpha
+  // threshold etc., so the pre-dialog plan is stale. This scan also serves as
+  // the final preflight before copying/applying.
+  const fresh = scanAndPlan(confirmed);
+  if (fresh.snapshots.length === 0) {
+    reportNoLayers();
+    return;
+  }
+  if (fresh.voxelCount > confirmed.maxVoxels) {
+    reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
+    return;
+  }
+
+  // 复制模式：先把当前项目复制成新标签页（副本成为活动项目），再在副本上
+  // 应用计划——计划是纯数据 + uuid，写入时会解析到活动项目的元素。
+  // Copy mode: duplicate the open project into a new tab (the copy becomes the
+  // active project), then apply the plans there - plans are plain data plus
+  // uuids, resolved against the active project at write time.
+  const appliedToCopy = confirmed.targetModel === 'copy';
+  if (appliedToCopy) {
+    duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, ' - 3D Layers');
+  }
+
+  const result = await applyOutcome(fresh, confirmed);
+  reportGenerationResult(
+    { ...result, warnings: fresh.warnings },
+    appliedToCopy ? t('m3sl.toast.copied_note') : undefined,
+  );
 }
 
 let running = false;
@@ -166,8 +200,42 @@ async function runRestore(): Promise<void> {
     reportNoRestorableGroups();
     return;
   }
-  const result = applyRestores(candidates, blockbenchHost);
-  reportRestoreResult(result);
+
+  const voxelCount = candidates.reduce((sum, candidate) => sum + candidate.children.length, 0);
+  const confirmed = await new Promise<GeneratorOptions | null>(resolve => {
+    showRestoreDialog(
+      { groupCount: candidates.length, voxelCount },
+      loadOptions(),
+      merged => {
+        persistOptions(merged);
+        resolve(merged);
+      },
+      () => resolve(null),
+    );
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  // 复制模式：先复制项目（副本成为活动项目），再在副本上执行还原。
+  // 候选持有旧项目的活动对象引用，必须在副本上重新收集。
+  // Copy mode: duplicate first (the copy becomes the active project), then
+  // restore there. Candidates hold live references to the old project's
+  // objects, so they must be re-collected in the copy.
+  const appliedToCopy = confirmed.targetModel === 'copy';
+  if (appliedToCopy) {
+    duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, ' - Restored');
+  }
+  const activeCandidates = collectRestoreCandidates();
+  if (activeCandidates.length === 0) {
+    reportNoRestorableGroups();
+    return;
+  }
+  const result = applyRestores(activeCandidates, blockbenchHost);
+  reportRestoreResult(
+    result,
+    appliedToCopy ? t('m3sl.toast.copied_note') : undefined,
+  );
 }
 
 async function runRestoreGuarded(): Promise<void> {
@@ -191,6 +259,14 @@ let generatedSourceProperty: Property | undefined;
 
 function onProjectLoaded(): ProjectListener {
   return () => {
+    // 项目复制过程中的 parse 会触发 load_project；此时必须抑制自动扫描，
+    // 否则刚复制出的副本会被误体素化
+    // parsing during project duplication fires load_project; the auto-scan
+    // must stay suppressed then, or the fresh copy would be voxelized
+    // unintendedly
+    if (isAutoScanSuppressed()) {
+      return;
+    }
     void runGenerationGuarded(true);
   };
 }
