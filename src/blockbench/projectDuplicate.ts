@@ -66,6 +66,20 @@ export function isAutoScanSuppressed(): boolean {
 }
 
 /**
+ * 在 fn 执行期间抑制 load_project 自动扫描（同步执行，事件同步派发）。
+ * Suppresses the load_project auto-scan while `fn` runs (synchronous fn -
+ * Blockbench dispatches events synchronously).
+ */
+export function suppressAutoScanDuring<T>(fn: () => T): T {
+  autoScanSuppressed = true;
+  try {
+    return fn();
+  } finally {
+    autoScanSuppressed = false;
+  }
+}
+
+/**
  * 复制当前项目并把副本设为活动项目。`suffix` 追加到副本名上
  * （原项目名可为空，此时保持默认名）。任何错误都会向上抛出，
  * 原项目在整个过程中只被读取、不被修改。
@@ -79,13 +93,10 @@ export function duplicateCurrentProjectAsCopy(
 ): void {
   const originalName = host.activeProjectName();
   const model = host.compileSnapshot();
-  autoScanSuppressed = true;
-  try {
+  suppressAutoScanDuring(() => {
     host.setupCopyProject();
     host.loadSnapshot(model);
-  } finally {
-    autoScanSuppressed = false;
-  }
+  });
   if (originalName) {
     host.setProjectName(originalName + suffix);
   }

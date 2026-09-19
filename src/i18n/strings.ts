@@ -9,6 +9,23 @@ export const en = {
   'm3sl.restore_action.name': 'Restore 3D Skin Layers',
   'm3sl.restore_action.description': 'Convert generated 3D skin layer groups back to single cubes',
 
+  'm3sl.format.name': '3D Skin Model',
+  'm3sl.format.description':
+    'Create a Minecraft skin model from a template: pick a template and a 64/128 texture, every pixel (transparent ones included) becomes a cube',
+  'm3sl.menu.name': '3D Skin Model',
+
+  'm3sl.wizard.title': 'New 3D Skin Model',
+  'm3sl.wizard.intro':
+    'Choose a template model and a skin texture size. The template loads the matching texture and every pixel - transparent ones included - becomes a cube. Paint the skin, then use **3D Skin Model > Clear Transparent Cubes** to remove cubes at transparent pixels.',
+  'm3sl.wizard.template': 'Template model',
+  'm3sl.wizard.template.classic': 'Classic (original layout)',
+  'm3sl.wizard.template.root': 'Root-wrapped',
+  'm3sl.wizard.template.joint': 'Jointed segments',
+  'm3sl.wizard.size': 'Skin texture size',
+
+  'm3sl.clear_action.name': 'Clear Transparent Cubes',
+  'm3sl.clear_action.description': 'Remove voxel cubes whose sampled pixel is transparent',
+
   'm3sl.dialog.title': 'Generate 3D Skin Layers',
   'm3sl.dialog.intro':
     'Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).',
@@ -44,6 +61,9 @@ export const en = {
   'm3sl.toast.restore_failed': 'Restore failed: %0',
   'm3sl.toast.edit_mode_restore': 'Switch to Edit mode to restore 3D skin layers',
   'm3sl.toast.copied_note': 'Changes were applied to a copied model; the original is untouched.',
+  'm3sl.toast.cleared': 'Removed %0 transparent voxel cube(s)',
+  'm3sl.toast.no_transparent': 'No transparent voxel cubes found',
+  'm3sl.toast.wizard_created': 'Created 3D skin model with %0 voxel cube(s) (%1s)',
 
   'm3sl.status.detected':
     '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize',
@@ -56,6 +76,21 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.action.description': '将 "* Layer" 立方体替换为逐像素体素方块',
   'm3sl.restore_action.name': '还原 3D 皮肤层',
   'm3sl.restore_action.description': '将已生成的 3D 皮肤层组还原为单个立方体',
+
+  'm3sl.format.name': '3D 皮肤模型',
+  'm3sl.format.description': '从模板创建 Minecraft 皮肤模型：选择模板与 64/128 纹理，所有像素（包括透明像素）都会生成方块',
+  'm3sl.menu.name': '3D 皮肤模型',
+
+  'm3sl.wizard.title': '新建 3D 皮肤模型',
+  'm3sl.wizard.intro': '选择模板模型与皮肤纹理尺寸。模板会加载对应的纹理，所有像素——包括透明像素——都会生成方块。绘制皮肤后，使用 **3D 皮肤模型 > 清除透明方块** 移除透明像素处的方块。',
+  'm3sl.wizard.template': '模板模型',
+  'm3sl.wizard.template.classic': '经典（原始布局）',
+  'm3sl.wizard.template.root': '根分组',
+  'm3sl.wizard.template.joint': '关节分段',
+  'm3sl.wizard.size': '皮肤纹理尺寸',
+
+  'm3sl.clear_action.name': '清除透明方块',
+  'm3sl.clear_action.description': '删除采样像素已透明的体素方块',
 
   'm3sl.dialog.title': '生成 3D 皮肤层',
   'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个体素方块，六个面都映射到该像素（厚度与原膨胀层一致）。',
@@ -88,6 +123,9 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.toast.restore_failed': '还原失败：%0',
   'm3sl.toast.edit_mode_restore': '请先切换到编辑模式再还原 3D 皮肤层',
   'm3sl.toast.copied_note': '修改已应用到复制出的新模型，原模型保持不变。',
+  'm3sl.toast.cleared': '已清除 %0 个透明体素方块',
+  'm3sl.toast.no_transparent': '没有需要清除的透明体素方块',
+  'm3sl.toast.wizard_created': '已创建 3D 皮肤模型（%0 个体素方块，耗时 %1 秒）',
 
   'm3sl.status.detected': '检测到 %0 个皮肤层立方体（%1 个像素）—— 使用"生成 3D 皮肤层"进行体素化',
 };

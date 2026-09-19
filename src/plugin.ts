@@ -1,11 +1,9 @@
 import { GENERATED_SOURCE_PROPERTY, PLUGIN_ID } from './domain/constants';
 import { VoxelLimitError } from './domain/types';
-import type { GeneratorOptions, GenerationResult, LayerPlan, LayerSnapshot } from './domain/types';
-import { buildVoxelPlans, countPlanVoxels } from './geometry/voxelPlanner';
+import type { GeneratorOptions } from './domain/types';
+import { applyOutcome, scanAndPlan } from './generate';
 import { registerTranslations, t } from './i18n';
 import {
-  buildTextureMap,
-  collectLayerSnapshots,
   collectRestoreCandidates,
   hasOpenProject,
   hasRestorableGroups,
@@ -13,8 +11,6 @@ import {
   onProjectEvent,
 } from './blockbench/compatibility';
 import type { ProjectListener } from './blockbench/compatibility';
-import { applyPlans } from './blockbench/modelWriter';
-import type { WriterHost } from './blockbench/modelWriter';
 import { applyRestores } from './blockbench/modelRestorer';
 import {
   blockbenchDuplicateHost,
@@ -24,6 +20,7 @@ import {
 import { blockbenchHost } from './blockbench/blockbenchHost';
 import { loadOptions, persistOptions, showGenerationDialog } from './ui/settingsDialog';
 import { showRestoreDialog } from './ui/restoreDialog';
+import { registerNewSkinFormat, unregisterNewSkinFormat } from './newSkin/newSkinFormat';
 import {
   reportBusy,
   reportError,
@@ -38,45 +35,7 @@ import {
 } from './ui/resultReporter';
 import { logger } from './infra/logger';
 
-export interface ScanOutcome {
-  snapshots: LayerSnapshot[];
-  plans: LayerPlan[];
-  warnings: string[];
-  voxelCount: number;
-}
-
-/** Pure preflight: snapshot layers, decode textures, plan voxels. No mutation. */
-export function scanAndPlan(options: GeneratorOptions): ScanOutcome {
-  const snapshots = collectLayerSnapshots(options);
-  const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
-  const { plans, warnings: planWarnings } = buildVoxelPlans(snapshots, textures, options);
-  const warnings = [...textureWarnings, ...planWarnings];
-  return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
-}
-
-function resolveCubeByKey(key: string): Cube | undefined {
-  return Cube.all.find(cube => cube.uuid === key);
-}
-
-async function applyOutcome(outcome: ScanOutcome, options: GeneratorOptions): Promise<GenerationResult> {
-  const started = performance.now();
-  const host: WriterHost = blockbenchHost;
-  const summary = await applyPlans(
-    outcome.plans,
-    {
-      maxVoxels: options.maxVoxels,
-      batchSize: options.batchSize,
-      preserveOriginal: options.preserveOriginal,
-    },
-    host,
-    key => resolveCubeByKey(key),
-  );
-  return {
-    createdCubes: summary.createdCubes,
-    createdGroups: summary.createdGroups,
-    durationMs: performance.now() - started,
-  };
-}
+export type { ScanOutcome } from './generate';
 
 async function runGeneration(auto: boolean): Promise<void> {
   if (!isEditMode()) {
@@ -305,6 +264,8 @@ export function registerPlugin(): void {
   MenuBar.addAction(generateAction, 'edit');
   MenuBar.addAction(restoreAction, 'edit');
 
+  registerNewSkinFormat();
+
   listeners = [onProjectEvent('load_project', onProjectLoaded())];
 }
 
@@ -315,6 +276,7 @@ export function unregisterPlugin(): void {
   listeners = [];
   MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
   MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
+  unregisterNewSkinFormat();
   for (const action of actions) {
     action.delete();
   }

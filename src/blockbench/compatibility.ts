@@ -39,7 +39,7 @@ function normalizeRotation(value: number | undefined): 0 | 90 | 180 | 270 {
  * Extract the texture key of a face: null means disabled or untextured.
  * In Blockbench, texture === null means the face does not exist (not rendered).
  */
-function faceTextureKey(face: CubeFace): string | null {
+export function faceTextureKey(face: CubeFace): string | null {
   const texture: unknown = face.texture;
   if (texture === null || texture === undefined || texture === false) {
     return null;
