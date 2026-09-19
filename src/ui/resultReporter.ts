@@ -47,6 +47,21 @@ export function reportRestoreResult(result: RestoreSummary, note?: string): void
   toast(t('m3sl.toast.restored', [result.restoredCubes, result.removedVoxels]) + (note ? ' ' + note : ''), 'unarchive');
 }
 
+export function reportCleared(summary: { removed: number; warnings: readonly string[] }): void {
+  if (summary.removed === 0) {
+    toast(t('m3sl.toast.no_transparent'), 'info');
+  } else {
+    toast(
+      t('m3sl.toast.cleared', [summary.removed]) +
+        (summary.warnings.length ? ' ' + t('m3sl.toast.warnings', [summary.warnings.length]) : ''),
+      'layers_clear',
+    );
+  }
+  for (const warning of summary.warnings) {
+    console.warn(`[minecraft_3d_skin_layers] ${warning}`);
+  }
+}
+
 export function reportError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[minecraft_3d_skin_layers] generation failed:', error);

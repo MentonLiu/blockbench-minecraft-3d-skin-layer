@@ -17,12 +17,14 @@ import {
   duplicateCurrentProjectAsCopy,
   isAutoScanSuppressed,
 } from './blockbench/projectDuplicate';
+import { clearTransparentCubes } from './blockbench/transparentCleaner';
 import { blockbenchHost } from './blockbench/blockbenchHost';
 import { loadOptions, persistOptions, showGenerationDialog } from './ui/settingsDialog';
 import { showRestoreDialog } from './ui/restoreDialog';
 import { registerNewSkinFormat, unregisterNewSkinFormat } from './newSkin/newSkinFormat';
 import {
   reportBusy,
+  reportCleared,
   reportError,
   reportGenerationResult,
   reportNoRestorableGroups,
@@ -212,9 +214,37 @@ async function runRestoreGuarded(): Promise<void> {
   }
 }
 
+/** 一键清除透明体素 / One-click transparent voxel cleanup. */
+function runClearTransparent(): void {
+  if (!hasOpenProject()) {
+    toast(t('m3sl.toast.open_project'), 'info');
+    return;
+  }
+  const options = loadOptions();
+  const summary = clearTransparentCubes(blockbenchHost, options.alphaThreshold);
+  reportCleared(summary);
+}
+
+function runClearTransparentGuarded(): void {
+  if (running) {
+    reportBusy();
+    return;
+  }
+  running = true;
+  try {
+    runClearTransparent();
+  } catch (error) {
+    logger.error('transparent cleanup failed', error);
+    reportError(error);
+  } finally {
+    running = false;
+  }
+}
+
 let actions: Action[] = [];
 let listeners: { dispose(): void }[] = [];
 let generatedSourceProperty: Property | undefined;
+let skinMenu: BarMenu | undefined;
 
 function onProjectLoaded(): ProjectListener {
   return () => {
@@ -258,11 +288,31 @@ export function registerPlugin(): void {
       void runRestoreGuarded();
     },
   });
-  actions = [generateAction, restoreAction];
+  const clearTransparentAction = new Action(`${PLUGIN_ID}.clear_transparent`, {
+    name: t('m3sl.clear_action.name'),
+    description: t('m3sl.clear_action.description'),
+    icon: 'layers_clear',
+    category: 'edit',
+    condition: () => hasOpenProject(),
+    click: () => {
+      runClearTransparentGuarded();
+    },
+  });
+  actions = [generateAction, restoreAction, clearTransparentAction];
   // Blockbench 不会自动把插件动作插入菜单栏，这里显式挂到编辑菜单
   // plugin actions are not added to menus automatically; place it in Edit
   MenuBar.addAction(generateAction, 'edit');
   MenuBar.addAction(restoreAction, 'edit');
+
+  // 顶部菜单栏的"3D 皮肤模型"菜单：一键清除透明方块等专用入口
+  // the top-level "3D Skin Model" menu: dedicated entries such as the
+  // one-click transparent cube cleanup
+  skinMenu = new BarMenu(`${PLUGIN_ID}.menu`, [`${PLUGIN_ID}.clear_transparent`], {
+    name: 'm3sl.menu.name',
+    condition: () => hasOpenProject(),
+    icon: 'view_in_ar',
+  });
+  MenuBar.addMenu(skinMenu, 'file');
 
   registerNewSkinFormat();
 
@@ -277,6 +327,11 @@ export function unregisterPlugin(): void {
   MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
   MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
   unregisterNewSkinFormat();
+  if (skinMenu && typeof skinMenu.delete === 'function') {
+    skinMenu.delete();
+    MenuBar.update();
+  }
+  skinMenu = undefined;
   for (const action of actions) {
     action.delete();
   }
