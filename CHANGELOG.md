@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
-## [Unreleased]
+## [0.4.0-pre] - 2026-09-20
 
 ### Added
 

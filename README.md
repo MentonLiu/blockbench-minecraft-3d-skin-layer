@@ -1,7 +1,7 @@
 # Minecraft 3D Skin Layers
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v0.3.1-blue.svg)](../../releases)
+[![Release](https://img.shields.io/badge/release-v0.4.0--pre-blue.svg)](../../releases)
 [![Blockbench](https://img.shields.io/badge/Blockbench-5.0%2B-orange)](https://blockbench.net)
 
 English | [简体中文](README.zh-CN.md)
