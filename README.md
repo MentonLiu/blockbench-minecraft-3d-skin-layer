@@ -75,16 +75,16 @@ remove the cubes at transparent pixels in one undo step.
 
 ### Options
 
-| Option | Default | Meaning |
-|---|---|---|
-| Target model | Modify the current model | or copy to a new model and modify the copy; the duplicate never inherits the original's save path |
-| Alpha threshold | 0 | texels with alpha above this become cubes (0 = every non-transparent pixel) |
-| Maximum cube count | 10,000 | preflight aborts above this; nothing is modified |
-| Batch size | 200 | cubes created per UI batch |
-| Keep original layer cubes | off | hides the sources instead of deleting them |
-| Replace fully transparent layers | off | replaces empty layers with empty groups |
-| Only selected layers | off | processes only selected layer cubes |
-| Auto-generate on project load | off | runs generation when a project opens |
+| Option                           | Default                  | Meaning                                                                                           |
+| -------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| Target model                     | Modify the current model | or copy to a new model and modify the copy; the duplicate never inherits the original's save path |
+| Alpha threshold                  | 0                        | texels with alpha above this become cubes (0 = every non-transparent pixel)                       |
+| Maximum cube count               | 10,000                   | preflight aborts above this; nothing is modified                                                  |
+| Batch size                       | 200                      | cubes created per UI batch                                                                        |
+| Keep original layer cubes        | off                      | hides the sources instead of deleting them                                                        |
+| Replace fully transparent layers | off                      | replaces empty layers with empty groups                                                           |
+| Only selected layers             | off                      | processes only selected layer cubes                                                               |
+| Auto-generate on project load    | off                      | runs generation when a project opens                                                              |
 
 ### Behavior
 
