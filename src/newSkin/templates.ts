@@ -7,6 +7,28 @@ export type SkinSize = 64 | 128;
 export const TEMPLATE_IDS: readonly TemplateId[] = ['classic', 'root', 'joint'];
 export const SKIN_SIZES: readonly SkinSize[] = [64, 128];
 
+/** UV 空间固定 64：128 纹理即 2 倍像素密度 / UV space stays 64; a 128 texture doubles texel density. */
+export const TEMPLATE_UV_SIZE = 64;
+
+/**
+ * 解析向导中的模板 id。
+ * Normalizes a wizard template id.
+ */
+export function parseTemplateId(value: unknown): TemplateId {
+  return TEMPLATE_IDS.includes(value as TemplateId) ? (value as TemplateId) : 'classic';
+}
+
+/**
+ * 解析向导中的皮肤纹理尺寸。
+ * Blockbench Dialog 的 select 回传值是字符串（"128"），不能直接对 number 数组做 includes。
+ * Normalizes a wizard skin size. Dialog select values arrive as strings ("128"),
+ * so a numeric-array includes() check would always fail and silently fall back to 64.
+ */
+export function parseSkinSize(value: unknown): SkinSize {
+  const n = typeof value === 'number' ? value : Number(String(value ?? '').trim());
+  return n === 128 ? 128 : 64;
+}
+
 export interface TemplateModelBuild {
   /** 可直接交给 Codecs.project.parse 的 bbmodel JSON / bbmodel JSON ready for Codecs.project.parse. */
   model: Record<string, unknown>;
@@ -24,11 +46,16 @@ export interface TemplateModelBuild {
  * plugin's format at embed time, so parse never falls back to `free`.
  */
 export function buildTemplateModel(id: TemplateId, size: SkinSize): TemplateModelBuild {
+  // 模板 id 保持严格查找：未知 id 必须报错，不能被 parse 回退成 classic
+  // Template id stays strict: unknown ids must throw, not silently fall back via parse*.
   const source = EMBEDDED_TEMPLATES[id];
   if (!source) {
     throw new Error(`Unknown template: ${id}`);
   }
-  const dataUrl = TEMP_TEXTURE_DATA_URLS[size];
+  // Dialog 回传可能是 "128"；仅把可解析的字符串尺寸转成 number，未知值仍进入查表并失败
+  // Dialog results may be "128"; coerce parseable string sizes only — unknown values still fail the lookup.
+  const numericSize = typeof size === 'number' ? size : Number(String(size ?? '').trim());
+  const dataUrl = TEMP_TEXTURE_DATA_URLS[numericSize];
   if (!dataUrl) {
     throw new Error(`No temp skin texture embedded for size ${size}`);
   }
@@ -39,13 +66,18 @@ export function buildTemplateModel(id: TemplateId, size: SkinSize): TemplateMode
   if (Array.isArray(model.textures)) {
     for (const texture of model.textures) {
       texture.source = dataUrl;
-      texture.width = size;
-      texture.height = size;
+      texture.name = `temp-${numericSize}.png`;
+      texture.width = numericSize;
+      texture.height = numericSize;
+      // UV 空间保持 64，128 图像才会得到 2 倍 texel 密度
+      // Keep the UV space at 64 so a 128 image yields 2x texel density.
+      texture.uv_width = TEMPLATE_UV_SIZE;
+      texture.uv_height = TEMPLATE_UV_SIZE;
       texture.internal = true;
     }
   }
   if (model.meta) {
     model.meta.model_format = NEW_SKIN_FORMAT_ID;
   }
-  return { model: model as Record<string, unknown>, projectName: `temp-${size}` };
+  return { model: model as Record<string, unknown>, projectName: `temp-${numericSize}` };
 }

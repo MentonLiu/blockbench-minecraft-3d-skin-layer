@@ -1493,13 +1493,21 @@ ${t("m3sl.dialog.warnings_header")}
 
   // src/newSkin/templates.ts
   var TEMPLATE_IDS = ["classic", "root", "joint"];
-  var SKIN_SIZES = [64, 128];
+  var TEMPLATE_UV_SIZE = 64;
+  function parseTemplateId(value) {
+    return TEMPLATE_IDS.includes(value) ? value : "classic";
+  }
+  function parseSkinSize(value) {
+    const n = typeof value === "number" ? value : Number(String(value ?? "").trim());
+    return n === 128 ? 128 : 64;
+  }
   function buildTemplateModel(id, size) {
     const source = EMBEDDED_TEMPLATES[id];
     if (!source) {
       throw new Error(`Unknown template: ${id}`);
     }
-    const dataUrl = TEMP_TEXTURE_DATA_URLS[size];
+    const numericSize = typeof size === "number" ? size : Number(String(size ?? "").trim());
+    const dataUrl = TEMP_TEXTURE_DATA_URLS[numericSize];
     if (!dataUrl) {
       throw new Error(`No temp skin texture embedded for size ${size}`);
     }
@@ -1507,15 +1515,18 @@ ${t("m3sl.dialog.warnings_header")}
     if (Array.isArray(model.textures)) {
       for (const texture of model.textures) {
         texture.source = dataUrl;
-        texture.width = size;
-        texture.height = size;
+        texture.name = `temp-${numericSize}.png`;
+        texture.width = numericSize;
+        texture.height = numericSize;
+        texture.uv_width = TEMPLATE_UV_SIZE;
+        texture.uv_height = TEMPLATE_UV_SIZE;
         texture.internal = true;
       }
     }
     if (model.meta) {
       model.meta.model_format = NEW_SKIN_FORMAT_ID;
     }
-    return { model, projectName: `temp-${size}` };
+    return { model, projectName: `temp-${numericSize}` };
   }
 
   // src/newSkin/newSkinDialog.ts
@@ -1540,17 +1551,20 @@ ${t("m3sl.dialog.warnings_header")}
           label: t("m3sl.wizard.size"),
           type: "select",
           value: "64",
+          // 键必须是字符串：Dialog select 回传的就是字符串，写成数字键不会改变这一点
+          // Keys must be strings: Dialog select values are strings either way.
           options: {
-            64: "64 \xD7 64",
-            128: "128 \xD7 128"
+            "64": "64 \xD7 64",
+            "128": "128 \xD7 128"
           }
         }
       },
       onConfirm(formResult) {
         const raw = formResult ?? {};
-        const template = TEMPLATE_IDS.includes(raw.template) ? raw.template : "classic";
-        const size = SKIN_SIZES.includes(raw.size) ? raw.size : 64;
-        onConfirm({ template, size });
+        onConfirm({
+          template: parseTemplateId(raw.template),
+          size: parseSkinSize(raw.size)
+        });
       },
       onClose() {
         onCancel();

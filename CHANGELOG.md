@@ -22,6 +22,16 @@ versioning follows [SemVer 2.0.0](https://semver.org).
 - Generation gained an `includeTransparent` mode used by the wizard; standard
   generation keeps skipping transparent pixels.
 
+### Fixed
+
+- The new-skin wizard no longer falls back to the 64px temp texture when the
+  user picks **128 × 128**. Blockbench Dialog select values arrive as strings
+  (`"128"`), and `SKIN_SIZES.includes("128")` on a numeric array was always
+  false, so 128 selections silently became `temp-64` with 64-density cubes.
+  Wizard form values are now normalized via `parseSkinSize` / `parseTemplateId`,
+  and `buildTemplateModel` accepts dialog string sizes while still rejecting
+  unknown template ids and non-embedded sizes.
+
 ## [0.3.1] - 2026-09-20
 
 ### Added

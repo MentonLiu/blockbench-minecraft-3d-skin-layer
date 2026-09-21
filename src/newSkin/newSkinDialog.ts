@@ -1,7 +1,7 @@
 import { PLUGIN_ID } from '../domain/constants';
 import { t } from '../i18n';
 import type { TemplateId, SkinSize } from './templates';
-import { TEMPLATE_IDS, SKIN_SIZES } from './templates';
+import { parseSkinSize, parseTemplateId } from './templates';
 
 export interface NewSkinWizardSelection {
   template: TemplateId;
@@ -36,19 +36,22 @@ export function showNewSkinDialog(
         label: t('m3sl.wizard.size'),
         type: 'select',
         value: '64',
+        // 键必须是字符串：Dialog select 回传的就是字符串，写成数字键不会改变这一点
+        // Keys must be strings: Dialog select values are strings either way.
         options: {
-          64: '64 × 64',
-          128: '128 × 128',
+          '64': '64 × 64',
+          '128': '128 × 128',
         },
       },
     },
     onConfirm(formResult: unknown) {
       const raw = (formResult ?? {}) as Record<string, unknown>;
-      const template = TEMPLATE_IDS.includes(raw.template as TemplateId)
-        ? (raw.template as TemplateId)
-        : 'classic';
-      const size = SKIN_SIZES.includes(raw.size as SkinSize) ? (raw.size as SkinSize) : 64;
-      onConfirm({ template, size });
+      // Dialog 回传可能是 "128"/"classic" 等字符串；统一走 parse*，避免 includes 数字数组失败
+      // Dialog results may be strings ("128"/"classic"); always parse instead of includes() on number arrays.
+      onConfirm({
+        template: parseTemplateId(raw.template),
+        size: parseSkinSize(raw.size),
+      });
     },
     onClose() {
       onCancel();
