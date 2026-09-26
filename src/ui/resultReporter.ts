@@ -47,6 +47,29 @@ export function reportRestoreResult(result: RestoreSummary, note?: string): void
   toast(t('m3sl.toast.restored', [result.restoredCubes, result.removedVoxels]) + (note ? ' ' + note : ''), 'unarchive');
 }
 
+export function reportNoRegeneratable(): void {
+  toast(t('m3sl.toast.no_regeneratable'), 'info');
+}
+
+export interface RegeneratedSummary {
+  replacedGroups: number;
+  createdCubes: number;
+  durationMs: number;
+  warnings: readonly string[];
+}
+
+export function reportRegenerated(result: RegeneratedSummary): void {
+  const seconds = (result.durationMs / 1000).toFixed(2);
+  toast(
+    t('m3sl.toast.regenerated', [result.createdCubes, result.replacedGroups, seconds]) +
+      (result.warnings.length ? ' ' + t('m3sl.toast.warnings', [result.warnings.length]) : ''),
+    'autorenew',
+  );
+  for (const warning of result.warnings) {
+    console.warn(`[minecraft_3d_skin_layers] ${warning}`);
+  }
+}
+
 export function reportCleared(summary: { removed: number; warnings: readonly string[] }): void {
   if (summary.removed === 0) {
     toast(t('m3sl.toast.no_transparent'), 'info');

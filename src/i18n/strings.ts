@@ -26,6 +26,13 @@ export const en = {
   'm3sl.clear_action.name': 'Clear Transparent Cubes',
   'm3sl.clear_action.description': 'Remove voxel cubes whose sampled pixel is transparent',
 
+  'm3sl.regenerate_action.name': 'Regenerate Cubes',
+  'm3sl.regenerate_action.description': 'Rebuild generated voxel cubes from the current texture',
+  'm3sl.regenerate_dialog.title': 'Regenerate Cubes',
+  'm3sl.regenerate_dialog.intro':
+    'Found **%0** generated layer group(s). Regenerating from the **current texture** creates **%1** voxel cube(s) and replaces the existing cubes; group poses are kept.',
+  'm3sl.form.include_transparent': 'Include transparent pixels (voxelize every grid cell)',
+
   'm3sl.dialog.title': 'Generate 3D Skin Layers',
   'm3sl.dialog.intro':
     'Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).',
@@ -64,6 +71,8 @@ export const en = {
   'm3sl.toast.cleared': 'Removed %0 transparent voxel cube(s)',
   'm3sl.toast.no_transparent': 'No transparent voxel cubes found',
   'm3sl.toast.wizard_created': 'Created 3D skin model with %0 voxel cube(s) (%1s)',
+  'm3sl.toast.regenerated': 'Regenerated %0 voxel cube(s) in %1 group(s) (%2s)',
+  'm3sl.toast.no_regeneratable': 'No generated 3D skin layer groups found - model left unchanged',
 
   'm3sl.status.detected':
     '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize',
@@ -91,6 +100,12 @@ export const zh: Partial<Record<TranslationKey, string>> = {
 
   'm3sl.clear_action.name': '清除透明方块',
   'm3sl.clear_action.description': '删除采样像素已透明的体素方块',
+
+  'm3sl.regenerate_action.name': '重新生成方块',
+  'm3sl.regenerate_action.description': '按当前纹理重建已生成的体素方块',
+  'm3sl.regenerate_dialog.title': '重新生成方块',
+  'm3sl.regenerate_dialog.intro': '找到 **%0** 个已生成的皮肤层分组。按**当前纹理**重新生成 **%1** 个体素方块并替换现有方块；分组上的姿态会保留。',
+  'm3sl.form.include_transparent': '包含透明像素（每个网格单元都生成方块）',
 
   'm3sl.dialog.title': '生成 3D 皮肤层',
   'm3sl.dialog.intro': '找到 **%0** 个皮肤层立方体，共 **%1** 个可见像素。每个像素会生成一个体素方块，六个面都映射到该像素（厚度与原膨胀层一致）。',
@@ -126,6 +141,8 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.toast.cleared': '已清除 %0 个透明体素方块',
   'm3sl.toast.no_transparent': '没有需要清除的透明体素方块',
   'm3sl.toast.wizard_created': '已创建 3D 皮肤模型（%0 个体素方块，耗时 %1 秒）',
+  'm3sl.toast.regenerated': '已重新生成 %0 个体素方块（%1 个分组，耗时 %2 秒）',
+  'm3sl.toast.no_regeneratable': '未找到可重新生成的皮肤层分组 —— 模型未做任何修改',
 
   'm3sl.status.detected': '检测到 %0 个皮肤层立方体（%1 个像素）—— 使用"生成 3D 皮肤层"进行体素化',
 };

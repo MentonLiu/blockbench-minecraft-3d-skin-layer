@@ -1,7 +1,7 @@
 import { GENERATED_SOURCE_PROPERTY, PLUGIN_ID } from './domain/constants';
 import { VoxelLimitError } from './domain/types';
 import type { GeneratorOptions } from './domain/types';
-import { applyOutcome, scanAndPlan } from './generate';
+import { applyOutcome, planFromSnapshots, scanAndPlan } from './generate';
 import { registerTranslations, t } from './i18n';
 import {
   collectRestoreCandidates,
@@ -18,16 +18,24 @@ import {
   isAutoScanSuppressed,
 } from './blockbench/projectDuplicate';
 import { clearTransparentCubes } from './blockbench/transparentCleaner';
+import {
+  applyRegenerations,
+  collectRegenerationSources,
+  hasRegeneratableGroups,
+} from './blockbench/modelRegenerator';
 import { blockbenchHost } from './blockbench/blockbenchHost';
 import { loadOptions, persistOptions, showGenerationDialog } from './ui/settingsDialog';
 import { showRestoreDialog } from './ui/restoreDialog';
+import { showRegenerateDialog } from './ui/regenerateDialog';
 import { registerNewSkinFormat, unregisterNewSkinFormat } from './newSkin/newSkinFormat';
 import {
   reportBusy,
   reportCleared,
   reportError,
   reportGenerationResult,
+  reportNoRegeneratable,
   reportNoRestorableGroups,
+  reportRegenerated,
   reportRestoreError,
   reportRestoreResult,
   reportNoLayers,
@@ -214,6 +222,85 @@ async function runRestoreGuarded(): Promise<void> {
   }
 }
 
+/** 按当前纹理原位重建已生成的体素方块 / Rebuilds generated voxels from the live texture, in place. */
+async function runRegenerate(): Promise<void> {
+  if (!hasOpenProject()) {
+    toast(t('m3sl.toast.open_project'), 'info');
+    return;
+  }
+  const sources = collectRegenerationSources();
+  if (sources.length === 0) {
+    reportNoRegeneratable();
+    return;
+  }
+  const snapshots = sources.map(source => source.snapshot);
+
+  const options = loadOptions();
+  const outcome = planFromSnapshots(snapshots, options);
+  if (outcome.voxelCount > options.maxVoxels) {
+    reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
+    return;
+  }
+
+  const confirmed = await new Promise<GeneratorOptions | null>(resolve => {
+    showRegenerateDialog(
+      { groupCount: sources.length, voxelCount: outcome.voxelCount },
+      options,
+      merged => {
+        persistOptions(merged);
+        resolve(merged);
+      },
+      () => resolve(null),
+    );
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  // 用确认后的选项重新规划（纹理读取总是最新的，"扫描当前纹理"即在此发生）
+  // re-plan with the confirmed options; the texture read always happens fresh -
+  // this is where "scan the current texture" takes place
+  const fresh = planFromSnapshots(snapshots, confirmed);
+  if (fresh.voxelCount > confirmed.maxVoxels) {
+    reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
+    return;
+  }
+
+  const started = performance.now();
+  const summary = await applyRegenerations(
+    sources,
+    fresh.plans,
+    { maxVoxels: confirmed.maxVoxels, batchSize: confirmed.batchSize },
+    blockbenchHost,
+  );
+  reportRegenerated({
+    replacedGroups: summary.replacedGroups,
+    createdCubes: summary.createdCubes,
+    durationMs: performance.now() - started,
+    warnings: fresh.warnings,
+  });
+}
+
+function runRegenerateGuarded(): void {
+  if (running) {
+    reportBusy();
+    return;
+  }
+  running = true;
+  try {
+    void runRegenerate();
+  } catch (error) {
+    if (error instanceof VoxelLimitError) {
+      reportVoxelLimit(error);
+    } else {
+      logger.error('regeneration failed', error);
+      reportError(error);
+    }
+  } finally {
+    running = false;
+  }
+}
+
 /** 一键清除透明体素 / One-click transparent voxel cleanup. */
 function runClearTransparent(): void {
   if (!hasOpenProject()) {
@@ -298,7 +385,17 @@ export function registerPlugin(): void {
       runClearTransparentGuarded();
     },
   });
-  actions = [generateAction, restoreAction, clearTransparentAction];
+  const regenerateAction = new Action(`${PLUGIN_ID}.regenerate`, {
+    name: t('m3sl.regenerate_action.name'),
+    description: t('m3sl.regenerate_action.description'),
+    icon: 'autorenew',
+    category: 'edit',
+    condition: () => hasOpenProject() && hasRegeneratableGroups(),
+    click: () => {
+      runRegenerateGuarded();
+    },
+  });
+  actions = [generateAction, restoreAction, clearTransparentAction, regenerateAction];
   // Blockbench 不会自动把插件动作插入菜单栏，这里显式挂到编辑菜单
   // plugin actions are not added to menus automatically; place it in Edit
   MenuBar.addAction(generateAction, 'edit');
@@ -307,11 +404,15 @@ export function registerPlugin(): void {
   // 顶部菜单栏的"3D 皮肤模型"菜单：一键清除透明方块等专用入口
   // the top-level "3D Skin Model" menu: dedicated entries such as the
   // one-click transparent cube cleanup
-  skinMenu = new BarMenu(`${PLUGIN_ID}.menu`, [`${PLUGIN_ID}.clear_transparent`], {
-    name: 'm3sl.menu.name',
-    condition: () => hasOpenProject(),
-    icon: 'view_in_ar',
-  });
+  skinMenu = new BarMenu(
+    `${PLUGIN_ID}.menu`,
+    [`${PLUGIN_ID}.regenerate`, `${PLUGIN_ID}.clear_transparent`],
+    {
+      name: 'm3sl.menu.name',
+      condition: () => hasOpenProject(),
+      icon: 'view_in_ar',
+    },
+  );
   MenuBar.addMenu(skinMenu, 'file');
 
   registerNewSkinFormat();
