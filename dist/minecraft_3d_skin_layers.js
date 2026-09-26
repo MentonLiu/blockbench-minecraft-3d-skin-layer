@@ -923,12 +923,14 @@
   };
 
   // src/generate.ts
-  function scanAndPlan(options) {
-    const snapshots = collectLayerSnapshots(options);
+  function planFromSnapshots(snapshots, options) {
     const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
-    const { plans, warnings: planWarnings } = buildVoxelPlans(snapshots, textures, options);
+    const { plans, warnings: planWarnings } = buildVoxelPlans([...snapshots], textures, options);
     const warnings = [...textureWarnings, ...planWarnings];
-    return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
+    return { snapshots: [...snapshots], plans, warnings, voxelCount: countPlanVoxels(plans) };
+  }
+  function scanAndPlan(options) {
+    return planFromSnapshots(collectLayerSnapshots(options), options);
   }
   function resolveCubeByKey(key) {
     return Cube.all.find((cube) => cube.uuid === key);
@@ -971,6 +973,11 @@
     "m3sl.wizard.size": "Skin texture size",
     "m3sl.clear_action.name": "Clear Transparent Cubes",
     "m3sl.clear_action.description": "Remove voxel cubes whose sampled pixel is transparent",
+    "m3sl.regenerate_action.name": "Regenerate Cubes",
+    "m3sl.regenerate_action.description": "Rebuild generated voxel cubes from the current texture",
+    "m3sl.regenerate_dialog.title": "Regenerate Cubes",
+    "m3sl.regenerate_dialog.intro": "Found **%0** generated layer group(s). Regenerating from the **current texture** creates **%1** voxel cube(s) and replaces the existing cubes; group poses are kept.",
+    "m3sl.form.include_transparent": "Include transparent pixels (voxelize every grid cell)",
     "m3sl.dialog.title": "Generate 3D Skin Layers",
     "m3sl.dialog.intro": "Found **%0** layer cube(s) with **%1** visible texel(s). Each texel becomes one cube with all six faces mapped to that pixel (thickness matches the original layer).",
     "m3sl.dialog.warnings_header": "Warnings:",
@@ -1001,6 +1008,8 @@
     "m3sl.toast.cleared": "Removed %0 transparent voxel cube(s)",
     "m3sl.toast.no_transparent": "No transparent voxel cubes found",
     "m3sl.toast.wizard_created": "Created 3D skin model with %0 voxel cube(s) (%1s)",
+    "m3sl.toast.regenerated": "Regenerated %0 voxel cube(s) in %1 group(s) (%2s)",
+    "m3sl.toast.no_regeneratable": "No generated 3D skin layer groups found - model left unchanged",
     "m3sl.status.detected": '%0 skin layer cube(s) with %1 texels detected - use "Generate 3D Skin Layers" to voxelize'
   };
   var zh = {
@@ -1020,6 +1029,11 @@
     "m3sl.wizard.size": "\u76AE\u80A4\u7EB9\u7406\u5C3A\u5BF8",
     "m3sl.clear_action.name": "\u6E05\u9664\u900F\u660E\u65B9\u5757",
     "m3sl.clear_action.description": "\u5220\u9664\u91C7\u6837\u50CF\u7D20\u5DF2\u900F\u660E\u7684\u4F53\u7D20\u65B9\u5757",
+    "m3sl.regenerate_action.name": "\u91CD\u65B0\u751F\u6210\u65B9\u5757",
+    "m3sl.regenerate_action.description": "\u6309\u5F53\u524D\u7EB9\u7406\u91CD\u5EFA\u5DF2\u751F\u6210\u7684\u4F53\u7D20\u65B9\u5757",
+    "m3sl.regenerate_dialog.title": "\u91CD\u65B0\u751F\u6210\u65B9\u5757",
+    "m3sl.regenerate_dialog.intro": "\u627E\u5230 **%0** \u4E2A\u5DF2\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4\u3002\u6309**\u5F53\u524D\u7EB9\u7406**\u91CD\u65B0\u751F\u6210 **%1** \u4E2A\u4F53\u7D20\u65B9\u5757\u5E76\u66FF\u6362\u73B0\u6709\u65B9\u5757\uFF1B\u5206\u7EC4\u4E0A\u7684\u59FF\u6001\u4F1A\u4FDD\u7559\u3002",
+    "m3sl.form.include_transparent": "\u5305\u542B\u900F\u660E\u50CF\u7D20\uFF08\u6BCF\u4E2A\u7F51\u683C\u5355\u5143\u90FD\u751F\u6210\u65B9\u5757\uFF09",
     "m3sl.dialog.title": "\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.dialog.intro": "\u627E\u5230 **%0** \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5171 **%1** \u4E2A\u53EF\u89C1\u50CF\u7D20\u3002\u6BCF\u4E2A\u50CF\u7D20\u4F1A\u751F\u6210\u4E00\u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u516D\u4E2A\u9762\u90FD\u6620\u5C04\u5230\u8BE5\u50CF\u7D20\uFF08\u539A\u5EA6\u4E0E\u539F\u81A8\u80C0\u5C42\u4E00\u81F4\uFF09\u3002",
     "m3sl.dialog.warnings_header": "\u8B66\u544A\uFF1A",
@@ -1050,6 +1064,8 @@
     "m3sl.toast.cleared": "\u5DF2\u6E05\u9664 %0 \u4E2A\u900F\u660E\u4F53\u7D20\u65B9\u5757",
     "m3sl.toast.no_transparent": "\u6CA1\u6709\u9700\u8981\u6E05\u9664\u7684\u900F\u660E\u4F53\u7D20\u65B9\u5757",
     "m3sl.toast.wizard_created": "\u5DF2\u521B\u5EFA 3D \u76AE\u80A4\u6A21\u578B\uFF08%0 \u4E2A\u4F53\u7D20\u65B9\u5757\uFF0C\u8017\u65F6 %1 \u79D2\uFF09",
+    "m3sl.toast.regenerated": "\u5DF2\u91CD\u65B0\u751F\u6210 %0 \u4E2A\u4F53\u7D20\u65B9\u5757\uFF08%1 \u4E2A\u5206\u7EC4\uFF0C\u8017\u65F6 %2 \u79D2\uFF09",
+    "m3sl.toast.no_regeneratable": "\u672A\u627E\u5230\u53EF\u91CD\u65B0\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539",
     "m3sl.status.detected": '\u68C0\u6D4B\u5230 %0 \u4E2A\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08%1 \u4E2A\u50CF\u7D20\uFF09\u2014\u2014 \u4F7F\u7528"\u751F\u6210 3D \u76AE\u80A4\u5C42"\u8FDB\u884C\u4F53\u7D20\u5316'
   };
 
@@ -1266,6 +1282,84 @@
     }
   }
 
+  // src/blockbench/modelRegenerator.ts
+  function readRegenerationSource(group) {
+    const metadata = group?.[GENERATED_SOURCE_PROPERTY];
+    if (!metadata || typeof metadata !== "object" || !metadata.source) {
+      return void 0;
+    }
+    return { group, snapshot: metadata.source };
+  }
+  function collectRegenerationSources() {
+    if (typeof Group === "undefined") {
+      return [];
+    }
+    return Group.all.flatMap((group) => {
+      const source = readRegenerationSource(group);
+      return source ? [source] : [];
+    });
+  }
+  function hasRegeneratableGroups() {
+    if (typeof Group === "undefined") {
+      return false;
+    }
+    return Group.all.some((group) => readRegenerationSource(group) !== void 0);
+  }
+  function buildRegenerationTargets(sources, plans) {
+    const planByKey = new Map(plans.map((plan) => [plan.sourceKey, plan]));
+    return sources.map((source) => {
+      const plan = planByKey.get(source.snapshot.key);
+      return {
+        group: source.group,
+        oldChildren: [...source.group.children ?? []],
+        voxels: plan ? plan.voxels : []
+      };
+    });
+  }
+  async function applyRegenerations(sources, plans, options, host) {
+    const voxelCount = plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
+    if (voxelCount > options.maxVoxels) {
+      throw new VoxelLimitError(voxelCount, options.maxVoxels);
+    }
+    if (sources.length === 0) {
+      return { replacedGroups: 0, removedCubes: 0, createdCubes: 0 };
+    }
+    const targets = buildRegenerationTargets(sources, plans);
+    const oldChildren = targets.flatMap((target) => [...target.oldChildren]);
+    host.beginUndo({ sources: oldChildren, groups: [] });
+    const created = [];
+    let batch = 0;
+    try {
+      for (const target of targets) {
+        for (const child of target.oldChildren) {
+          host.remove(child);
+        }
+        for (const spec of target.voxels) {
+          const cube = host.createCube(spec);
+          host.initElement(cube);
+          host.adopt(cube, target.group);
+          created.push(cube);
+          if (++batch >= options.batchSize) {
+            batch = 0;
+            await host.yieldToUI();
+          }
+        }
+      }
+      if (batch > 0) {
+        await host.yieldToUI();
+      }
+      host.finishUndo("Regenerate 3D skin layers", { created, groups: [] });
+      return {
+        replacedGroups: targets.length,
+        removedCubes: oldChildren.length,
+        createdCubes: created.length
+      };
+    } catch (error) {
+      host.cancelUndo(true);
+      throw error;
+    }
+  }
+
   // src/ui/settingsDialog.ts
   var STORAGE_KEY = `${PLUGIN_ID}.options`;
   function toNumber(value, fallback, min, max) {
@@ -1423,6 +1517,32 @@ ${t("m3sl.dialog.warnings_header")}
     }).show();
   }
 
+  // src/ui/regenerateDialog.ts
+  function showRegenerateDialog(summary, options, onConfirm, onCancel) {
+    new Dialog({
+      id: `${PLUGIN_ID}.regenerate_dialog`,
+      title: t("m3sl.regenerate_dialog.title"),
+      width: 512,
+      form: {
+        intro: {
+          type: "info",
+          text: t("m3sl.regenerate_dialog.intro", [summary.groupCount, summary.voxelCount])
+        },
+        includeTransparent: {
+          label: t("m3sl.form.include_transparent"),
+          type: "checkbox",
+          value: options.includeTransparent
+        }
+      },
+      onConfirm(formResult) {
+        onConfirm(sanitizeOptions({ ...options, ...formResult }));
+      },
+      onClose() {
+        onCancel();
+      }
+    }).show();
+  }
+
   // src/assets/embedded.ts
   var NEW_SKIN_FORMAT_ID = "m3sl_3d_skin";
   var EMBEDDED_TEMPLATES = {
@@ -1466,6 +1586,19 @@ ${t("m3sl.dialog.warnings_header")}
   }
   function reportRestoreResult(result, note) {
     toast(t("m3sl.toast.restored", [result.restoredCubes, result.removedVoxels]) + (note ? " " + note : ""), "unarchive");
+  }
+  function reportNoRegeneratable() {
+    toast(t("m3sl.toast.no_regeneratable"), "info");
+  }
+  function reportRegenerated(result) {
+    const seconds = (result.durationMs / 1e3).toFixed(2);
+    toast(
+      t("m3sl.toast.regenerated", [result.createdCubes, result.replacedGroups, seconds]) + (result.warnings.length ? " " + t("m3sl.toast.warnings", [result.warnings.length]) : ""),
+      "autorenew"
+    );
+    for (const warning of result.warnings) {
+      console.warn(`[minecraft_3d_skin_layers] ${warning}`);
+    }
   }
   function reportCleared(summary) {
     if (summary.removed === 0) {
@@ -1826,6 +1959,75 @@ ${t("m3sl.dialog.warnings_header")}
       running = false;
     }
   }
+  async function runRegenerate() {
+    if (!hasOpenProject()) {
+      toast(t("m3sl.toast.open_project"), "info");
+      return;
+    }
+    const sources = collectRegenerationSources();
+    if (sources.length === 0) {
+      reportNoRegeneratable();
+      return;
+    }
+    const snapshots = sources.map((source) => source.snapshot);
+    const options = loadOptions();
+    const outcome = planFromSnapshots(snapshots, options);
+    if (outcome.voxelCount > options.maxVoxels) {
+      reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
+      return;
+    }
+    const confirmed = await new Promise((resolve) => {
+      showRegenerateDialog(
+        { groupCount: sources.length, voxelCount: outcome.voxelCount },
+        options,
+        (merged) => {
+          persistOptions(merged);
+          resolve(merged);
+        },
+        () => resolve(null)
+      );
+    });
+    if (!confirmed) {
+      return;
+    }
+    const fresh = planFromSnapshots(snapshots, confirmed);
+    if (fresh.voxelCount > confirmed.maxVoxels) {
+      reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
+      return;
+    }
+    const started = performance.now();
+    const summary = await applyRegenerations(
+      sources,
+      fresh.plans,
+      { maxVoxels: confirmed.maxVoxels, batchSize: confirmed.batchSize },
+      blockbenchHost
+    );
+    reportRegenerated({
+      replacedGroups: summary.replacedGroups,
+      createdCubes: summary.createdCubes,
+      durationMs: performance.now() - started,
+      warnings: fresh.warnings
+    });
+  }
+  function runRegenerateGuarded() {
+    if (running) {
+      reportBusy();
+      return;
+    }
+    running = true;
+    try {
+      void runRegenerate();
+    } catch (error) {
+      if (error instanceof VoxelLimitError) {
+        reportVoxelLimit(error);
+      } else {
+        logger.error("regeneration failed", error);
+        reportError(error);
+      }
+    } finally {
+      running = false;
+    }
+  }
   function runClearTransparent() {
     if (!hasOpenProject()) {
       toast(t("m3sl.toast.open_project"), "info");
@@ -1899,14 +2101,28 @@ ${t("m3sl.dialog.warnings_header")}
         runClearTransparentGuarded();
       }
     });
-    actions = [generateAction, restoreAction, clearTransparentAction];
+    const regenerateAction = new Action(`${PLUGIN_ID}.regenerate`, {
+      name: t("m3sl.regenerate_action.name"),
+      description: t("m3sl.regenerate_action.description"),
+      icon: "autorenew",
+      category: "edit",
+      condition: () => hasOpenProject() && hasRegeneratableGroups(),
+      click: () => {
+        runRegenerateGuarded();
+      }
+    });
+    actions = [generateAction, restoreAction, clearTransparentAction, regenerateAction];
     MenuBar.addAction(generateAction, "edit");
     MenuBar.addAction(restoreAction, "edit");
-    skinMenu = new BarMenu(`${PLUGIN_ID}.menu`, [`${PLUGIN_ID}.clear_transparent`], {
-      name: "m3sl.menu.name",
-      condition: () => hasOpenProject(),
-      icon: "view_in_ar"
-    });
+    skinMenu = new BarMenu(
+      `${PLUGIN_ID}.menu`,
+      [`${PLUGIN_ID}.regenerate`, `${PLUGIN_ID}.clear_transparent`],
+      {
+        name: "m3sl.menu.name",
+        condition: () => hasOpenProject(),
+        icon: "view_in_ar"
+      }
+    );
     MenuBar.addMenu(skinMenu, "file");
     registerNewSkinFormat();
     listeners = [onProjectEvent("load_project", onProjectLoaded())];
