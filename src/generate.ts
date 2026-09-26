@@ -12,13 +12,17 @@ export interface ScanOutcome {
   voxelCount: number;
 }
 
+/** 纯预检：解码纹理并按给定快照规划体素，不触碰模型 / Pure preflight: decode textures and plan voxels from the given snapshots. No mutation. */
+export function planFromSnapshots(snapshots: readonly LayerSnapshot[], options: GeneratorOptions): ScanOutcome {
+  const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
+  const { plans, warnings: planWarnings } = buildVoxelPlans([...snapshots], textures, options);
+  const warnings = [...textureWarnings, ...planWarnings];
+  return { snapshots: [...snapshots], plans, warnings, voxelCount: countPlanVoxels(plans) };
+}
+
 /** 纯预检：快照层立方体、解码纹理、规划体素，不触碰模型 / Pure preflight: snapshot layers, decode textures, plan voxels. No mutation. */
 export function scanAndPlan(options: GeneratorOptions): ScanOutcome {
-  const snapshots = collectLayerSnapshots(options);
-  const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
-  const { plans, warnings: planWarnings } = buildVoxelPlans(snapshots, textures, options);
-  const warnings = [...textureWarnings, ...planWarnings];
-  return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
+  return planFromSnapshots(collectLayerSnapshots(options), options);
 }
 
 function resolveCubeByKey(key: string): Cube | undefined {
