@@ -21,6 +21,11 @@ versioning follows [SemVer 2.0.0](https://semver.org).
   Non-voxel cubes, missing textures and out-of-range samples are never touched.
 - Generation gained an `includeTransparent` mode used by the wizard; standard
   generation keeps skipping transparent pixels.
+- **Regenerate Cubes** joins the 3D Skin Model menu: it re-scans the CURRENT
+  texture and rebuilds every generated voxel group in place - groups and their
+  poses are kept, old cubes are replaced in one atomic undo transaction. The
+  preflight dialog shows the incoming cube count and an "include transparent
+  pixels" checkbox, so the paint-then-regenerate workflow needs no undoing.
 
 ### Fixed
 

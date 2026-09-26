@@ -196,6 +196,22 @@ Creation       newProject -> Codecs.project.parse(embedded template) ->
   out-of-bounds samples are kept and reported as warnings.
 - One atomic undo transaction; planning completes before any mutation.
 
+## Regenerate cubes (top-level menu "3D Skin Model")
+
+```
+Candidates  groups carrying m3sl_source metadata (the stored LayerSnapshot)
+Plan        snapshots + FRESH texture pixels via planFromSnapshots
+            (no Cube.all scan - the original layer cubes are long gone)
+Dialog      group/voxel counts + includeTransparent checkbox (persisted)
+Apply       one undo transaction: groups kept (poses untouched),
+            old voxel children removed, new cubes rebuilt per plan;
+            plan-less groups are emptied; rollback on any error
+```
+
+- Legacy groups without metadata (pre-0.3.1) are NOT regenerated.
+- Missing textures skip their layer with a warning.
+- Idempotent: same texture -> same cubes.
+
 ## Acceptance (reference model, alphaThreshold 0)
 
 ```

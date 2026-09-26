@@ -59,7 +59,9 @@ choose a template (classic / root-wrapped / jointed segments) and a skin
 texture size (64 or 128). The matching texture loads into the template and
 **every pixel becomes a cube - transparent pixels included**. Paint your skin,
 then use **3D Skin Model > Clear Transparent Cubes** (top-level menu) to
-remove the cubes at transparent pixels in one undo step.
+remove the cubes at transparent pixels in one undo step. After repainting,
+**3D Skin Model > Regenerate Cubes** re-scans the current texture and rebuilds
+the voxels in place - group poses are kept and the run is one undo step.
 
 ## Usage
 
