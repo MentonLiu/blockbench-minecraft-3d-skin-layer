@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.4.0-pre2] - 2026-09-22
+
+### Added
+
+- **Regenerate Cubes** joins the 3D Skin Model menu: it re-scans the CURRENT
+  texture and rebuilds every generated voxel group in place - groups and their
+  poses are kept, old cubes are replaced in one atomic undo transaction. The
+  preflight dialog shows the incoming cube count and an "include transparent
+  pixels" checkbox, so the paint-then-regenerate workflow needs no undoing.
+
+### Fixed
+
+- The new-skin wizard no longer falls back to the 64px temp texture when the
+  user picks **128 × 128**. Blockbench Dialog select values arrive as strings
+  (`"128"`), and `SKIN_SIZES.includes("128")` on a numeric array was always
+  false, so 128 selections silently became `temp-64` with 64-density cubes.
+  Wizard form values are now normalized via `parseSkinSize` / `parseTemplateId`,
+  and `buildTemplateModel` accepts dialog string sizes while still rejecting
+  unknown template ids and non-embedded sizes.
+
 ## [0.4.0-pre] - 2026-09-20
 
 ### Added
@@ -21,21 +41,6 @@ versioning follows [SemVer 2.0.0](https://semver.org).
   Non-voxel cubes, missing textures and out-of-range samples are never touched.
 - Generation gained an `includeTransparent` mode used by the wizard; standard
   generation keeps skipping transparent pixels.
-- **Regenerate Cubes** joins the 3D Skin Model menu: it re-scans the CURRENT
-  texture and rebuilds every generated voxel group in place - groups and their
-  poses are kept, old cubes are replaced in one atomic undo transaction. The
-  preflight dialog shows the incoming cube count and an "include transparent
-  pixels" checkbox, so the paint-then-regenerate workflow needs no undoing.
-
-### Fixed
-
-- The new-skin wizard no longer falls back to the 64px temp texture when the
-  user picks **128 × 128**. Blockbench Dialog select values arrive as strings
-  (`"128"`), and `SKIN_SIZES.includes("128")` on a numeric array was always
-  false, so 128 selections silently became `temp-64` with 64-density cubes.
-  Wizard form values are now normalized via `parseSkinSize` / `parseTemplateId`,
-  and `buildTemplateModel` accepts dialog string sizes while still rejecting
-  unknown template ids and non-embedded sizes.
 
 ## [0.3.1] - 2026-09-20
 
