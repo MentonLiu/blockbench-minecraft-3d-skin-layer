@@ -971,6 +971,10 @@
     "m3sl.wizard.template.root": "Root-wrapped",
     "m3sl.wizard.template.joint": "Jointed segments",
     "m3sl.wizard.size": "Skin texture size",
+    "m3sl.wizard.name": "Model name (optional)",
+    "m3sl.wizard.name.placeholder": "My Skin Model",
+    "m3sl.wizard.identifier": "Model identifier (optional)",
+    "m3sl.wizard.identifier.placeholder": "e.g. my_skin_model",
     "m3sl.clear_action.name": "Clear Transparent Cubes",
     "m3sl.clear_action.description": "Remove voxel cubes whose sampled pixel is transparent",
     "m3sl.regenerate_action.name": "Regenerate Cubes",
@@ -1027,6 +1031,10 @@
     "m3sl.wizard.template.root": "\u6839\u5206\u7EC4",
     "m3sl.wizard.template.joint": "\u5173\u8282\u5206\u6BB5",
     "m3sl.wizard.size": "\u76AE\u80A4\u7EB9\u7406\u5C3A\u5BF8",
+    "m3sl.wizard.name": "\u6A21\u578B\u540D\u79F0\uFF08\u53EF\u9009\uFF09",
+    "m3sl.wizard.name.placeholder": "\u6211\u7684\u76AE\u80A4\u6A21\u578B",
+    "m3sl.wizard.identifier": "\u6A21\u578B\u6807\u8BC6\u7B26\uFF08\u53EF\u9009\uFF09",
+    "m3sl.wizard.identifier.placeholder": "\u4F8B\u5982 my_skin_model",
     "m3sl.clear_action.name": "\u6E05\u9664\u900F\u660E\u65B9\u5757",
     "m3sl.clear_action.description": "\u5220\u9664\u91C7\u6837\u50CF\u7D20\u5DF2\u900F\u660E\u7684\u4F53\u7D20\u65B9\u5757",
     "m3sl.regenerate_action.name": "\u91CD\u65B0\u751F\u6210\u65B9\u5757",
@@ -1634,6 +1642,13 @@ ${t("m3sl.dialog.warnings_header")}
     const n = typeof value === "number" ? value : Number(String(value ?? "").trim());
     return n === 128 ? 128 : 64;
   }
+  function parseOptionalText(value) {
+    if (typeof value !== "string") {
+      return void 0;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : void 0;
+  }
   function buildTemplateModel(id, size) {
     const source = EMBEDDED_TEMPLATES[id];
     if (!source) {
@@ -1690,13 +1705,25 @@ ${t("m3sl.dialog.warnings_header")}
             "64": "64 \xD7 64",
             "128": "128 \xD7 128"
           }
+        },
+        name: {
+          label: t("m3sl.wizard.name"),
+          type: "text",
+          placeholder: t("m3sl.wizard.name.placeholder")
+        },
+        identifier: {
+          label: t("m3sl.wizard.identifier"),
+          type: "text",
+          placeholder: t("m3sl.wizard.identifier.placeholder")
         }
       },
       onConfirm(formResult) {
         const raw = formResult ?? {};
         onConfirm({
           template: parseTemplateId(raw.template),
-          size: parseSkinSize(raw.size)
+          size: parseSkinSize(raw.size),
+          name: parseOptionalText(raw.name),
+          identifier: parseOptionalText(raw.identifier)
         });
       },
       onClose() {
@@ -1728,7 +1755,7 @@ ${t("m3sl.dialog.warnings_header")}
       new Promise((resolve) => setTimeout(resolve, timeoutMs))
     ]);
   }
-  async function createSkinProject(template, size) {
+  async function createSkinProject(template, size, name, identifier) {
     if (creating || !registeredFormat) {
       return;
     }
@@ -1743,7 +1770,10 @@ ${t("m3sl.dialog.warnings_header")}
         }
         parse.call(Codecs.project, model, "");
       });
-      Project.name = projectName;
+      Project.name = name || projectName;
+      if (identifier) {
+        Project.model_identifier = identifier;
+      }
       await waitForProjectTextures();
       const options = { ...loadOptions(), includeTransparent: true };
       const outcome = scanAndPlan(options);
@@ -1769,7 +1799,7 @@ ${t("m3sl.dialog.warnings_header")}
   function openWizard() {
     showNewSkinDialog(
       (selection) => {
-        void createSkinProject(selection.template, selection.size);
+        void createSkinProject(selection.template, selection.size, selection.name, selection.identifier);
       },
       () => void 0
     );
