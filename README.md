@@ -25,7 +25,7 @@ in reversible, atomic undo steps.
 
 | Entry point | What it does |
 |---|---|
-| Start screen / **File > New > 3D Skin Model** | New-skin wizard: template + texture size, creates a fully voxelized model |
+| Start screen / **File > New > 3D Skin Model** | New-skin wizard: template + texture size (+ optional model name / identifier), creates a fully voxelized model |
 | **3D Skin Model > Generate 3D Skin Layers** | Voxelize the `... Layer` cubes of the open model |
 | **3D Skin Model > Regenerate Cubes** | Rebuild generated voxels from the current texture, in place |
 | **3D Skin Model > Restore 3D Skin Layers** | Convert generated groups back into their original single cubes |
@@ -35,7 +35,10 @@ in reversible, atomic undo steps.
 
 1. **Start screen / File > New > 3D Skin Model**.
 2. In the wizard pick a **template** (Classic / Root-wrapped / Jointed
-   segments) and a **texture size** (64 or 128). The matching texture loads
+   segments) and a **texture size** (64 or 128). Optionally type a **model
+   name** and/or **model identifier** - both can be left empty (empty name
+   keeps the template default, empty identifier stays unset; both are
+   editable later under File > Project). The matching texture loads
    into the template and *every* pixel - transparent ones included - becomes
    a cube, so you can paint anywhere right away.
 3. Paint your skin (Paint mode works; the texture behaves like a normal
@@ -79,6 +82,9 @@ tab stays untouched, and the copy never inherits the original's save path
 - Templates are embedded in the plugin - no extra files needed. 128 loads a
   128x128 texture over the same 64-unit UV space (2x texel density, e.g.
   16x16 head faces).
+- The optional **model name** becomes the project/tab name; the optional
+  **model identifier** is stored as the bbmodel `model_identifier` (also
+  editable under File > Project). Both may be left empty.
 - The model is voxelized immediately with **transparent pixels included**,
   ready for the paint-then-clean-up loop.
 

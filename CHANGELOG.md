@@ -6,6 +6,14 @@ versioning follows [SemVer 2.0.0](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- The New 3D Skin Model wizard accepts an optional **model name** and an
+  optional **model identifier**. The name becomes the project (tab) name
+  instead of the `temp-<size>` default; the identifier is saved as the
+  bbmodel `model_identifier` and editable later under File > Project. Both
+  fields can be left empty - empty falls back to the previous behavior.
+
 ### Changed
 
 - All plugin commands now live in the top-level **3D Skin Model** menu.
