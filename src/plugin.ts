@@ -396,17 +396,19 @@ export function registerPlugin(): void {
     },
   });
   actions = [generateAction, restoreAction, clearTransparentAction, regenerateAction];
-  // Blockbench 不会自动把插件动作插入菜单栏，这里显式挂到编辑菜单
-  // plugin actions are not added to menus automatically; place it in Edit
-  MenuBar.addAction(generateAction, 'edit');
-  MenuBar.addAction(restoreAction, 'edit');
 
-  // 顶部菜单栏的"3D 皮肤模型"菜单：一键清除透明方块等专用入口
-  // the top-level "3D Skin Model" menu: dedicated entries such as the
-  // one-click transparent cube cleanup
+  // Blockbench 不会自动把插件动作插入菜单栏；所有功能统一放进顶部菜单栏的
+  // "3D 皮肤模型"菜单，不再散落在编辑菜单里
+  // plugin actions are not added to menus automatically; they all live in the
+  // top-level "3D Skin Model" menu instead of being scattered into Edit
   skinMenu = new BarMenu(
     `${PLUGIN_ID}.menu`,
-    [`${PLUGIN_ID}.regenerate`, `${PLUGIN_ID}.clear_transparent`],
+    [
+      `${PLUGIN_ID}.generate`,
+      `${PLUGIN_ID}.regenerate`,
+      `${PLUGIN_ID}.restore`,
+      `${PLUGIN_ID}.clear_transparent`,
+    ],
     {
       name: 'm3sl.menu.name',
       condition: () => hasOpenProject(),
@@ -425,8 +427,6 @@ export function unregisterPlugin(): void {
     listener.dispose();
   }
   listeners = [];
-  MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
-  MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
   unregisterNewSkinFormat();
   if (skinMenu && typeof skinMenu.delete === 'function') {
     skinMenu.delete();
