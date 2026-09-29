@@ -45,11 +45,20 @@ export async function waitForProjectTextures(timeoutMs = 10_000): Promise<void> 
 /**
  * 新建 3D 皮肤项目：空项目 → 解析模板（注入对应尺寸纹理）→ 全像素体素化
  * （透明像素也生成方块，后续用"清除透明方块"清理）。
+ * name / identifier 是向导里的可选项：name 留空保持模板默认名，
+ * identifier 留空则不设置（后续可在 文件 > 项目 里修改）。
  * Creates a 3D skin project: empty project → parse the template with the
  * chosen texture → voxelize ALL pixels (transparent ones too; clean up later
- * with "Clear Transparent Cubes").
+ * with "Clear Transparent Cubes"). name / identifier are optional wizard
+ * inputs: an empty name keeps the template default, an empty identifier
+ * stays unset (both editable later under File > Project).
  */
-export async function createSkinProject(template: TemplateId, size: SkinSize): Promise<void> {
+export async function createSkinProject(
+  template: TemplateId,
+  size: SkinSize,
+  name?: string,
+  identifier?: string,
+): Promise<void> {
   if (creating || !registeredFormat) {
     return;
   }
@@ -66,7 +75,12 @@ export async function createSkinProject(template: TemplateId, size: SkinSize): P
       }
       parse.call(Codecs.project, model, '');
     });
-    Project.name = projectName;
+    Project.name = name || projectName;
+    if (identifier) {
+      // bbmodel 保存时会写入根层 model_identifier，重新打开自动恢复
+      // saved bbmodels carry model_identifier at the root and restore it on load
+      Project.model_identifier = identifier;
+    }
     await waitForProjectTextures();
 
     const options = { ...loadOptions(), includeTransparent: true };
@@ -98,7 +112,7 @@ export async function createSkinProject(template: TemplateId, size: SkinSize): P
 function openWizard(): void {
   showNewSkinDialog(
     selection => {
-      void createSkinProject(selection.template, selection.size);
+      void createSkinProject(selection.template, selection.size, selection.name, selection.identifier);
     },
     () => undefined,
   );

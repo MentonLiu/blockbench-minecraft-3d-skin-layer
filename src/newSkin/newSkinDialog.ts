@@ -1,16 +1,22 @@
 import { PLUGIN_ID } from '../domain/constants';
 import { t } from '../i18n';
 import type { TemplateId, SkinSize } from './templates';
-import { parseSkinSize, parseTemplateId } from './templates';
+import { parseOptionalText, parseSkinSize, parseTemplateId } from './templates';
 
 export interface NewSkinWizardSelection {
   template: TemplateId;
   size: SkinSize;
+  /** 可选项目名，留空保持默认 temp-<尺寸> / Optional project name; empty keeps temp-<size>. */
+  name?: string;
+  /** 可选模型标识符，留空不设置 / Optional model identifier; empty leaves it unset. */
+  identifier?: string;
 }
 
 /**
- * 新建 3D 皮肤向导：选择模板模型与皮肤纹理尺寸。
- * New 3D skin wizard: pick a template model and the skin texture size.
+ * 新建 3D 皮肤向导：选择模板模型与皮肤纹理尺寸；
+ * 模型名称与标识符可自由填写，也可留空。
+ * New 3D skin wizard: pick a template model and the skin texture size;
+ * model name and identifier are free-form and may be left empty.
  */
 export function showNewSkinDialog(
   onConfirm: (selection: NewSkinWizardSelection) => void,
@@ -43,6 +49,16 @@ export function showNewSkinDialog(
           '128': '128 × 128',
         },
       },
+      name: {
+        label: t('m3sl.wizard.name'),
+        type: 'text',
+        placeholder: t('m3sl.wizard.name.placeholder'),
+      },
+      identifier: {
+        label: t('m3sl.wizard.identifier'),
+        type: 'text',
+        placeholder: t('m3sl.wizard.identifier.placeholder'),
+      },
     },
     onConfirm(formResult: unknown) {
       const raw = (formResult ?? {}) as Record<string, unknown>;
@@ -51,6 +67,8 @@ export function showNewSkinDialog(
       onConfirm({
         template: parseTemplateId(raw.template),
         size: parseSkinSize(raw.size),
+        name: parseOptionalText(raw.name),
+        identifier: parseOptionalText(raw.identifier),
       });
     },
     onClose() {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildTemplateModel,
+  parseOptionalText,
   parseSkinSize,
   parseTemplateId,
   SKIN_SIZES,
@@ -38,6 +39,27 @@ describe('parseSkinSize / parseTemplateId', () => {
     // Regression: SKIN_SIZES.includes('128') === false once made 128 silently fall back to temp64.
     expect(SKIN_SIZES.includes('128' as never)).toBe(false);
     expect(parseSkinSize('128')).toBe(128);
+  });
+});
+
+describe('parseOptionalText', () => {
+  it('passes through non-empty names and identifiers', () => {
+    expect(parseOptionalText('My Skin Model')).toBe('My Skin Model');
+    expect(parseOptionalText('my_skin_model')).toBe('my_skin_model');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(parseOptionalText('  spaced name  ')).toBe('spaced name');
+  });
+
+  it('treats blank and non-string input as unset', () => {
+    // 留空必须回到默认行为：名称用 temp-<size>，标识符不设置
+    // empty input must fall back: name keeps temp-<size>, identifier stays unset
+    expect(parseOptionalText('')).toBeUndefined();
+    expect(parseOptionalText('   ')).toBeUndefined();
+    expect(parseOptionalText(undefined)).toBeUndefined();
+    expect(parseOptionalText(null)).toBeUndefined();
+    expect(parseOptionalText(128)).toBeUndefined();
   });
 });
 

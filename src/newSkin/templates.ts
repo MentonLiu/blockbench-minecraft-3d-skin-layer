@@ -29,6 +29,19 @@ export function parseSkinSize(value: unknown): SkinSize {
   return n === 128 ? 128 : 64;
 }
 
+/**
+ * 解析向导中的可选文本输入（模型名称 / 标识符）：去掉首尾空白，空白视为未填写。
+ * Normalizes an optional wizard text input (model name / identifier): trims
+ * whitespace, blank input counts as unset.
+ */
+export function parseOptionalText(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export interface TemplateModelBuild {
   /** 可直接交给 Codecs.project.parse 的 bbmodel JSON / bbmodel JSON ready for Codecs.project.parse. */
   model: Record<string, unknown>;

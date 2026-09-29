@@ -22,6 +22,10 @@ export const en = {
   'm3sl.wizard.template.root': 'Root-wrapped',
   'm3sl.wizard.template.joint': 'Jointed segments',
   'm3sl.wizard.size': 'Skin texture size',
+  'm3sl.wizard.name': 'Model name (optional)',
+  'm3sl.wizard.name.placeholder': 'My Skin Model',
+  'm3sl.wizard.identifier': 'Model identifier (optional)',
+  'm3sl.wizard.identifier.placeholder': 'e.g. my_skin_model',
 
   'm3sl.clear_action.name': 'Clear Transparent Cubes',
   'm3sl.clear_action.description': 'Remove voxel cubes whose sampled pixel is transparent',
@@ -97,6 +101,10 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.wizard.template.root': '根分组',
   'm3sl.wizard.template.joint': '关节分段',
   'm3sl.wizard.size': '皮肤纹理尺寸',
+  'm3sl.wizard.name': '模型名称（可选）',
+  'm3sl.wizard.name.placeholder': '我的皮肤模型',
+  'm3sl.wizard.identifier': '模型标识符（可选）',
+  'm3sl.wizard.identifier.placeholder': '例如 my_skin_model',
 
   'm3sl.clear_action.name': '清除透明方块',
   'm3sl.clear_action.description': '删除采样像素已透明的体素方块',
