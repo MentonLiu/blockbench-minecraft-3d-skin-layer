@@ -26,9 +26,9 @@ in reversible, atomic undo steps.
 | Entry point | What it does |
 |---|---|
 | Start screen / **File > New > 3D Skin Model** | New-skin wizard: template + texture size, creates a fully voxelized model |
-| **Edit > Generate 3D Skin Layers** | Voxelize the `... Layer` cubes of the open model |
-| **Edit > Restore 3D Skin Layers** | Convert generated groups back into their original single cubes |
+| **3D Skin Model > Generate 3D Skin Layers** | Voxelize the `... Layer` cubes of the open model |
 | **3D Skin Model > Regenerate Cubes** | Rebuild generated voxels from the current texture, in place |
+| **3D Skin Model > Restore 3D Skin Layers** | Convert generated groups back into their original single cubes |
 | **3D Skin Model > Clear Transparent Cubes** | Delete voxels whose pixel is transparent |
 
 ## Quick start A - paint a new skin (recommended)
@@ -54,9 +54,9 @@ Every step is one undo transaction (`Ctrl/Cmd + Z`).
    (`Hat Layer`, `Body Layer1`, ... - digit suffixes on jointed models are
    fine). The layer cubes' geometry and UVs are the source of truth, so
    64x64, 128x128 and custom layouts all work without a hard-coded atlas.
-2. **Edit > Generate 3D Skin Layers**. The preflight dialog shows how many
+2. **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many
    layer cubes and texels were found. Adjust the options and confirm.
-3. To get the original model back: **Edit > Restore 3D Skin Layers** -
+3. To get the original model back: **3D Skin Model > Restore 3D Skin Layers** -
    generated groups store the complete original cube data (works after
    saving and reopening).
 

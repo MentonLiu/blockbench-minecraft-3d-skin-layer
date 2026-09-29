@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [Unreleased]
+
+### Changed
+
+- All plugin commands now live in the top-level **3D Skin Model** menu.
+  Generate 3D Skin Layers and Restore 3D Skin Layers moved out of the Edit
+  menu, so every entry point (generate, regenerate, restore, clear
+  transparent cubes) is in one place next to File.
+
 ## [0.4.0-pre2] - 2026-09-22
 
 ### Added
