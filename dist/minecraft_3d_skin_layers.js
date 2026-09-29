@@ -2112,11 +2112,14 @@ ${t("m3sl.dialog.warnings_header")}
       }
     });
     actions = [generateAction, restoreAction, clearTransparentAction, regenerateAction];
-    MenuBar.addAction(generateAction, "edit");
-    MenuBar.addAction(restoreAction, "edit");
     skinMenu = new BarMenu(
       `${PLUGIN_ID}.menu`,
-      [`${PLUGIN_ID}.regenerate`, `${PLUGIN_ID}.clear_transparent`],
+      [
+        `${PLUGIN_ID}.generate`,
+        `${PLUGIN_ID}.regenerate`,
+        `${PLUGIN_ID}.restore`,
+        `${PLUGIN_ID}.clear_transparent`
+      ],
       {
         name: "m3sl.menu.name",
         condition: () => hasOpenProject(),
@@ -2132,8 +2135,6 @@ ${t("m3sl.dialog.warnings_header")}
       listener.dispose();
     }
     listeners = [];
-    MenuBar.removeAction(`edit.${PLUGIN_ID}.generate`);
-    MenuBar.removeAction(`edit.${PLUGIN_ID}.restore`);
     unregisterNewSkinFormat();
     if (skinMenu && typeof skinMenu.delete === "function") {
       skinMenu.delete();
