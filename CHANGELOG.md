@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- **Web & mobile support.** The plugin now declares the `both` variant, so it
+  can be installed and used in the web app and PWA (phones / tablets), not
+  just the desktop app. All entry points work with touch: Blockbench's mobile
+  menu bar lists the top-level **3D Skin Model** menu, and Blockbench's own
+  small-screen CSS collapses dialogs to full width, so the 512 px preflight
+  dialogs fit phone displays without changes.
+
+- The plugin sets `await_loading`, so its **3D Skin Model** format is always
+  registered before the first project opens - this matters on the web app,
+  where plugin files download asynchronously and an early-opened skin file
+  would otherwise fall back to a generic format.
+
 ## [0.4.0] - 2026-09-30
 
 > Official release. Includes everything from `0.4.0-pre` and `0.4.0-pre2`.
