@@ -1,107 +1,80 @@
 # Minecraft 3D Skin Layers
 
-[![License: MIT](https://img.shields.io/badge/MIT%20License-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v0.4.0-blue.svg)](../../releases)
-[![Blockbench](https://img.shields.io/badge/Blockbench-5.0%2B-orange)](https://blockbench.net)
-
 English | [简体中文](README.zh-CN.md)
 
-Turn any Minecraft skin into a **3D voxel model**: every texel becomes one
-cube whose six faces map to that exact pixel. Start from a built-in template
-and paint directly onto the voxels, or convert an existing skin model - all
-in reversible, atomic undo steps.
+A Blockbench plugin that turns Minecraft skins into true 3D voxel models: every texel becomes one full cube whose six faces all map to that exact pixel. Start from a built-in template and paint directly on the voxels, or convert the `... Layer` cubes of an existing skin model — every operation runs as a reversible, atomic undo transaction.
 
-![Generated voxel layers in Blockbench](docs/images/preview.png)
+## Features
+
+- **One pixel, one cube** — all six faces of every voxel map to the same source pixel, and the shell thickness matches the layer inflate, so the voxel shell reproduces the original layer contour.
+- **Paint-first workflow** — the *3D Skin Model* format on the start screen / File > New opens a wizard (template, texture size, optional name & identifier) and hands you a fully voxelized model, transparent pixels included, ready to paint on.
+- **Fully reversible** — generated groups store the complete source cube; restore rebuilds the original model exactly, even after saving and reopening.
+- **Resolution-independent** — texel grids derive from texture size vs. UV space; 64×64, 128×128 and custom layouts all work without a hard-coded atlas.
+- **English & 简体中文** UI via Blockbench's translation system.
 
 ## Installation
 
-1. Download `minecraft_3d_skin_layers.js` from the
-   [latest release](../../releases) (or build it: `npm run build`).
-2. In Blockbench: **File > Plugins > ... > Load Plugin from File**, or copy
-   the file into Blockbench's `plugins` folder.
-3. Requires Blockbench **5.0.0+** (desktop).
+1. Download `minecraft_3d_skin_layers.js` from the [latest release](../../releases), or build it yourself (`npm run build`).
+2. In Blockbench: **File > Plugins > ... > Load Plugin from File**, or copy the file into Blockbench's `plugins` folder.
+3. Requires Blockbench **5.0.0+** (desktop app, web app and mobile / PWA).
 
 ## Where everything lives
 
 | Entry point | What it does |
 |---|---|
-| Start screen / **File > New > 3D Skin Model** | New-skin wizard: template + texture size (+ optional model name / identifier), creates a fully voxelized model |
+| Start screen / **File > New > 3D Skin Model** | New-skin wizard: template + texture size (+ optional model name / identifier, both may be left empty), creates a fully voxelized model |
 | **3D Skin Model > Generate 3D Skin Layers** | Voxelize the `... Layer` cubes of the open model |
 | **3D Skin Model > Regenerate Cubes** | Rebuild generated voxels from the current texture, in place |
 | **3D Skin Model > Restore 3D Skin Layers** | Convert generated groups back into their original single cubes |
-| **3D Skin Model > Clear Transparent Cubes** | Delete voxels whose pixel is transparent |
+| **3D Skin Model > Clear Transparent Cubes** | Delete voxels whose pixel has become transparent |
 
-## Quick start A - paint a new skin (recommended)
+The **3D Skin Model** menu appears in the menu bar (next to **File**) whenever a project is open.
 
-1. **Start screen / File > New > 3D Skin Model**.
-2. In the wizard pick a **template** (Classic / Root-wrapped / Jointed
-   segments) and a **texture size** (64 or 128). Optionally type a **model
-   name** and/or **model identifier** - both can be left empty (empty name
-   keeps the template default, empty identifier stays unset; both are
-   editable later under File > Project). The matching texture loads
-   into the template and *every* pixel - transparent ones included - becomes
-   a cube, so you can paint anywhere right away.
-3. Paint your skin (Paint mode works; the texture behaves like a normal
-   skin).
+## Quick start A — paint a new skin (recommended)
+
+1. Open the start screen or **File > New > 3D Skin Model**.
+2. In the wizard pick a **template** (Classic / Root-wrapped / Jointed segments) and a **texture size** (64 or 128). Optionally type a **model name** and/or **model identifier** — both can be left empty (an empty name keeps the template default, an empty identifier stays unset; both are editable later under File > Project). The matching texture is loaded into the template and *every* pixel — transparent ones included — becomes a cube, so you can paint anywhere right away.
+3. Paint your skin (Paint mode works; the texture behaves like a normal skin).
 4. Clean up as you go:
-   - **3D Skin Model > Clear Transparent Cubes** deletes voxels on pixels
-     that are still transparent.
-   - After bigger repaints, **3D Skin Model > Regenerate Cubes** rebuilds
-     all voxels from the current texture - group poses are kept.
+   - **Clear Transparent Cubes** deletes voxels on pixels that are still transparent.
+   - After bigger repaints, **Regenerate Cubes** rebuilds all voxels from the current texture — group poses are kept.
 
 Every step is one undo transaction (`Ctrl/Cmd + Z`).
 
-## Quick start B - voxelize an existing skin model
+## Quick start B — voxelize an existing skin model
 
-1. Open the model in **Edit** mode. It needs cubes named `... Layer`
-   (`Hat Layer`, `Body Layer1`, ... - digit suffixes on jointed models are
-   fine). The layer cubes' geometry and UVs are the source of truth, so
-   64x64, 128x128 and custom layouts all work without a hard-coded atlas.
-2. **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many
-   layer cubes and texels were found. Adjust the options and confirm.
-3. To get the original model back: **3D Skin Model > Restore 3D Skin Layers** -
-   generated groups store the complete original cube data (works after
-   saving and reopening).
+1. Open the model in **Edit** mode. It needs cubes named `... Layer` (`Hat Layer`, `Body Layer1`, ... — digit suffixes on jointed models are fine). The layer cubes' geometry and UVs are the source of truth, so 64×64, 128×128 and custom layouts all work without a hard-coded atlas.
+2. Run **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many layer cubes and texels were found; adjust the options and confirm.
+3. To get the original model back, run **3D Skin Model > Restore 3D Skin Layers** — generated groups store the complete original cube data (works after saving and reopening).
 
-Both dialogs offer a **Use a new model project** checkbox at the bottom:
-check it to duplicate the project and run against the copy - the original
-tab stays untouched, and the copy never inherits the original's save path
-(saving it always asks where to store it).
+Both dialogs offer a **Use a new model project** checkbox at the bottom: check it to duplicate the project and run against the copy. The original tab stays untouched, and the copy never inherits the original's save path, so saving it always asks where to store it and can never overwrite the original file.
 
 ## Commands in detail
 
-### Generate 3D Skin Layers
-- One full cube per non-transparent texel, all six faces mapped to that
-  pixel; thickness matches the layer inflate, so the shell reproduces the
-  original layer contour.
-- Replaces each `... Layer` cube with a same-named group in one atomic undo
-  step; the preflight aborts above the cube limit before touching anything.
-- Idempotent: generated groups are never re-processed.
-
 ### New 3D Skin Model wizard
-- Templates are embedded in the plugin - no extra files needed. 128 loads a
-  128x128 texture over the same 64-unit UV space (2x texel density, e.g.
-  16x16 head faces).
-- The optional **model name** becomes the project/tab name; the optional
-  **model identifier** is stored as the bbmodel `model_identifier` (also
-  editable under File > Project). Both may be left empty.
-- The model is voxelized immediately with **transparent pixels included**,
-  ready for the paint-then-clean-up loop.
 
-### Clear Transparent Cubes
-- Removes generated voxels whose sampled pixel has become transparent.
-  Safe by construction: only cubes inside plugin-generated groups are
-  considered, and only when their UV maps exactly one texel.
+- Templates are embedded in the plugin — no extra files needed. 128 loads a 128×128 texture over the same 64-unit UV space (2× texel density, e.g. 16×16 head faces).
+- The optional **model name** becomes the project (tab) name; the optional **model identifier** is stored as the bbmodel `model_identifier` (also editable under File > Project).
+- The model is voxelized immediately with transparent pixels included, ready for the paint-then-clean-up loop. If the run would exceed the cube limit, the un-voxelized template is kept so you can raise the limit and generate manually.
+
+### Generate 3D Skin Layers
+
+- One full cube per non-transparent texel, all six faces mapped to that pixel.
+- Replaces each `... Layer` cube with a same-named group at the original parent/sibling position, in one atomic undo step. The run aborts above the cube limit before touching anything.
+- Idempotent: generated groups are never re-processed. On project load the plugin scans for layer cubes; it only auto-generates if **Generate automatically when a project loads** is enabled.
 
 ### Regenerate Cubes
-- Re-scans the current texture and rebuilds every generated group in place.
-  Groups (and anything you posed on them) are kept; only the voxel cubes are
-  replaced. Use it after repainting instead of undoing.
+
+- Re-scans the current texture and rebuilds every generated group in place. Groups (and anything you posed on them) are kept; only the voxel cubes are replaced. Use it after repainting instead of undoing.
+- The dialog has an **Include transparent pixels** checkbox to voxelize every grid cell.
 
 ### Restore 3D Skin Layers
-- Groups generated by this plugin store the full source cube; restore
-  rebuilds it exactly and removes the voxels. Pre-0.3.1 groups fall back to
-  a best-effort reconstruction.
+
+- Groups generated by this plugin store the full source cube (geometry, transforms, visibility, render settings, textures, UVs, face rotations); restore rebuilds it exactly and removes the voxels. Pre-0.3.1 groups fall back to a best-effort reconstruction.
+
+### Clear Transparent Cubes
+
+- Removes generated voxels whose sampled pixel has become transparent. Safe by construction: only cubes inside plugin-generated groups are considered, and only when their UV maps exactly one texel.
 
 ## Options reference
 
@@ -109,33 +82,27 @@ Options are remembered across sessions.
 
 | Option | Where | Default | Meaning |
 |---|---|---|---|
-| Use a new model project | Generate / Restore dialog | off | copy to a new project and modify the copy |
 | Alpha threshold | Generate dialog | 0 | texels with alpha above this become cubes |
 | Maximum cube count | Generate dialog | 10,000 | run aborts above this; nothing is modified |
-| Cubes per batch | Generate dialog | 200 | UI yield frequency for large models |
+| Cubes created per batch | Generate dialog | 200 | UI yield frequency for large models |
 | Keep original layer cubes | Generate dialog | off | hide the sources instead of deleting them |
 | Replace fully transparent layers | Generate dialog | off | empty groups instead of leaving them untouched |
-| Only process selected layers | Generate dialog | off | restrict to selected layer cubes |
-| Generate on project load | Generate dialog | off | auto-run when a project opens |
+| Only process selected layer cubes | Generate dialog | off | restrict to selected layer cubes |
+| Generate automatically when a project loads | Generate dialog | off | auto-run when a project opens |
+| Use a new model project | Generate / Restore dialog | off | duplicate to a new project and modify the copy |
 | Include transparent pixels | Regenerate dialog | off | voxelize every grid cell, transparent ones too |
 
 ## Good to know
 
-- **Z-fighting-free within a part**: face shells carry an invisible offset
-  (max 0.0075). Parts that interpenetrate in the default pose (legs, waist)
-  share planes on purpose - pose them and it separates.
-- **Resolution-independent**: texel grids derive from texture size vs. UV
-  space, never hard-coded.
-- **Multi-texture, reversed UVs and face rotation** (0/90/180/270) are
-  honored per face.
-- **English & 简体中文** UI via Blockbench's translation system.
+- **Z-fighting-free within a part**: face shells carry an invisible per-direction offset (max 0.0075). Parts that interpenetrate in the default pose (legs, waist) share planes on purpose — pose them and it separates.
+- **Multi-texture, reversed UVs and face rotation** (0/90/180/270) are honored per face.
+- Generation, regeneration, restore and cleanup each run as a single atomic undo transaction with rollback on failure.
 
-## Limitations
+## Limitations & roadmap
 
+- Works in the desktop app and in the web app / PWA on mobile; voxelizing a full skin (hundreds to ~1600 cubes) is noticeably slower on phone hardware.
 - Hairline seams can appear at extreme grazing angles along layer edges.
-- Desktop only; the web variant is untested.
-- Regeneration requires plugin-generated groups (metadata); legacy groups
-  from before 0.3.1 support restore only.
+- Regeneration requires plugin-generated groups (metadata); legacy groups from before 0.3.1 support restore only.
 - No greedy merging by design: one pixel = one cube is the contract.
 
 ## Development
@@ -146,20 +113,20 @@ npm run check      # typecheck + tests + build
 npm run test:watch # vitest watch mode
 ```
 
-- `docs/SPEC.md` - behavioral contract and defaults
-- `docs/ARCHITECTURE.md` - module map, data flow, WriterHost seam
-- `docs/UV_MAPPING.md` - the exact UV/geometry math (ported from Blockbench)
-- `docs/TEST_PLAN.md` - test matrix and manual acceptance steps
+- `docs/SPEC.md` — behavioral contract and defaults
+- `docs/ARCHITECTURE.md` — module map, data flow, WriterHost seam
+- `docs/UV_MAPPING.md` — the exact UV/geometry math (ported from Blockbench)
+- `docs/TEST_PLAN.md` — test matrix and manual acceptance steps
 
-Golden fixtures (characterized, covered by integration tests):
-`skin_model.bbmodel` - 880 visible cubes; `skins_model_root.bbmodel` -
-618 visible / 1632 full; `skins_model_root_joint.bbmodel` - 680 visible /
-1792 full.
+Golden fixtures (characterized, covered by integration tests): `skin_model.bbmodel` — 880 visible cubes; `skins_model_root.bbmodel` — 618 visible / 1632 full pixels; `skins_model_root_joint.bbmodel` — 680 visible / 1792 full pixels.
 
 ### Contributing
 
-Issues and PRs welcome. Run `npm run check` before submitting and follow
-[Conventional Commits](https://www.conventionalcommits.org).
+Issues and PRs welcome. Run `npm run check` before submitting and follow [Conventional Commits](https://www.conventionalcommits.org).
+
+## Author
+
+Follow the developer on Bilibili: **[b23.tv/s1TcV9m](https://b23.tv/s1TcV9m)**
 
 ## License
 
