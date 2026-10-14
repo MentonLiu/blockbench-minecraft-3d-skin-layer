@@ -1,7 +1,7 @@
 import { PLUGIN_ID } from '../domain/constants';
+import { resolveGeneratorOptions } from '../domain/options';
 import type { GeneratorOptions } from '../domain/types';
 import { t } from '../i18n';
-import { sanitizeOptions } from './settingsDialog';
 
 export interface RestoreSummaryInfo {
   groupCount: number;
@@ -40,7 +40,7 @@ export function showRestoreDialog(
       raw.targetModel = (formResult as Record<string, unknown>).useNewProject === true
         ? 'copy'
         : 'current';
-      onConfirm(sanitizeOptions(raw));
+      onConfirm(resolveGeneratorOptions(raw));
     },
     onClose() {
       onCancel();

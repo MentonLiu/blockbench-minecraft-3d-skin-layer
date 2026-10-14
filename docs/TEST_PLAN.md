@@ -23,7 +23,7 @@ exercised through the `WriterHost` mock; the final acceptance is loading
 | Texture scale | 64/64 -> 1; 128 image / 64 UV -> 2 |
 | Grid size | head front 8x8; 16x16 at 2x; rotation 90/270 swap; non-integer span rejected with warning; out-of-bounds rect warns |
 | Cell sampling | first cell -> region top-left pixel; last -> bottom-right; reversed U/V preserved; rotation 90 transposed; out-of-bounds clamped |
-| Alpha | threshold 0 keeps alpha 1; raised threshold filters; degenerate rect -> empty scan |
+| Alpha | plugin option resolution fixes threshold 0; alpha 1 is retained, alpha 0 is skipped; pure planner tests still cover alternate thresholds; degenerate rect -> empty scan |
 | Inflate box | inflate expansion; stretch around center |
 | Face points | all six directions match `UVToLocal` (u1/v1 corners) |
 | Voxel bounds | all six directions protrude from the raw surface; depth=inflate reproduces the layer surface |
@@ -46,5 +46,5 @@ exercised through the `WriterHost` mock; the final acceptance is loading
    voxel cubes inside; original 6 layer cubes are gone.
 3. `Ctrl+Z` once restores the original model; `Ctrl+Shift+Z` regenerates.
 4. Running the action again reports "No * Layer cubes found".
-5. Set alphaThreshold 255 -> run -> only fully opaque pixels become cubes.
+5. Confirm the dialog has no Alpha, maximum-cube or batch-size fields. Alpha 1 and 128 pixels remain eligible; alpha 0 pixels are skipped. A plan above 10,000 cubes reports the required count and fixed limit before model geometry changes.
 6. depthMode `pixel` -> voxels visibly protrude by ~1 unit on a 64px skin.
