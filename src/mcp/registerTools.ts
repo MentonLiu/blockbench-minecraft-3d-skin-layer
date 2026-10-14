@@ -108,8 +108,8 @@ function inspectProject(): Record<string, unknown> {
     availableOperations: {
       generate: projectOpen && editMode && layerCount > 0,
       restore: projectOpen && editMode && restoreCount > 0,
-      regenerate: projectOpen && editMode && regenerateCount > 0,
-      clearTransparent: projectOpen && editMode && voxelCount > 0,
+      regenerate: projectOpen && regenerateCount > 0,
+      clearTransparent: projectOpen && voxelCount > 0,
       newSkin: isNewSkinFormatRegistered(),
     },
   };
@@ -166,6 +166,7 @@ function setupTools(api: IBlockbenchMcpApi): void {
   disposeCurrentRegistration();
 
   const z = api.z;
+  const projectCondition = (method: () => boolean) => ({ project: true, method });
   const projectEditCondition = (method: () => boolean) => ({ project: true, modes: ['edit'], method });
   const emptyParameters = z.object({}).strict();
   const generatorParameters = z.object({
@@ -232,7 +233,7 @@ function setupTools(api: IBlockbenchMcpApi): void {
       name: TOOL_NAMES[3],
       description: 'Rebuild existing generated voxel layers from their saved source geometry and current textures.',
       parameters: regenerateParameters,
-      condition: projectEditCondition(() => safelyAvailable(hasRegenerationTargets)),
+      condition: projectCondition(() => safelyAvailable(hasRegenerationTargets)),
       annotations: { title: 'Regenerate 3D Skin Layers', destructiveHint: true, idempotentHint: false },
       plugin: PLUGIN_ID,
       execute: (args, context) => executeSafely(api, async () => skinOperations.regenerate({
@@ -244,7 +245,7 @@ function setupTools(api: IBlockbenchMcpApi): void {
       name: TOOL_NAMES[4],
       description: 'Remove generated voxel cubes whose referenced skin pixels are fully transparent.',
       parameters: emptyParameters,
-      condition: projectEditCondition(() => safelyAvailable(hasTransparentTargets)),
+      condition: projectCondition(() => safelyAvailable(hasTransparentTargets)),
       annotations: { title: 'Clear Transparent Skin Voxels', destructiveHint: true, idempotentHint: true },
       plugin: PLUGIN_ID,
       execute: (_args, context) => executeSafely(api, async () => skinOperations.clearTransparent({
@@ -289,30 +290,41 @@ export function registerMcpTools(): void {
   if (queueEntry) return;
   const entry: McpQueueEntry = {
     plugin: PLUGIN_ID,
-    setup: setupTools,
+    setup(api) {
+      // MCP may retain a setup callback across unload/reload. Only this load's
+      // live queue entry may register tools; older callbacks must stay inert.
+      if (queueEntry !== entry) return;
+      setupTools(api);
+    },
   };
   try {
     if (globalThis.MCP_QUEUE !== undefined && !Array.isArray(globalThis.MCP_QUEUE)) {
       console.warn(`[${PLUGIN_ID}] MCP_QUEUE is not an array; skipping optional MCP registration.`);
       return;
     }
-    (globalThis.MCP_QUEUE ??= []).push(entry);
+    // A live MCP queue calls setup synchronously from push.
     queueEntry = entry;
+    (globalThis.MCP_QUEUE ??= []).push(entry);
   } catch (error) {
+    if (queueEntry === entry) {
+      queueEntry = undefined;
+      disposeCurrentRegistration();
+    }
     console.warn(`[${PLUGIN_ID}] Could not queue optional MCP tools; the regular plugin UI remains available.`, error);
   }
 }
 
 /** Remove registrations and any pending queue item when this plugin unloads. */
 export function unregisterMcpTools(): void {
+  const entry = queueEntry;
+  queueEntry = undefined;
   disposeCurrentRegistration();
   // MCP replaces MCP_QUEUE with a live array whose push registers immediately.
   // Do not replace that live queue: MCP drops the retained owned entry when the
   // plugin unload event fires. A plain queue means MCP has not loaded yet.
-  if (!globalThis.MCP && queueEntry && Array.isArray(globalThis.MCP_QUEUE)) {
-    globalThis.MCP_QUEUE = globalThis.MCP_QUEUE.filter(entry => entry !== queueEntry);
+  if (!globalThis.MCP && entry && Array.isArray(globalThis.MCP_QUEUE)) {
+    globalThis.MCP_QUEUE = globalThis.MCP_QUEUE.filter(candidate => candidate !== entry);
   }
-  queueEntry = undefined;
 }
 
 /** Small compatibility surface exported for unit tests and diagnostics. */

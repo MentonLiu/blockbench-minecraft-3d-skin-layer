@@ -119,6 +119,107 @@ describe('MCP tool registration', () => {
     expect(second.tools.size).toBe(0);
   });
 
+  it('ignores retained setup callbacks after unload and a later plugin reload', () => {
+    vi.stubGlobal('MCP_QUEUE', []);
+    registerMcpTools();
+    const staleSetup = queuedSetup();
+    const first = fakeApi();
+    staleSetup(first.api);
+
+    unregisterMcpTools();
+    staleSetup(first.api);
+    expect(first.tools.size).toBe(0);
+
+    registerMcpTools();
+    const current = fakeApi();
+    queuedSetup()(current.api);
+    expect(current.tools.size).toBe(6);
+
+    staleSetup(first.api);
+    expect(first.tools.size).toBe(0);
+    expect(current.tools.size).toBe(6);
+  });
+
+  it('disposes partial registrations and permits setup to retry after a failure', () => {
+    vi.stubGlobal('MCP_QUEUE', []);
+    registerMcpTools();
+    const setup = queuedSetup();
+    const { api, tools } = fakeApi();
+    const register = api.registerTool.bind(api);
+    const disposed: string[] = [];
+    let attempts = 0;
+    vi.spyOn(api, 'registerTool').mockImplementation(options => {
+      if (++attempts === 3) throw new Error('registration failed');
+      const dispose = register(options);
+      return () => { disposed.push(options.name); dispose(); };
+    });
+
+    expect(() => setup(api)).toThrow('registration failed');
+    expect(tools.size).toBe(0);
+    expect(disposed).toEqual([
+      `${PLUGIN_ID}_generate`,
+      `${PLUGIN_ID}_inspect`,
+    ]);
+
+    setup(api);
+    expect(tools.size).toBe(6);
+    unregisterMcpTools();
+    expect(tools.size).toBe(0);
+  });
+
+  it.each(['edit', 'paint', 'animate'])('keeps paint workflow tools available in %s mode', async mode => {
+    const source = {
+      uuid: 'layer-cube', name: 'Hat Layer', from: [0, 0, 0], to: [1, 1, 1],
+      faces: { north: { texture: 'skin-texture', uv: [0, 0, 1, 1] } },
+    };
+    const voxel = {
+      uuid: 'voxel-cube', type: 'cube', name: 'px_north_0_0', from: [0, 0, 0], to: [1, 1, 1],
+      faces: { north: { texture: 'skin-texture', uv: [0, 0, 1, 1] } },
+    };
+    const group = {
+      uuid: 'generated-group', name: 'Hat Layer', children: [voxel],
+      m3sl_source: { schema: 1, source: { key: source.uuid, name: source.name, from: source.from, to: source.to, faces: [] } },
+    };
+    vi.stubGlobal('Project', { uuid: 'project-1', name: 'Skin' });
+    vi.stubGlobal('Modes', { edit: mode === 'edit' });
+    vi.stubGlobal('Cube', { all: [source, voxel] });
+    vi.stubGlobal('Group', { all: [group] });
+    vi.stubGlobal('Outliner', { root: [source, group] });
+    vi.stubGlobal('MCP_QUEUE', []);
+    registerMcpTools();
+    const { api, tools } = fakeApi();
+    queuedSetup()(api);
+
+    for (const name of ['regenerate', 'clear_transparent']) {
+      const condition = tools.get(`${PLUGIN_ID}_${name}`)?.condition;
+      if (!condition || typeof condition !== 'object') throw new Error('Expected a project condition.');
+      expect(condition.project).toBe(true);
+      expect(condition.modes).toBeUndefined();
+      expect(condition.method?.()).toBe(true);
+    }
+    for (const name of ['generate', 'restore']) {
+      expect(tools.get(`${PLUGIN_ID}_${name}`)?.condition).toMatchObject({ modes: ['edit'] });
+    }
+    const inspect = tools.get(`${PLUGIN_ID}_inspect`)!;
+    const response = await inspect.execute({}, { reportProgress: () => undefined });
+    expect(response).toMatchObject({ structuredContent: { result: {
+      availableOperations: {
+        generate: mode === 'edit', restore: mode === 'edit', regenerate: true, clearTransparent: true,
+      },
+    } } });
+
+    vi.stubGlobal('Group', { all: [] });
+    for (const name of ['regenerate', 'clear_transparent']) {
+      const condition = tools.get(`${PLUGIN_ID}_${name}`)?.condition;
+      if (!condition || typeof condition !== 'object') throw new Error('Expected a project condition.');
+      expect(condition.method?.()).toBe(false);
+    }
+    const emptyResponse = await inspect.execute({}, { reportProgress: () => undefined });
+    expect(emptyResponse).toMatchObject({ structuredContent: { result: {
+      availableOperations: { regenerate: false, clearTransparent: false },
+    } } });
+  });
+
   it('preserves the active MCP live queue when this plugin unloads', () => {
     const { api, tools } = fakeApi();
     const liveQueue: McpQueueEntry[] = [];

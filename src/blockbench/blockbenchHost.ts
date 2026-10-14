@@ -190,10 +190,10 @@ export function blockbenchHostForProject(project: Pick<ModelProject, 'undo'>): W
       throw new Error('The operation target project was closed before its changes could be rolled back.');
     }
     suppressAutoScanDuring(() => {
-      if (!targetProject.select() || Project.uuid !== targetProject.uuid) {
-        throw new Error('Blockbench could not restore the operation target project for rollback.');
-      }
       try {
+        if (!targetProject.select() || Project.uuid !== targetProject.uuid) {
+          throw new Error('Blockbench could not restore the operation target project for rollback.');
+        }
         cancelCapturedUndo(revertChanges);
       } finally {
         if (activeProject && ModelProject.all.includes(activeProject)) {

@@ -23,6 +23,8 @@ maximum `10,000` voxels, and batch size `200` are not exposed to MCP clients.
 The tools call the same awaited operation service as the UI. A running write
 holds the shared lock until it completes or rolls back; concurrent writes
 return `BUSY`. MCP request cancellation is forwarded to the operation service.
+Generate and restore require Edit mode. Regenerate and clear-transparent are
+also available in Paint mode, matching the UI workflow for editing skin pixels.
 Successful calls return structured counts and status. Errors return
 `isError: true` and a stable code such as `NO_PROJECT`, `NO_TARGETS`,
 `VOXEL_LIMIT`, `PROJECT_CHANGED`, or `CANCELLED`.
