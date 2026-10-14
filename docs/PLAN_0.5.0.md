@@ -283,7 +283,8 @@ M5 桌面 UI 验收记录（2026-10-14）：用户授权后，将本地构建
 `dist/minecraft_3d_skin_layers.js` 加载到 Blockbench 空白测试项目；构建 SHA-256 为
 `f28a5af29eab79b91b7aa36e3f704b051e3913df9789b323ce93218f868d9361`。向导默认 Steve、默认模型和
 64×64；可选 Steve/Alex、默认模型/Blockbench 经典/关节模型、64/128。Alpha 阈值、最大方块数、
-每批创建数量均已从 UI 移除。实际创建通过 Alex + Blockbench 经典 + 64（1,568 体素方块）、
+每批创建数量均已从 UI 移除。实际创建通过 Steve + 默认模型 + 64（1,632 体素方块）、
+Alex + Blockbench 经典 + 64（1,568）、
 Steve + 关节 + 64（1,920）、Alex + 关节 + 64（1,840）及 Steve + 默认模型 + 128（6,528）。
 两种关节模板的模型树都包含 `Right Arm2/Right Arm Layer2`，纹理分别使用 `steve-64.png` 和
 `alex-64.png`；128 模板使用 `steve-128.png`，项目 UV 坐标空间仍为模板规定的 64×64。
