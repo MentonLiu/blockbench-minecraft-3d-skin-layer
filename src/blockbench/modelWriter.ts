@@ -39,6 +39,8 @@ export interface WriterHost {
   beginUndo(aspects: UndoAspects): void;
   finishUndo(label: string, aspects: CommitAspects): void;
   cancelUndo(revertChanges: boolean): void;
+  /** Removes nodes created during a failed transaction, then cancels the captured undo save. */
+  rollback?(created: readonly unknown[], groups: readonly unknown[], revertChanges: boolean): void;
   createGroup(spec: GroupSpec): unknown;
   createCube(spec: VoxelSpec): unknown;
   createCubeFromSnapshot(snapshot: LayerSnapshot): unknown;
@@ -116,16 +118,16 @@ export async function applyPlans(
         visibility: plan.visibility,
         restoreData: { schema: 1, source: plan.source },
       });
+      groups.push(group);
       host.initElement(group);
       host.adopt(group, parent);
       host.placeBefore(group, source);
-      groups.push(group);
 
       for (const spec of plan.voxels) {
         const cube = host.createCube(spec);
+        created.push(cube);
         host.initElement(cube);
         host.adopt(cube, group);
-        created.push(cube);
         batch++;
         if (batch >= options.batchSize) {
           batch = 0;
@@ -148,7 +150,11 @@ export async function applyPlans(
     host.finishUndo('Generate 3D skin layers', { created, groups });
     return { createdCubes: created.length, createdGroups: groups.length, removedSources };
   } catch (error) {
-    host.cancelUndo(true);
+    if (host.rollback) {
+      host.rollback(created, groups, true);
+    } else {
+      host.cancelUndo(true);
+    }
     throw error;
   }
 }

@@ -21,284 +21,6 @@
   var FACE_EPSILON_STEP = 15e-4;
   var TEXEL_EPSILON = 0.01;
 
-  // src/domain/types.ts
-  var VoxelLimitError = class extends Error {
-    constructor(voxelCount, limit) {
-      super(`Voxel plan needs ${voxelCount} cubes which exceeds maxVoxels (${limit}).`);
-      this.voxelCount = voxelCount;
-      this.limit = limit;
-      this.name = "VoxelLimitError";
-    }
-  };
-
-  // src/geometry/faceMapper.ts
-  function adjustedBox(from, to, inflate, stretch) {
-    const inflatedFrom = [0, 0, 0];
-    const inflatedTo = [0, 0, 0];
-    for (let i = 0; i < 3; i++) {
-      const size = to[i] - from[i];
-      const center = from[i] + size / 2;
-      const half = (size / 2 + inflate) * stretch[i];
-      inflatedFrom[i] = center - half;
-      inflatedTo[i] = center + half;
-    }
-    return { from: inflatedFrom, to: inflatedTo };
-  }
-  function facePoint(direction, box, mx, my) {
-    const f = box.from;
-    const t2 = box.to;
-    const lerp = (a, b, k) => a + (b - a) * k;
-    switch (direction) {
-      case "north":
-        return [lerp(t2[0], f[0], mx), lerp(t2[1], f[1], my), f[2]];
-      case "south":
-        return [lerp(f[0], t2[0], mx), lerp(t2[1], f[1], my), t2[2]];
-      case "east":
-        return [t2[0], lerp(t2[1], f[1], my), lerp(t2[2], f[2], mx)];
-      case "west":
-        return [f[0], lerp(t2[1], f[1], my), lerp(f[2], t2[2], mx)];
-      case "up":
-        return [lerp(f[0], t2[0], mx), t2[1], lerp(f[2], t2[2], my)];
-      case "down":
-        return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
-    }
-  }
-  function voxelBounds(direction, faceBox, rawFrom, rawTo, mx0, mx1, my0, my1, standoff, depth) {
-    const a = facePoint(direction, faceBox, mx0, my0);
-    const b = facePoint(direction, faceBox, mx1, my1);
-    const minX = Math.min(a[0], b[0]);
-    const maxX = Math.max(a[0], b[0]);
-    const minY = Math.min(a[1], b[1]);
-    const maxY = Math.max(a[1], b[1]);
-    const minZ = Math.min(a[2], b[2]);
-    const maxZ = Math.max(a[2], b[2]);
-    switch (direction) {
-      case "north":
-        return { from: [minX, minY, rawFrom[2] - standoff - depth], to: [maxX, maxY, rawFrom[2] - standoff] };
-      case "south":
-        return { from: [minX, minY, rawTo[2] + standoff], to: [maxX, maxY, rawTo[2] + standoff + depth] };
-      case "east":
-        return { from: [rawTo[0] + standoff, minY, minZ], to: [rawTo[0] + standoff + depth, maxY, maxZ] };
-      case "west":
-        return { from: [rawFrom[0] - standoff - depth, minY, minZ], to: [rawFrom[0] - standoff, maxY, maxZ] };
-      case "up":
-        return { from: [minX, rawTo[1] + standoff, minZ], to: [maxX, rawTo[1] + standoff + depth, maxZ] };
-      case "down":
-        return { from: [minX, rawFrom[1] - standoff - depth, minZ], to: [maxX, rawFrom[1] - standoff, maxZ] };
-    }
-  }
-
-  // src/texture/pixelReader.ts
-  function textureScales(texture) {
-    const uvWidth = texture.uvWidth > 0 ? texture.uvWidth : texture.width;
-    const uvHeight = texture.uvHeight > 0 ? texture.uvHeight : texture.height;
-    return { sx: texture.width / uvWidth, sy: texture.height / uvHeight };
-  }
-  function getAlpha(texture, x, y) {
-    const index = (y * texture.width + x) * 4;
-    return texture.rgba[index + 3];
-  }
-  function faceGridSize(face, texture, warnings) {
-    const { sx, sy } = textureScales(texture);
-    const [u1, v1, u2, v2] = face.uv;
-    const texelsU = Math.abs(u2 - u1) * sx;
-    const texelsV = Math.abs(v2 - v1) * sy;
-    const roundedU = Math.round(texelsU);
-    const roundedV = Math.round(texelsV);
-    const maxU = texture.width / sx;
-    const maxV = texture.height / sy;
-    if (Math.min(u1, u2) < 0 || Math.min(v1, v2) < 0 || Math.max(u1, u2) > maxU || Math.max(v1, v2) > maxV) {
-      warnings.push(
-        `${face.direction}: UV rect ${face.uv.join(", ")} exceeds the texture bounds, sampled area clamped`
-      );
-    }
-    if (roundedU < 1 || roundedV < 1) {
-      warnings.push(
-        `${face.direction}: UV rect ${face.uv.join(", ")} spans no texels, face skipped`
-      );
-      return null;
-    }
-    if (Math.abs(texelsU - roundedU) > TEXEL_EPSILON || Math.abs(texelsV - roundedV) > TEXEL_EPSILON) {
-      warnings.push(
-        `${face.direction}: UV rect ${face.uv.join(", ")} spans non-integer texel counts (${texelsU} x ${texelsV}), face skipped`
-      );
-      return null;
-    }
-    const swapped = face.rotation === 90 || face.rotation === 270;
-    return {
-      cols: swapped ? roundedV : roundedU,
-      rows: swapped ? roundedU : roundedV,
-      texelsU: roundedU,
-      texelsV: roundedV
-    };
-  }
-  function clamp(value, min, max) {
-    return value < min ? min : value > max ? max : value;
-  }
-  function sampleCell(face, uv, texture, sx, sy, grid, col, row) {
-    const mx = (col + 0.5) / grid.cols;
-    const my = (row + 0.5) / grid.rows;
-    let pu;
-    let pv;
-    switch (face.rotation) {
-      case 90:
-        pu = my;
-        pv = 1 - mx;
-        break;
-      case 180:
-        pu = 1 - mx;
-        pv = 1 - my;
-        break;
-      case 270:
-        pu = 1 - my;
-        pv = mx;
-        break;
-      default:
-        pu = mx;
-        pv = my;
-    }
-    let u = uv[0] + (uv[2] - uv[0]) * pu;
-    let v = uv[1] + (uv[3] - uv[1]) * pv;
-    const maxU = texture.width / sx;
-    const maxV = texture.height / sy;
-    if (u < 0 || u > maxU || v < 0 || v > maxV) {
-      u = clamp(u, 0, Math.max(maxU - Number.EPSILON, 0));
-      v = clamp(v, 0, Math.max(maxV - Number.EPSILON, 0));
-    }
-    const imageX = clamp(Math.floor(u * sx), 0, texture.width - 1);
-    const imageY = clamp(Math.floor(v * sy), 0, texture.height - 1);
-    const pixelUV = [
-      imageX / sx,
-      imageY / sy,
-      (imageX + 1) / sx,
-      (imageY + 1) / sy
-    ];
-    return { imageX, imageY, pixelUV };
-  }
-  function enumerateVisibleTexels(face, texture, alphaThreshold, includeTransparent = false) {
-    const warnings = [];
-    const grid = faceGridSize(face, texture, warnings);
-    const cells = [];
-    if (!grid) {
-      return { cells, warnings };
-    }
-    const { sx, sy } = textureScales(texture);
-    for (let row = 0; row < grid.rows; row++) {
-      for (let col = 0; col < grid.cols; col++) {
-        const sample = sampleCell(face, face.uv, texture, sx, sy, grid, col, row);
-        const alpha = getAlpha(texture, sample.imageX, sample.imageY);
-        if (includeTransparent || alpha > alphaThreshold) {
-          cells.push({
-            direction: face.direction,
-            col,
-            row,
-            cols: grid.cols,
-            rows: grid.rows,
-            imageX: sample.imageX,
-            imageY: sample.imageY,
-            alpha,
-            pixelUV: sample.pixelUV
-          });
-        }
-      }
-    }
-    return { cells, warnings };
-  }
-
-  // src/geometry/voxelPlanner.ts
-  function countPlanVoxels(plans) {
-    return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
-  }
-  function directionEpsilon(direction) {
-    return FACE_DIRECTIONS.indexOf(direction) * FACE_EPSILON_STEP;
-  }
-  function snapshotFace(layer, direction) {
-    return layer.faces.find((face) => face.direction === direction);
-  }
-  function buildVoxelPlans(layers, textures, options) {
-    const warnings = [];
-    const plans = [];
-    layers.forEach((layer) => {
-      if (layer.to[0] <= layer.from[0] || layer.to[1] <= layer.from[1] || layer.to[2] <= layer.from[2]) {
-        warnings.push(`${layer.name}: cube has non-positive size, skipped`);
-        return;
-      }
-      const inflated = adjustedBox(layer.from, layer.to, layer.inflate, layer.stretch);
-      const voxels = [];
-      for (const direction of FACE_DIRECTIONS) {
-        const face = snapshotFace(layer, direction);
-        if (!face || !face.enabled) {
-          continue;
-        }
-        const texture = face.textureKey !== null ? textures.get(face.textureKey) : void 0;
-        if (!texture) {
-          warnings.push(`${layer.name}/${direction}: face has no usable texture, face skipped`);
-          continue;
-        }
-        const epsilon = directionEpsilon(direction);
-        const faceBox = {
-          from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
-          to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon]
-        };
-        const scan = enumerateVisibleTexels(
-          face,
-          texture,
-          options.alphaThreshold,
-          options.includeTransparent
-        );
-        warnings.push(...scan.warnings.map((warning) => `${layer.name}/${warning}`));
-        if (scan.cells.length === 0) {
-          continue;
-        }
-        const depth = layer.inflate + epsilon;
-        for (const cell of scan.cells) {
-          const bounds = voxelBounds(
-            direction,
-            faceBox,
-            layer.from,
-            layer.to,
-            cell.col / cell.cols,
-            (cell.col + 1) / cell.cols,
-            cell.row / cell.rows,
-            (cell.row + 1) / cell.rows,
-            VOXEL_STANDOFF,
-            depth
-          );
-          const pixelUV = [
-            cell.imageX / textureScales(texture).sx,
-            cell.imageY / textureScales(texture).sy,
-            (cell.imageX + 1) / textureScales(texture).sx,
-            (cell.imageY + 1) / textureScales(texture).sy
-          ];
-          voxels.push({
-            name: `px_${direction}_${cell.col}_${cell.row}`,
-            from: bounds.from,
-            to: bounds.to,
-            origin: [...layer.origin],
-            rotation: [...layer.rotation],
-            textureKey: face.textureKey,
-            pixelUV,
-            face: direction
-          });
-        }
-      }
-      const isEmpty = voxels.length === 0;
-      if (isEmpty && !options.replaceEmptyLayer) {
-        return;
-      }
-      plans.push({
-        sourceKey: layer.key,
-        sourceName: layer.name,
-        origin: [...layer.origin],
-        voxels,
-        visiblePixelCount: voxels.length,
-        visibility: layer.visibility,
-        source: layer
-      });
-    });
-    return { plans, warnings };
-  }
-
   // src/scan/layerScanner.ts
   function isLayerCubeName(name) {
     return LAYER_NAME_RE.test(name);
@@ -700,258 +422,173 @@
     };
   }
 
-  // src/blockbench/modelWriter.ts
-  async function applyPlans(plans, options, host, resolveSource) {
-    const voxelCount = countPlanVoxels(plans);
+  // src/blockbench/projectDuplicate.ts
+  var blockbenchDuplicateHost = {
+    activeProjectName() {
+      return Project.name;
+    },
+    compileSnapshot() {
+      return Codecs.project.compile({ raw: true, bitmaps: true });
+    },
+    setupCopyProject() {
+      setupProject(Project.format);
+    },
+    loadSnapshot(model) {
+      const parse = Codecs.project.parse;
+      if (typeof parse !== "function") {
+        throw new Error("Blockbench project codec cannot parse models");
+      }
+      parse.call(Codecs.project, model, "");
+    },
+    setProjectName(name) {
+      Project.name = name;
+    }
+  };
+  var autoScanSuppressed = false;
+  function isAutoScanSuppressed() {
+    return autoScanSuppressed;
+  }
+  function suppressAutoScanDuring(fn) {
+    autoScanSuppressed = true;
+    try {
+      return fn();
+    } finally {
+      autoScanSuppressed = false;
+    }
+  }
+  function duplicateCurrentProjectAsCopy(host = blockbenchDuplicateHost, suffix = " - Copy") {
+    const originalName = host.activeProjectName();
+    const model = host.compileSnapshot();
+    suppressAutoScanDuring(() => {
+      host.setupCopyProject();
+      host.loadSnapshot(model);
+    });
+    if (originalName) {
+      host.setProjectName(originalName + suffix);
+    }
+  }
+
+  // src/domain/types.ts
+  var VoxelLimitError = class extends Error {
+    constructor(voxelCount, limit) {
+      super(`Voxel plan needs ${voxelCount} cubes which exceeds maxVoxels (${limit}).`);
+      this.voxelCount = voxelCount;
+      this.limit = limit;
+      this.name = "VoxelLimitError";
+    }
+  };
+
+  // src/blockbench/modelRegenerator.ts
+  function readRegenerationSource(group) {
+    const metadata = group?.[GENERATED_SOURCE_PROPERTY];
+    if (!metadata || typeof metadata !== "object" || !metadata.source) {
+      return void 0;
+    }
+    return { group, snapshot: metadata.source };
+  }
+  function collectRegenerationSources() {
+    if (typeof Group === "undefined") {
+      return [];
+    }
+    return Group.all.flatMap((group) => {
+      const source = readRegenerationSource(group);
+      return source ? [source] : [];
+    });
+  }
+  function hasRegeneratableGroups() {
+    if (typeof Group === "undefined") {
+      return false;
+    }
+    return Group.all.some((group) => readRegenerationSource(group) !== void 0);
+  }
+  function buildRegenerationTargets(sources, plans) {
+    const planByKey = new Map(plans.map((plan) => [plan.sourceKey, plan]));
+    return sources.map((source) => {
+      const plan = planByKey.get(source.snapshot.key);
+      return {
+        group: source.group,
+        oldChildren: [...source.group.children ?? []],
+        voxels: plan ? plan.voxels : []
+      };
+    });
+  }
+  async function applyRegenerations(sources, plans, options, host) {
+    const voxelCount = plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
     if (voxelCount > options.maxVoxels) {
       throw new VoxelLimitError(voxelCount, options.maxVoxels);
     }
-    if (plans.length === 0) {
-      return { createdCubes: 0, createdGroups: 0, removedSources: 0 };
+    if (sources.length === 0) {
+      return { replacedGroups: 0, removedCubes: 0, createdCubes: 0 };
     }
-    const sources = plans.map((plan) => resolveSource(plan.sourceKey));
-    if (sources.some((source) => source === void 0)) {
-      throw new Error("Layer cubes changed while planning; aborting generation");
-    }
-    host.beginUndo({ sources, groups: [] });
+    const targets = buildRegenerationTargets(sources, plans);
+    const oldChildren = targets.flatMap((target) => [...target.oldChildren]);
+    host.beginUndo({ sources: oldChildren, groups: [] });
     const created = [];
-    const groups = [];
-    let removedSources = 0;
     let batch = 0;
     try {
-      for (const plan of plans) {
-        const source = resolveSource(plan.sourceKey);
-        const parent = host.parentOf(source);
-        const group = host.createGroup({
-          name: plan.sourceName,
-          origin: [...plan.origin],
-          visibility: plan.visibility,
-          restoreData: { schema: 1, source: plan.source }
-        });
-        host.initElement(group);
-        host.adopt(group, parent);
-        host.placeBefore(group, source);
-        groups.push(group);
-        for (const spec of plan.voxels) {
+      for (const target of targets) {
+        for (const child of target.oldChildren) {
+          host.remove(child);
+        }
+        for (const spec of target.voxels) {
           const cube = host.createCube(spec);
-          host.initElement(cube);
-          host.adopt(cube, group);
           created.push(cube);
-          batch++;
-          if (batch >= options.batchSize) {
+          host.initElement(cube);
+          host.adopt(cube, target.group);
+          if (++batch >= options.batchSize) {
             batch = 0;
             await host.yieldToUI();
           }
-        }
-        if (options.preserveOriginal) {
-          host.setVisibility(source, false);
-        } else {
-          host.remove(source);
-          removedSources++;
         }
       }
       if (batch > 0) {
         await host.yieldToUI();
       }
-      host.updateView(created, groups);
-      host.finishUndo("Generate 3D skin layers", { created, groups });
-      return { createdCubes: created.length, createdGroups: groups.length, removedSources };
+      host.finishUndo("Regenerate 3D skin layers", { created, groups: [] });
+      return {
+        replacedGroups: targets.length,
+        removedCubes: oldChildren.length,
+        createdCubes: created.length
+      };
     } catch (error) {
-      host.cancelUndo(true);
+      if (host.rollback) {
+        host.rollback(created, [], true);
+      } else {
+        host.cancelUndo(true);
+      }
       throw error;
     }
   }
 
-  // src/blockbench/undoTransaction.ts
-  var blockbenchUndo = {
-    begin(aspects) {
-      const elements = aspects.sources;
-      Undo.initEdit({
-        outliner: true,
-        elements,
-        groups: aspects.groups,
-        selection: true
-      });
-    },
-    finish(label, aspects) {
-      Undo.finishEdit(label, {
-        outliner: true,
-        elements: aspects.created,
-        groups: aspects.groups,
-        selection: true
-      });
-    },
-    cancel(revertChanges) {
-      Undo.cancelEdit(revertChanges);
-    }
-  };
-
-  // src/blockbench/blockbenchHost.ts
-  function voxelFaces(spec) {
-    const uv = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
-    const texture = resolveTextureByKey(spec.textureKey);
-    const make = () => ({
-      texture: texture ? texture.uuid : false,
-      uv: [uv[0], uv[1], uv[2], uv[3]]
-    });
-    const faces = {};
-    for (const direction of FACE_DIRECTIONS) {
-      faces[direction] = make();
-    }
-    return faces;
+  // src/domain/options.ts
+  function asRecord(raw) {
+    return typeof raw === "object" && raw !== null ? raw : {};
   }
-  function snapshotFaces(snapshot) {
-    const faces = {};
-    for (const face of snapshot.faces) {
-      const texture = resolveTextureByKey(face.textureKey ?? "");
-      faces[face.direction] = {
-        texture: texture ? texture.uuid : false,
-        uv: [...face.uv],
-        rotation: face.rotation,
-        enabled: face.enabled
-      };
-    }
-    return faces;
+  function toBool(value, fallback) {
+    return typeof value === "boolean" ? value : fallback;
   }
-  var blockbenchHost = {
-    beginUndo(aspects) {
-      blockbenchUndo.begin(aspects);
-    },
-    finishUndo(label, aspects) {
-      blockbenchUndo.finish(label, aspects);
-    },
-    cancelUndo(revertChanges) {
-      blockbenchUndo.cancel(revertChanges);
-    },
-    createGroup(spec) {
-      const group = new Group({
-        name: spec.name,
-        origin: [...spec.origin],
-        visibility: spec.visibility
-      });
-      if (spec.restoreData) {
-        group[GENERATED_SOURCE_PROPERTY] = spec.restoreData;
-      }
-      return group;
-    },
-    createCube(spec) {
-      const cube = new Cube({
-        name: spec.name,
-        from: [...spec.from],
-        to: [...spec.to],
-        origin: [...spec.origin],
-        rotation: [...spec.rotation],
-        box_uv: false,
-        autouv: 0,
-        faces: voxelFaces(spec)
-      });
-      return cube;
-    },
-    createCubeFromSnapshot(snapshot) {
-      const cube = new Cube({
-        name: snapshot.name,
-        from: [...snapshot.from],
-        to: [...snapshot.to],
-        origin: [...snapshot.origin],
-        rotation: [...snapshot.rotation],
-        stretch: [...snapshot.stretch ?? [1, 1, 1]],
-        inflate: snapshot.inflate,
-        visibility: snapshot.visibility,
-        box_uv: snapshot.boxUV ?? false,
-        autouv: snapshot.autouv ?? 0,
-        mirror_uv: snapshot.mirrorUV ?? false,
-        shade: snapshot.shade ?? true,
-        color: snapshot.color,
-        uv_offset: snapshot.uvOffset ? [...snapshot.uvOffset] : void 0,
-        faces: snapshotFaces(snapshot)
-      });
-      if (snapshot.rescale !== void 0) {
-        cube.rescale = snapshot.rescale;
-      }
-      if (snapshot.rotationAxis) {
-        cube.rotation_axis = snapshot.rotationAxis;
-      }
-      return cube;
-    },
-    initElement(element) {
-      element.init();
-    },
-    adopt(element, parent) {
-      element.addTo(
-        parent ?? void 0
-      );
-    },
-    placeBefore(element, target) {
-      element.sortInBefore(
-        target,
-        0
-      );
-    },
-    parentOf(element) {
-      return element.parent ?? null;
-    },
-    remove(element) {
-      element.remove();
-    },
-    setVisibility(element, visible) {
-      const node = element;
-      node.visibility = visible;
-    },
-    updateView(created, groups) {
-      Canvas.updateView({
-        elements: created,
-        element_aspects: {
-          geometry: true,
-          faces: true,
-          uv: true,
-          transform: true,
-          visibility: true
-        },
-        groups,
-        group_aspects: {
-          transform: true,
-          visibility: true
-        }
-      });
-    },
-    resolveTexture(key) {
-      return resolveTextureByKey(key);
-    },
-    yieldToUI() {
-      return new Promise((resolve) => setTimeout(resolve, 0));
-    }
-  };
-
-  // src/generate.ts
-  function planFromSnapshots(snapshots, options) {
-    const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
-    const { plans, warnings: planWarnings } = buildVoxelPlans([...snapshots], textures, options);
-    const warnings = [...textureWarnings, ...planWarnings];
-    return { snapshots: [...snapshots], plans, warnings, voxelCount: countPlanVoxels(plans) };
+  function toTargetModel(value, fallback) {
+    return value === "copy" || value === "current" ? value : fallback;
   }
-  function scanAndPlan(options) {
-    return planFromSnapshots(collectLayerSnapshots(options), options);
-  }
-  function resolveCubeByKey(key) {
-    return Cube.all.find((cube) => cube.uuid === key);
-  }
-  async function applyOutcome(outcome, options) {
-    const started = performance.now();
-    const host = blockbenchHost;
-    const summary = await applyPlans(
-      outcome.plans,
-      {
-        maxVoxels: options.maxVoxels,
-        batchSize: options.batchSize,
-        preserveOriginal: options.preserveOriginal
-      },
-      host,
-      (key) => resolveCubeByKey(key)
-    );
+  function normalizeGeneratorPreferences(raw) {
+    const source = asRecord(raw);
     return {
-      createdCubes: summary.createdCubes,
-      createdGroups: summary.createdGroups,
-      durationMs: performance.now() - started
+      preserveOriginal: toBool(source.preserveOriginal, DEFAULT_OPTIONS.preserveOriginal),
+      replaceEmptyLayer: toBool(source.replaceEmptyLayer, DEFAULT_OPTIONS.replaceEmptyLayer),
+      autoApplyOnLoad: toBool(source.autoApplyOnLoad, DEFAULT_OPTIONS.autoApplyOnLoad),
+      processSelectedOnly: toBool(source.processSelectedOnly, DEFAULT_OPTIONS.processSelectedOnly),
+      useUVToLocalWhenAvailable: toBool(
+        source.useUVToLocalWhenAvailable,
+        DEFAULT_OPTIONS.useUVToLocalWhenAvailable
+      ),
+      targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel),
+      includeTransparent: toBool(source.includeTransparent, DEFAULT_OPTIONS.includeTransparent)
+    };
+  }
+  function resolveGeneratorOptions(raw) {
+    return {
+      ...DEFAULT_OPTIONS,
+      ...normalizeGeneratorPreferences(raw)
     };
   }
 
@@ -1001,6 +638,8 @@
     "m3sl.toast.no_layers": 'No "* Layer" cubes found - model left unchanged',
     "m3sl.toast.no_restorable_groups": "No generated 3D skin layer groups found - model left unchanged",
     "m3sl.toast.busy": "A generation run is already in progress",
+    "m3sl.toast.operation_stopped": "Operation stopped because the active project changed or the plugin was disabled",
+    "m3sl.toast.template_retained": "The new template project was created and kept without voxel generation.",
     "m3sl.toast.limit": "Aborted: run needs %0 cubes, exceeding the fixed maximum of %1.",
     "m3sl.toast.edit_mode": "Switch to Edit mode to generate 3D skin layers",
     "m3sl.toast.open_project": "Open a project first",
@@ -1061,6 +700,8 @@
     "m3sl.toast.no_layers": '\u672A\u627E\u5230 "* Layer" \u7ACB\u65B9\u4F53 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539',
     "m3sl.toast.no_restorable_groups": "\u672A\u627E\u5230\u53EF\u8FD8\u539F\u7684 3D \u76AE\u80A4\u5C42\u7EC4 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539",
     "m3sl.toast.busy": "\u5DF2\u6709\u4E00\u6B21\u751F\u6210\u6B63\u5728\u8FDB\u884C\u4E2D",
+    "m3sl.toast.operation_stopped": "\u6D3B\u52A8\u9879\u76EE\u5DF2\u5207\u6362\u6216\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u64CD\u4F5C\u5DF2\u505C\u6B62",
+    "m3sl.toast.template_retained": "\u5DF2\u521B\u5EFA\u5E76\u4FDD\u7559\u672A\u4F53\u7D20\u5316\u7684\u65B0\u6A21\u677F\u9879\u76EE\u3002",
     "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u56FA\u5B9A\u4E0A\u9650 %1\u3002",
     "m3sl.toast.edit_mode": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.toast.open_project": "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u9879\u76EE",
@@ -1090,314 +731,6 @@
   function t(key, variables) {
     const fallback = en[key];
     return tl(key, variables && variables.length ? variables : void 0, fallback);
-  }
-
-  // src/blockbench/modelRestorer.ts
-  function applyRestores(candidates, host) {
-    if (candidates.length === 0) {
-      return { restoredCubes: 0, restoredGroups: 0, removedVoxels: 0 };
-    }
-    const groups = candidates.map((candidate) => candidate.group);
-    const children = candidates.flatMap((candidate) => [...candidate.children]);
-    host.beginUndo({ sources: children, groups });
-    const restored = [];
-    let removedVoxels = 0;
-    try {
-      for (const candidate of candidates) {
-        const parent = host.parentOf(candidate.group);
-        if (candidate.existingSource !== void 0) {
-          host.setVisibility(candidate.existingSource, candidate.source.visibility);
-        } else {
-          const cube = host.createCubeFromSnapshot(candidate.source);
-          host.initElement(cube);
-          host.adopt(cube, parent);
-          host.placeBefore(cube, candidate.group);
-          restored.push(cube);
-        }
-        removedVoxels += candidate.children.length;
-        host.remove(candidate.group);
-      }
-      host.updateView(restored, []);
-      host.finishUndo("Restore 3D skin layers", { created: restored, groups: [] });
-      return {
-        restoredCubes: candidates.length,
-        restoredGroups: candidates.length,
-        removedVoxels
-      };
-    } catch (error) {
-      host.cancelUndo(true);
-      throw error;
-    }
-  }
-
-  // src/blockbench/projectDuplicate.ts
-  var blockbenchDuplicateHost = {
-    activeProjectName() {
-      return Project.name;
-    },
-    compileSnapshot() {
-      return Codecs.project.compile({ raw: true, bitmaps: true });
-    },
-    setupCopyProject() {
-      setupProject(Project.format);
-    },
-    loadSnapshot(model) {
-      const parse = Codecs.project.parse;
-      if (typeof parse !== "function") {
-        throw new Error("Blockbench project codec cannot parse models");
-      }
-      parse.call(Codecs.project, model, "");
-    },
-    setProjectName(name) {
-      Project.name = name;
-    }
-  };
-  var autoScanSuppressed = false;
-  function isAutoScanSuppressed() {
-    return autoScanSuppressed;
-  }
-  function suppressAutoScanDuring(fn) {
-    autoScanSuppressed = true;
-    try {
-      return fn();
-    } finally {
-      autoScanSuppressed = false;
-    }
-  }
-  function duplicateCurrentProjectAsCopy(host = blockbenchDuplicateHost, suffix = " - Copy") {
-    const originalName = host.activeProjectName();
-    const model = host.compileSnapshot();
-    suppressAutoScanDuring(() => {
-      host.setupCopyProject();
-      host.loadSnapshot(model);
-    });
-    if (originalName) {
-      host.setProjectName(originalName + suffix);
-    }
-  }
-
-  // src/blockbench/transparentCleaner.ts
-  function isSingleTexelUV(pixelUV, texture) {
-    const { sx, sy } = textureScales(texture);
-    const width = Math.abs(pixelUV[2] - pixelUV[0]) * sx;
-    const height = Math.abs(pixelUV[3] - pixelUV[1]) * sy;
-    return Math.abs(width - 1) < 0.01 && Math.abs(height - 1) < 0.01;
-  }
-  function planTransparentRemovals(items, textures, alphaThreshold) {
-    const warnings = [];
-    const removable = [];
-    let keptCount = 0;
-    for (const item of items) {
-      const texture = item.textureKey !== null ? textures.get(item.textureKey) : void 0;
-      if (!texture) {
-        warnings.push(`${item.name}: texture not readable, cube kept`);
-        keptCount++;
-        continue;
-      }
-      if (!isSingleTexelUV(item.pixelUV, texture)) {
-        warnings.push(`${item.name}: face UV is not a single texel, cube kept`);
-        keptCount++;
-        continue;
-      }
-      const { sx, sy } = textureScales(texture);
-      const x = Math.round(item.pixelUV[0] * sx);
-      const y = Math.round(item.pixelUV[1] * sy);
-      if (x < 0 || y < 0 || x >= texture.width || y >= texture.height) {
-        warnings.push(`${item.name}: sample (${x}, ${y}) is outside the texture, cube kept`);
-        keptCount++;
-        continue;
-      }
-      const alpha = getAlpha(texture, x, y);
-      if (alpha <= alphaThreshold) {
-        removable.push(item);
-      } else {
-        keptCount++;
-      }
-    }
-    return { removable, keptCount, warnings };
-  }
-  function collectVoxelPixelRefs() {
-    if (typeof Group === "undefined") {
-      return [];
-    }
-    const refs = [];
-    const groups = Group.all.filter((group) => {
-      const metadata = group[GENERATED_SOURCE_PROPERTY];
-      return metadata !== null && metadata !== void 0;
-    });
-    for (const group of groups) {
-      for (const child of group.children) {
-        const cube = child;
-        if (!cube || !cube.faces || cube.type !== "cube") {
-          continue;
-        }
-        const face = cube.faces.north ?? cube.faces.south ?? cube.faces.east ?? cube.faces.west;
-        if (!face || face.texture === null) {
-          continue;
-        }
-        const uv = face.uv;
-        refs.push({
-          cube,
-          name: cube.name,
-          pixelUV: [uv[0], uv[1], uv[2], uv[3]],
-          textureKey: faceTextureKey(face)
-        });
-      }
-    }
-    return refs;
-  }
-  function decodeReferencedTextures(items) {
-    const textures = /* @__PURE__ */ new Map();
-    const warnings = [];
-    for (const item of items) {
-      if (item.textureKey === null || textures.has(item.textureKey)) {
-        continue;
-      }
-      const texture = resolveTextureByKey(item.textureKey);
-      if (!texture) {
-        warnings.push(`texture ${item.textureKey} is not loaded`);
-        continue;
-      }
-      try {
-        textures.set(item.textureKey, textureToPixelSource(texture));
-      } catch (error) {
-        warnings.push(`failed to read texture pixels (${String(error)})`);
-      }
-    }
-    return { textures, warnings };
-  }
-  function clearTransparentCubes(host, alphaThreshold) {
-    const refs = collectVoxelPixelRefs();
-    if (refs.length === 0) {
-      return { removed: 0, warnings: [] };
-    }
-    const { textures, warnings: decodeWarnings } = decodeReferencedTextures(refs);
-    const plan = planTransparentRemovals(refs, textures, alphaThreshold);
-    const warnings = [...decodeWarnings, ...plan.warnings];
-    if (plan.removable.length === 0) {
-      return { removed: 0, warnings };
-    }
-    host.beginUndo({ sources: plan.removable.map((item) => item.cube), groups: [] });
-    try {
-      for (const item of plan.removable) {
-        host.remove(item.cube);
-      }
-      host.finishUndo("Clear transparent cubes", { created: [], groups: [] });
-      return { removed: plan.removable.length, warnings };
-    } catch (error) {
-      host.cancelUndo(true);
-      throw error;
-    }
-  }
-
-  // src/blockbench/modelRegenerator.ts
-  function readRegenerationSource(group) {
-    const metadata = group?.[GENERATED_SOURCE_PROPERTY];
-    if (!metadata || typeof metadata !== "object" || !metadata.source) {
-      return void 0;
-    }
-    return { group, snapshot: metadata.source };
-  }
-  function collectRegenerationSources() {
-    if (typeof Group === "undefined") {
-      return [];
-    }
-    return Group.all.flatMap((group) => {
-      const source = readRegenerationSource(group);
-      return source ? [source] : [];
-    });
-  }
-  function hasRegeneratableGroups() {
-    if (typeof Group === "undefined") {
-      return false;
-    }
-    return Group.all.some((group) => readRegenerationSource(group) !== void 0);
-  }
-  function buildRegenerationTargets(sources, plans) {
-    const planByKey = new Map(plans.map((plan) => [plan.sourceKey, plan]));
-    return sources.map((source) => {
-      const plan = planByKey.get(source.snapshot.key);
-      return {
-        group: source.group,
-        oldChildren: [...source.group.children ?? []],
-        voxels: plan ? plan.voxels : []
-      };
-    });
-  }
-  async function applyRegenerations(sources, plans, options, host) {
-    const voxelCount = plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
-    if (voxelCount > options.maxVoxels) {
-      throw new VoxelLimitError(voxelCount, options.maxVoxels);
-    }
-    if (sources.length === 0) {
-      return { replacedGroups: 0, removedCubes: 0, createdCubes: 0 };
-    }
-    const targets = buildRegenerationTargets(sources, plans);
-    const oldChildren = targets.flatMap((target) => [...target.oldChildren]);
-    host.beginUndo({ sources: oldChildren, groups: [] });
-    const created = [];
-    let batch = 0;
-    try {
-      for (const target of targets) {
-        for (const child of target.oldChildren) {
-          host.remove(child);
-        }
-        for (const spec of target.voxels) {
-          const cube = host.createCube(spec);
-          host.initElement(cube);
-          host.adopt(cube, target.group);
-          created.push(cube);
-          if (++batch >= options.batchSize) {
-            batch = 0;
-            await host.yieldToUI();
-          }
-        }
-      }
-      if (batch > 0) {
-        await host.yieldToUI();
-      }
-      host.finishUndo("Regenerate 3D skin layers", { created, groups: [] });
-      return {
-        replacedGroups: targets.length,
-        removedCubes: oldChildren.length,
-        createdCubes: created.length
-      };
-    } catch (error) {
-      host.cancelUndo(true);
-      throw error;
-    }
-  }
-
-  // src/domain/options.ts
-  function asRecord(raw) {
-    return typeof raw === "object" && raw !== null ? raw : {};
-  }
-  function toBool(value, fallback) {
-    return typeof value === "boolean" ? value : fallback;
-  }
-  function toTargetModel(value, fallback) {
-    return value === "copy" || value === "current" ? value : fallback;
-  }
-  function normalizeGeneratorPreferences(raw) {
-    const source = asRecord(raw);
-    return {
-      preserveOriginal: toBool(source.preserveOriginal, DEFAULT_OPTIONS.preserveOriginal),
-      replaceEmptyLayer: toBool(source.replaceEmptyLayer, DEFAULT_OPTIONS.replaceEmptyLayer),
-      autoApplyOnLoad: toBool(source.autoApplyOnLoad, DEFAULT_OPTIONS.autoApplyOnLoad),
-      processSelectedOnly: toBool(source.processSelectedOnly, DEFAULT_OPTIONS.processSelectedOnly),
-      useUVToLocalWhenAvailable: toBool(
-        source.useUVToLocalWhenAvailable,
-        DEFAULT_OPTIONS.useUVToLocalWhenAvailable
-      ),
-      targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel),
-      includeTransparent: toBool(source.includeTransparent, DEFAULT_OPTIONS.includeTransparent)
-    };
-  }
-  function resolveGeneratorOptions(raw) {
-    return {
-      ...DEFAULT_OPTIONS,
-      ...normalizeGeneratorPreferences(raw)
-    };
   }
 
   // src/ui/settingsDialog.ts
@@ -1550,6 +883,32 @@ ${t("m3sl.dialog.warnings_header")}
     }
   };
 
+  // src/operations/errors.ts
+  var SkinOperationError = class extends Error {
+    constructor(code, message, options, details) {
+      super(message);
+      this.code = code;
+      this.details = details;
+      if (options && "cause" in options) {
+        Object.defineProperty(this, "cause", { value: options.cause, configurable: true });
+      }
+      this.name = "SkinOperationError";
+    }
+  };
+  function toSkinOperationError(error) {
+    if (error instanceof SkinOperationError) {
+      return error;
+    }
+    if (error instanceof VoxelLimitError) {
+      return new SkinOperationError("VOXEL_LIMIT", error.message, { cause: error });
+    }
+    return new SkinOperationError(
+      "EXECUTION_FAILED",
+      error instanceof Error ? error.message : String(error),
+      { cause: error }
+    );
+  }
+
   // src/ui/resultReporter.ts
   function toast(text, icon = "view_in_ar") {
     Blockbench.showToastNotification({ text, icon });
@@ -1617,6 +976,47 @@ ${t("m3sl.dialog.warnings_header")}
     const message = error instanceof Error ? error.message : String(error);
     console.error("[minecraft_3d_skin_layers] restore failed:", error);
     toast(t("m3sl.toast.restore_failed", [message]), "error");
+  }
+
+  // src/ui/operationReporter.ts
+  function reportOperationFailure(error, operation) {
+    const normalized = toSkinOperationError(error);
+    if (normalized.code === "BUSY") {
+      reportBusy();
+      return;
+    }
+    if (normalized.code === "CANCELLED" || normalized.code === "PROJECT_CHANGED") {
+      toast(t("m3sl.toast.operation_stopped"), "warning");
+      return;
+    }
+    if (normalized.code === "NO_PROJECT") {
+      toast(t("m3sl.toast.open_project"), "info");
+      return;
+    }
+    if (normalized.code === "INVALID_MODE") {
+      toast(t(operation === "restore" ? "m3sl.toast.edit_mode_restore" : "m3sl.toast.edit_mode"), "edit");
+      return;
+    }
+    if (normalized.code === "NO_TARGETS") {
+      if (operation === "restore") reportNoRestorableGroups();
+      else if (operation === "regenerate") reportNoRegeneratable();
+      else reportNoLayers();
+      return;
+    }
+    if (normalized.code === "VOXEL_LIMIT") {
+      const original = error instanceof VoxelLimitError ? error : void 0;
+      const count = original?.voxelCount ?? Number(normalized.details?.voxelCount);
+      const limit = original?.limit ?? Number(normalized.details?.limit);
+      if (Number.isFinite(count) && Number.isFinite(limit)) {
+        reportVoxelLimit(new VoxelLimitError(count, limit));
+        if (normalized.details?.templateRetainedBare === true) {
+          toast(t("m3sl.toast.template_retained"), "info");
+        }
+        return;
+      }
+    }
+    if (operation === "restore") reportRestoreError(normalized);
+    else reportError(normalized);
   }
 
   // src/newSkin/templates.ts
@@ -1733,14 +1133,1244 @@ ${t("m3sl.dialog.warnings_header")}
     }).show();
   }
 
+  // src/geometry/faceMapper.ts
+  function adjustedBox(from, to, inflate, stretch) {
+    const inflatedFrom = [0, 0, 0];
+    const inflatedTo = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      const size = to[i] - from[i];
+      const center = from[i] + size / 2;
+      const half = (size / 2 + inflate) * stretch[i];
+      inflatedFrom[i] = center - half;
+      inflatedTo[i] = center + half;
+    }
+    return { from: inflatedFrom, to: inflatedTo };
+  }
+  function facePoint(direction, box, mx, my) {
+    const f = box.from;
+    const t2 = box.to;
+    const lerp = (a, b, k) => a + (b - a) * k;
+    switch (direction) {
+      case "north":
+        return [lerp(t2[0], f[0], mx), lerp(t2[1], f[1], my), f[2]];
+      case "south":
+        return [lerp(f[0], t2[0], mx), lerp(t2[1], f[1], my), t2[2]];
+      case "east":
+        return [t2[0], lerp(t2[1], f[1], my), lerp(t2[2], f[2], mx)];
+      case "west":
+        return [f[0], lerp(t2[1], f[1], my), lerp(f[2], t2[2], mx)];
+      case "up":
+        return [lerp(f[0], t2[0], mx), t2[1], lerp(f[2], t2[2], my)];
+      case "down":
+        return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
+    }
+  }
+  function voxelBounds(direction, faceBox, rawFrom, rawTo, mx0, mx1, my0, my1, standoff, depth) {
+    const a = facePoint(direction, faceBox, mx0, my0);
+    const b = facePoint(direction, faceBox, mx1, my1);
+    const minX = Math.min(a[0], b[0]);
+    const maxX = Math.max(a[0], b[0]);
+    const minY = Math.min(a[1], b[1]);
+    const maxY = Math.max(a[1], b[1]);
+    const minZ = Math.min(a[2], b[2]);
+    const maxZ = Math.max(a[2], b[2]);
+    switch (direction) {
+      case "north":
+        return { from: [minX, minY, rawFrom[2] - standoff - depth], to: [maxX, maxY, rawFrom[2] - standoff] };
+      case "south":
+        return { from: [minX, minY, rawTo[2] + standoff], to: [maxX, maxY, rawTo[2] + standoff + depth] };
+      case "east":
+        return { from: [rawTo[0] + standoff, minY, minZ], to: [rawTo[0] + standoff + depth, maxY, maxZ] };
+      case "west":
+        return { from: [rawFrom[0] - standoff - depth, minY, minZ], to: [rawFrom[0] - standoff, maxY, maxZ] };
+      case "up":
+        return { from: [minX, rawTo[1] + standoff, minZ], to: [maxX, rawTo[1] + standoff + depth, maxZ] };
+      case "down":
+        return { from: [minX, rawFrom[1] - standoff - depth, minZ], to: [maxX, rawFrom[1] - standoff, maxZ] };
+    }
+  }
+
+  // src/texture/pixelReader.ts
+  function textureScales(texture) {
+    const uvWidth = texture.uvWidth > 0 ? texture.uvWidth : texture.width;
+    const uvHeight = texture.uvHeight > 0 ? texture.uvHeight : texture.height;
+    return { sx: texture.width / uvWidth, sy: texture.height / uvHeight };
+  }
+  function getAlpha(texture, x, y) {
+    const index = (y * texture.width + x) * 4;
+    return texture.rgba[index + 3];
+  }
+  function faceGridSize(face, texture, warnings) {
+    const { sx, sy } = textureScales(texture);
+    const [u1, v1, u2, v2] = face.uv;
+    const texelsU = Math.abs(u2 - u1) * sx;
+    const texelsV = Math.abs(v2 - v1) * sy;
+    const roundedU = Math.round(texelsU);
+    const roundedV = Math.round(texelsV);
+    const maxU = texture.width / sx;
+    const maxV = texture.height / sy;
+    if (Math.min(u1, u2) < 0 || Math.min(v1, v2) < 0 || Math.max(u1, u2) > maxU || Math.max(v1, v2) > maxV) {
+      warnings.push(
+        `${face.direction}: UV rect ${face.uv.join(", ")} exceeds the texture bounds, sampled area clamped`
+      );
+    }
+    if (roundedU < 1 || roundedV < 1) {
+      warnings.push(
+        `${face.direction}: UV rect ${face.uv.join(", ")} spans no texels, face skipped`
+      );
+      return null;
+    }
+    if (Math.abs(texelsU - roundedU) > TEXEL_EPSILON || Math.abs(texelsV - roundedV) > TEXEL_EPSILON) {
+      warnings.push(
+        `${face.direction}: UV rect ${face.uv.join(", ")} spans non-integer texel counts (${texelsU} x ${texelsV}), face skipped`
+      );
+      return null;
+    }
+    const swapped = face.rotation === 90 || face.rotation === 270;
+    return {
+      cols: swapped ? roundedV : roundedU,
+      rows: swapped ? roundedU : roundedV,
+      texelsU: roundedU,
+      texelsV: roundedV
+    };
+  }
+  function clamp(value, min, max) {
+    return value < min ? min : value > max ? max : value;
+  }
+  function sampleCell(face, uv, texture, sx, sy, grid, col, row) {
+    const mx = (col + 0.5) / grid.cols;
+    const my = (row + 0.5) / grid.rows;
+    let pu;
+    let pv;
+    switch (face.rotation) {
+      case 90:
+        pu = my;
+        pv = 1 - mx;
+        break;
+      case 180:
+        pu = 1 - mx;
+        pv = 1 - my;
+        break;
+      case 270:
+        pu = 1 - my;
+        pv = mx;
+        break;
+      default:
+        pu = mx;
+        pv = my;
+    }
+    let u = uv[0] + (uv[2] - uv[0]) * pu;
+    let v = uv[1] + (uv[3] - uv[1]) * pv;
+    const maxU = texture.width / sx;
+    const maxV = texture.height / sy;
+    if (u < 0 || u > maxU || v < 0 || v > maxV) {
+      u = clamp(u, 0, Math.max(maxU - Number.EPSILON, 0));
+      v = clamp(v, 0, Math.max(maxV - Number.EPSILON, 0));
+    }
+    const imageX = clamp(Math.floor(u * sx), 0, texture.width - 1);
+    const imageY = clamp(Math.floor(v * sy), 0, texture.height - 1);
+    const pixelUV = [
+      imageX / sx,
+      imageY / sy,
+      (imageX + 1) / sx,
+      (imageY + 1) / sy
+    ];
+    return { imageX, imageY, pixelUV };
+  }
+  function enumerateVisibleTexels(face, texture, alphaThreshold, includeTransparent = false) {
+    const warnings = [];
+    const grid = faceGridSize(face, texture, warnings);
+    const cells = [];
+    if (!grid) {
+      return { cells, warnings };
+    }
+    const { sx, sy } = textureScales(texture);
+    for (let row = 0; row < grid.rows; row++) {
+      for (let col = 0; col < grid.cols; col++) {
+        const sample = sampleCell(face, face.uv, texture, sx, sy, grid, col, row);
+        const alpha = getAlpha(texture, sample.imageX, sample.imageY);
+        if (includeTransparent || alpha > alphaThreshold) {
+          cells.push({
+            direction: face.direction,
+            col,
+            row,
+            cols: grid.cols,
+            rows: grid.rows,
+            imageX: sample.imageX,
+            imageY: sample.imageY,
+            alpha,
+            pixelUV: sample.pixelUV
+          });
+        }
+      }
+    }
+    return { cells, warnings };
+  }
+
+  // src/geometry/voxelPlanner.ts
+  function countPlanVoxels(plans) {
+    return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
+  }
+  function directionEpsilon(direction) {
+    return FACE_DIRECTIONS.indexOf(direction) * FACE_EPSILON_STEP;
+  }
+  function snapshotFace(layer, direction) {
+    return layer.faces.find((face) => face.direction === direction);
+  }
+  function buildVoxelPlans(layers, textures, options) {
+    const warnings = [];
+    const plans = [];
+    layers.forEach((layer) => {
+      if (layer.to[0] <= layer.from[0] || layer.to[1] <= layer.from[1] || layer.to[2] <= layer.from[2]) {
+        warnings.push(`${layer.name}: cube has non-positive size, skipped`);
+        return;
+      }
+      const inflated = adjustedBox(layer.from, layer.to, layer.inflate, layer.stretch);
+      const voxels = [];
+      for (const direction of FACE_DIRECTIONS) {
+        const face = snapshotFace(layer, direction);
+        if (!face || !face.enabled) {
+          continue;
+        }
+        const texture = face.textureKey !== null ? textures.get(face.textureKey) : void 0;
+        if (!texture) {
+          warnings.push(`${layer.name}/${direction}: face has no usable texture, face skipped`);
+          continue;
+        }
+        const epsilon = directionEpsilon(direction);
+        const faceBox = {
+          from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
+          to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon]
+        };
+        const scan = enumerateVisibleTexels(
+          face,
+          texture,
+          options.alphaThreshold,
+          options.includeTransparent
+        );
+        warnings.push(...scan.warnings.map((warning) => `${layer.name}/${warning}`));
+        if (scan.cells.length === 0) {
+          continue;
+        }
+        const depth = layer.inflate + epsilon;
+        for (const cell of scan.cells) {
+          const bounds = voxelBounds(
+            direction,
+            faceBox,
+            layer.from,
+            layer.to,
+            cell.col / cell.cols,
+            (cell.col + 1) / cell.cols,
+            cell.row / cell.rows,
+            (cell.row + 1) / cell.rows,
+            VOXEL_STANDOFF,
+            depth
+          );
+          const pixelUV = [
+            cell.imageX / textureScales(texture).sx,
+            cell.imageY / textureScales(texture).sy,
+            (cell.imageX + 1) / textureScales(texture).sx,
+            (cell.imageY + 1) / textureScales(texture).sy
+          ];
+          voxels.push({
+            name: `px_${direction}_${cell.col}_${cell.row}`,
+            from: bounds.from,
+            to: bounds.to,
+            origin: [...layer.origin],
+            rotation: [...layer.rotation],
+            textureKey: face.textureKey,
+            pixelUV,
+            face: direction
+          });
+        }
+      }
+      const isEmpty = voxels.length === 0;
+      if (isEmpty && !options.replaceEmptyLayer) {
+        return;
+      }
+      plans.push({
+        sourceKey: layer.key,
+        sourceName: layer.name,
+        origin: [...layer.origin],
+        voxels,
+        visiblePixelCount: voxels.length,
+        visibility: layer.visibility,
+        source: layer
+      });
+    });
+    return { plans, warnings };
+  }
+
+  // src/blockbench/modelWriter.ts
+  async function applyPlans(plans, options, host, resolveSource) {
+    const voxelCount = countPlanVoxels(plans);
+    if (voxelCount > options.maxVoxels) {
+      throw new VoxelLimitError(voxelCount, options.maxVoxels);
+    }
+    if (plans.length === 0) {
+      return { createdCubes: 0, createdGroups: 0, removedSources: 0 };
+    }
+    const sources = plans.map((plan) => resolveSource(plan.sourceKey));
+    if (sources.some((source) => source === void 0)) {
+      throw new Error("Layer cubes changed while planning; aborting generation");
+    }
+    host.beginUndo({ sources, groups: [] });
+    const created = [];
+    const groups = [];
+    let removedSources = 0;
+    let batch = 0;
+    try {
+      for (const plan of plans) {
+        const source = resolveSource(plan.sourceKey);
+        const parent = host.parentOf(source);
+        const group = host.createGroup({
+          name: plan.sourceName,
+          origin: [...plan.origin],
+          visibility: plan.visibility,
+          restoreData: { schema: 1, source: plan.source }
+        });
+        groups.push(group);
+        host.initElement(group);
+        host.adopt(group, parent);
+        host.placeBefore(group, source);
+        for (const spec of plan.voxels) {
+          const cube = host.createCube(spec);
+          created.push(cube);
+          host.initElement(cube);
+          host.adopt(cube, group);
+          batch++;
+          if (batch >= options.batchSize) {
+            batch = 0;
+            await host.yieldToUI();
+          }
+        }
+        if (options.preserveOriginal) {
+          host.setVisibility(source, false);
+        } else {
+          host.remove(source);
+          removedSources++;
+        }
+      }
+      if (batch > 0) {
+        await host.yieldToUI();
+      }
+      host.updateView(created, groups);
+      host.finishUndo("Generate 3D skin layers", { created, groups });
+      return { createdCubes: created.length, createdGroups: groups.length, removedSources };
+    } catch (error) {
+      if (host.rollback) {
+        host.rollback(created, groups, true);
+      } else {
+        host.cancelUndo(true);
+      }
+      throw error;
+    }
+  }
+
+  // src/blockbench/undoTransaction.ts
+  function createUndoTransaction(system) {
+    return {
+      begin(aspects) {
+        const elements = aspects.sources;
+        system.initEdit({
+          outliner: true,
+          elements,
+          groups: aspects.groups,
+          selection: true
+        });
+      },
+      finish(label, aspects) {
+        system.finishEdit(label, {
+          outliner: true,
+          elements: aspects.created,
+          groups: aspects.groups,
+          selection: true
+        });
+      },
+      cancel(revertChanges) {
+        system.cancelEdit(revertChanges);
+      }
+    };
+  }
+  var blockbenchUndo = {
+    begin(aspects) {
+      createUndoTransaction(Undo).begin(aspects);
+    },
+    finish(label, aspects) {
+      createUndoTransaction(Undo).finish(label, aspects);
+    },
+    cancel(revertChanges) {
+      createUndoTransaction(Undo).cancel(revertChanges);
+    }
+  };
+
+  // src/blockbench/blockbenchHost.ts
+  function voxelFaces(spec) {
+    const uv = [spec.pixelUV[0], spec.pixelUV[1], spec.pixelUV[2], spec.pixelUV[3]];
+    const texture = resolveTextureByKey(spec.textureKey);
+    const make = () => ({
+      texture: texture ? texture.uuid : false,
+      uv: [uv[0], uv[1], uv[2], uv[3]]
+    });
+    const faces = {};
+    for (const direction of FACE_DIRECTIONS) {
+      faces[direction] = make();
+    }
+    return faces;
+  }
+  function snapshotFaces(snapshot) {
+    const faces = {};
+    for (const face of snapshot.faces) {
+      const texture = resolveTextureByKey(face.textureKey ?? "");
+      faces[face.direction] = {
+        texture: texture ? texture.uuid : false,
+        uv: [...face.uv],
+        rotation: face.rotation,
+        enabled: face.enabled
+      };
+    }
+    return faces;
+  }
+  function adoptInitializedElement(element, parent) {
+    const node = element;
+    node.removeFromParent();
+    node.addTo(parent ?? "root");
+  }
+  function createBlockbenchHost(undo) {
+    return {
+      beginUndo(aspects) {
+        undo.begin(aspects);
+      },
+      finishUndo(label, aspects) {
+        undo.finish(label, aspects);
+      },
+      cancelUndo(revertChanges) {
+        undo.cancel(revertChanges);
+      },
+      createGroup(spec) {
+        const group = new Group({
+          name: spec.name,
+          origin: [...spec.origin],
+          visibility: spec.visibility
+        });
+        if (spec.restoreData) {
+          group[GENERATED_SOURCE_PROPERTY] = spec.restoreData;
+        }
+        return group;
+      },
+      createCube(spec) {
+        return new Cube({
+          name: spec.name,
+          from: [...spec.from],
+          to: [...spec.to],
+          origin: [...spec.origin],
+          rotation: [...spec.rotation],
+          box_uv: false,
+          autouv: 0,
+          faces: voxelFaces(spec)
+        });
+      },
+      createCubeFromSnapshot(snapshot) {
+        const cube = new Cube({
+          name: snapshot.name,
+          from: [...snapshot.from],
+          to: [...snapshot.to],
+          origin: [...snapshot.origin],
+          rotation: [...snapshot.rotation],
+          stretch: [...snapshot.stretch ?? [1, 1, 1]],
+          inflate: snapshot.inflate,
+          visibility: snapshot.visibility,
+          box_uv: snapshot.boxUV ?? false,
+          autouv: snapshot.autouv ?? 0,
+          mirror_uv: snapshot.mirrorUV ?? false,
+          shade: snapshot.shade ?? true,
+          color: snapshot.color,
+          uv_offset: snapshot.uvOffset ? [...snapshot.uvOffset] : void 0,
+          faces: snapshotFaces(snapshot)
+        });
+        if (snapshot.rescale !== void 0) {
+          cube.rescale = snapshot.rescale;
+        }
+        if (snapshot.rotationAxis) {
+          cube.rotation_axis = snapshot.rotationAxis;
+        }
+        return cube;
+      },
+      initElement(element) {
+        element.init();
+      },
+      adopt(element, parent) {
+        adoptInitializedElement(element, parent ?? null);
+      },
+      placeBefore(element, target) {
+        element.sortInBefore(
+          target,
+          0
+        );
+      },
+      parentOf(element) {
+        return element.parent ?? null;
+      },
+      remove(element) {
+        element.remove();
+      },
+      setVisibility(element, visible) {
+        const node = element;
+        node.visibility = visible;
+      },
+      updateView(created, groups) {
+        Canvas.updateView({
+          elements: created,
+          element_aspects: {
+            geometry: true,
+            faces: true,
+            uv: true,
+            transform: true,
+            visibility: true
+          },
+          groups,
+          group_aspects: {
+            transform: true,
+            visibility: true
+          }
+        });
+      },
+      resolveTexture(key) {
+        return resolveTextureByKey(key);
+      },
+      yieldToUI() {
+        return new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    };
+  }
+  var blockbenchHost = createBlockbenchHost(blockbenchUndo);
+  function blockbenchHostForProject(project) {
+    const host = createBlockbenchHost(createUndoTransaction(project.undo));
+    const cancelCapturedUndo = host.cancelUndo;
+    host.cancelUndo = (revertChanges) => {
+      const activeProject2 = typeof Project === "undefined" ? void 0 : Project;
+      if (activeProject2?.uuid === project.uuid) {
+        cancelCapturedUndo(revertChanges);
+        return;
+      }
+      const targetProject = project;
+      if (!ModelProject.all.includes(targetProject)) {
+        throw new Error("The operation target project was closed before its changes could be rolled back.");
+      }
+      suppressAutoScanDuring(() => {
+        if (!targetProject.select() || Project.uuid !== targetProject.uuid) {
+          throw new Error("Blockbench could not restore the operation target project for rollback.");
+        }
+        try {
+          cancelCapturedUndo(revertChanges);
+        } finally {
+          if (activeProject2 && ModelProject.all.includes(activeProject2)) {
+            activeProject2.select();
+          }
+        }
+      });
+    };
+    host.rollback = (created, groups, revertChanges) => {
+      const targetProject = project;
+      const activeProject2 = typeof Project === "undefined" ? void 0 : Project;
+      const rollbackInTarget = () => {
+        let rollbackError;
+        for (const node of [...created].reverse()) {
+          try {
+            host.remove(node);
+          } catch (error) {
+            rollbackError ?? (rollbackError = error);
+          }
+        }
+        for (const group of [...groups].reverse()) {
+          try {
+            host.remove(group);
+          } catch (error) {
+            rollbackError ?? (rollbackError = error);
+          }
+        }
+        try {
+          cancelCapturedUndo(revertChanges);
+        } catch (error) {
+          rollbackError ?? (rollbackError = error);
+        }
+        if (rollbackError) {
+          const failure = new Error("Blockbench could not fully roll back the skin operation.");
+          Object.defineProperty(failure, "cause", { value: rollbackError, configurable: true });
+          throw failure;
+        }
+      };
+      if (activeProject2?.uuid === targetProject.uuid) {
+        rollbackInTarget();
+        return;
+      }
+      if (!ModelProject.all.includes(targetProject)) {
+        throw new Error("The operation target project was closed before its changes could be rolled back.");
+      }
+      suppressAutoScanDuring(() => {
+        try {
+          if (!targetProject.select() || Project.uuid !== targetProject.uuid) {
+            throw new Error("Blockbench could not restore the operation target project for rollback.");
+          }
+          rollbackInTarget();
+        } finally {
+          if (activeProject2 && ModelProject.all.includes(activeProject2)) {
+            activeProject2.select();
+          }
+        }
+      });
+    };
+    return host;
+  }
+
+  // src/generate.ts
+  function planFromSnapshots(snapshots, options) {
+    const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
+    const { plans, warnings: planWarnings } = buildVoxelPlans([...snapshots], textures, options);
+    const warnings = [...textureWarnings, ...planWarnings];
+    return { snapshots: [...snapshots], plans, warnings, voxelCount: countPlanVoxels(plans) };
+  }
+  function scanAndPlan(options) {
+    return planFromSnapshots(collectLayerSnapshots(options), options);
+  }
+  function resolveCubeByKey(key) {
+    return Cube.all.find((cube) => cube.uuid === key);
+  }
+  async function applyOutcome(outcome, options, host = blockbenchHost, resolveSource = resolveCubeByKey) {
+    const started = performance.now();
+    const summary = await applyPlans(
+      outcome.plans,
+      {
+        maxVoxels: options.maxVoxels,
+        batchSize: options.batchSize,
+        preserveOriginal: options.preserveOriginal
+      },
+      host,
+      resolveSource
+    );
+    return {
+      createdCubes: summary.createdCubes,
+      createdGroups: summary.createdGroups,
+      durationMs: performance.now() - started
+    };
+  }
+
+  // src/blockbench/modelRestorer.ts
+  function applyRestores(candidates, host) {
+    if (candidates.length === 0) {
+      return { restoredCubes: 0, restoredGroups: 0, removedVoxels: 0 };
+    }
+    const groups = candidates.map((candidate) => candidate.group);
+    const children = candidates.flatMap((candidate) => [...candidate.children]);
+    host.beginUndo({ sources: children, groups });
+    const restored = [];
+    let removedVoxels = 0;
+    try {
+      for (const candidate of candidates) {
+        const parent = host.parentOf(candidate.group);
+        if (candidate.existingSource !== void 0) {
+          host.setVisibility(candidate.existingSource, candidate.source.visibility);
+        } else {
+          const cube = host.createCubeFromSnapshot(candidate.source);
+          restored.push(cube);
+          host.initElement(cube);
+          host.adopt(cube, parent);
+          host.placeBefore(cube, candidate.group);
+        }
+        removedVoxels += candidate.children.length;
+        host.remove(candidate.group);
+      }
+      host.updateView(restored, []);
+      host.finishUndo("Restore 3D skin layers", { created: restored, groups: [] });
+      return {
+        restoredCubes: candidates.length,
+        restoredGroups: candidates.length,
+        removedVoxels
+      };
+    } catch (error) {
+      if (host.rollback) {
+        host.rollback(restored, [], true);
+      } else {
+        host.cancelUndo(true);
+      }
+      throw error;
+    }
+  }
+
+  // src/blockbench/transparentCleaner.ts
+  function isSingleTexelUV(pixelUV, texture) {
+    const { sx, sy } = textureScales(texture);
+    const width = Math.abs(pixelUV[2] - pixelUV[0]) * sx;
+    const height = Math.abs(pixelUV[3] - pixelUV[1]) * sy;
+    return Math.abs(width - 1) < 0.01 && Math.abs(height - 1) < 0.01;
+  }
+  function planTransparentRemovals(items, textures, alphaThreshold) {
+    const warnings = [];
+    const removable = [];
+    let keptCount = 0;
+    for (const item of items) {
+      const texture = item.textureKey !== null ? textures.get(item.textureKey) : void 0;
+      if (!texture) {
+        warnings.push(`${item.name}: texture not readable, cube kept`);
+        keptCount++;
+        continue;
+      }
+      if (!isSingleTexelUV(item.pixelUV, texture)) {
+        warnings.push(`${item.name}: face UV is not a single texel, cube kept`);
+        keptCount++;
+        continue;
+      }
+      const { sx, sy } = textureScales(texture);
+      const x = Math.round(item.pixelUV[0] * sx);
+      const y = Math.round(item.pixelUV[1] * sy);
+      if (x < 0 || y < 0 || x >= texture.width || y >= texture.height) {
+        warnings.push(`${item.name}: sample (${x}, ${y}) is outside the texture, cube kept`);
+        keptCount++;
+        continue;
+      }
+      const alpha = getAlpha(texture, x, y);
+      if (alpha <= alphaThreshold) {
+        removable.push(item);
+      } else {
+        keptCount++;
+      }
+    }
+    return { removable, keptCount, warnings };
+  }
+  function collectVoxelPixelRefs() {
+    if (typeof Group === "undefined") {
+      return [];
+    }
+    const refs = [];
+    const groups = Group.all.filter((group) => {
+      const metadata = group[GENERATED_SOURCE_PROPERTY];
+      return metadata !== null && metadata !== void 0;
+    });
+    for (const group of groups) {
+      for (const child of group.children) {
+        const cube = child;
+        if (!cube || !cube.faces || cube.type !== "cube") {
+          continue;
+        }
+        const face = cube.faces.north ?? cube.faces.south ?? cube.faces.east ?? cube.faces.west;
+        if (!face || face.texture === null) {
+          continue;
+        }
+        const uv = face.uv;
+        refs.push({
+          cube,
+          name: cube.name,
+          pixelUV: [uv[0], uv[1], uv[2], uv[3]],
+          textureKey: faceTextureKey(face)
+        });
+      }
+    }
+    return refs;
+  }
+  function decodeReferencedTextures(items) {
+    const textures = /* @__PURE__ */ new Map();
+    const warnings = [];
+    for (const item of items) {
+      if (item.textureKey === null || textures.has(item.textureKey)) {
+        continue;
+      }
+      const texture = resolveTextureByKey(item.textureKey);
+      if (!texture) {
+        warnings.push(`texture ${item.textureKey} is not loaded`);
+        continue;
+      }
+      try {
+        textures.set(item.textureKey, textureToPixelSource(texture));
+      } catch (error) {
+        warnings.push(`failed to read texture pixels (${String(error)})`);
+      }
+    }
+    return { textures, warnings };
+  }
+  function clearTransparentCubes(host, alphaThreshold) {
+    const refs = collectVoxelPixelRefs();
+    if (refs.length === 0) {
+      return { removed: 0, warnings: [] };
+    }
+    const { textures, warnings: decodeWarnings } = decodeReferencedTextures(refs);
+    const plan = planTransparentRemovals(refs, textures, alphaThreshold);
+    const warnings = [...decodeWarnings, ...plan.warnings];
+    if (plan.removable.length === 0) {
+      return { removed: 0, warnings };
+    }
+    host.beginUndo({ sources: plan.removable.map((item) => item.cube), groups: [] });
+    try {
+      for (const item of plan.removable) {
+        host.remove(item.cube);
+      }
+      host.finishUndo("Clear transparent cubes", { created: [], groups: [] });
+      return { removed: plan.removable.length, warnings };
+    } catch (error) {
+      host.cancelUndo(true);
+      throw error;
+    }
+  }
+
+  // src/operations/operationCoordinator.ts
+  function awaitOperationInput(promise, signal) {
+    if (signal.aborted) {
+      return Promise.reject(signal.reason);
+    }
+    return new Promise((resolve, reject) => {
+      const onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
+      promise.then(
+        (value) => {
+          signal.removeEventListener("abort", onAbort);
+          resolve(value);
+        },
+        (error) => {
+          signal.removeEventListener("abort", onAbort);
+          reject(error);
+        }
+      );
+    });
+  }
+  var OperationCoordinator = class {
+    constructor() {
+      this.nextId = 1;
+    }
+    get busy() {
+      return this.active !== void 0;
+    }
+    async run(operation, execute, externalSignal) {
+      if (this.active) {
+        throw new SkinOperationError("BUSY", `Another skin operation is already running (${this.active.operationId}).`);
+      }
+      const controller = new AbortController();
+      if (externalSignal?.aborted) {
+        throw new SkinOperationError("CANCELLED", "The operation was cancelled by its caller.", { cause: externalSignal.reason });
+      }
+      const operationId = `${operation}-${this.nextId++}`;
+      const active = { operationId, controller };
+      this.active = active;
+      const onExternalAbort = () => {
+        controller.abort(new SkinOperationError("CANCELLED", "The operation was cancelled by its caller.", { cause: externalSignal?.reason }));
+      };
+      externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+      try {
+        return await execute({ operationId, signal: controller.signal });
+      } finally {
+        externalSignal?.removeEventListener("abort", onExternalAbort);
+        if (this.active === active) {
+          this.active = void 0;
+        }
+      }
+    }
+    cancelActive(reason = "Plugin is shutting down") {
+      this.active?.controller.abort(new SkinOperationError("CANCELLED", reason));
+    }
+  };
+
+  // src/operations/projectContext.ts
+  var ProjectOperationContext = class {
+    constructor(getActiveProject, signal, isProjectOpen2 = () => true) {
+      this.getActiveProject = getActiveProject;
+      this.signal = signal;
+      this.isProjectOpen = isProjectOpen2;
+    }
+    bindActiveProject() {
+      this.assertNotCancelled();
+      const project = this.getActiveProject();
+      if (!project || !this.isProjectOpen(project)) {
+        throw new SkinOperationError("NO_PROJECT", "No active project is open.");
+      }
+      this.target = project;
+      return project;
+    }
+    assertActive() {
+      this.assertNotCancelled();
+      const active = this.getActiveProject();
+      if (!this.target || !active || active.uuid !== this.target.uuid || !this.isProjectOpen(this.target)) {
+        throw new SkinOperationError("PROJECT_CHANGED", "The active project changed during the operation.");
+      }
+      return this.target;
+    }
+    get projectId() {
+      return this.target?.uuid;
+    }
+    assertNotCancelled() {
+      if (this.signal.aborted) {
+        const reason = this.signal.reason;
+        if (reason instanceof SkinOperationError) {
+          throw reason;
+        }
+        throw new SkinOperationError("CANCELLED", "The operation was cancelled.", { cause: reason });
+      }
+    }
+  };
+
+  // src/operations/boundWriterHost.ts
+  function bindWriterHost(host, context) {
+    const call = (key) => (...args) => {
+      context.assertActive();
+      return host[key](...args);
+    };
+    return {
+      beginUndo: call("beginUndo"),
+      finishUndo: call("finishUndo"),
+      // Rollback deliberately targets the UndoSystem captured when the lease was bound,
+      // even if the user switched tabs while the operation yielded to the UI.
+      cancelUndo: host.cancelUndo.bind(host),
+      rollback(created, groups, revertChanges) {
+        if (host.rollback) {
+          host.rollback(created, groups, revertChanges);
+        } else {
+          host.cancelUndo(revertChanges);
+        }
+      },
+      createGroup: call("createGroup"),
+      createCube: call("createCube"),
+      createCubeFromSnapshot: call("createCubeFromSnapshot"),
+      initElement: call("initElement"),
+      adopt: call("adopt"),
+      placeBefore: call("placeBefore"),
+      parentOf: call("parentOf"),
+      remove: call("remove"),
+      setVisibility: call("setVisibility"),
+      updateView: call("updateView"),
+      resolveTexture: call("resolveTexture"),
+      async yieldToUI() {
+        context.assertActive();
+        await host.yieldToUI();
+        context.assertActive();
+      }
+    };
+  }
+
+  // src/operations/skinOperations.ts
+  function activeProject() {
+    if (typeof Project === "undefined" || !Project || typeof ModelProject === "undefined") {
+      return void 0;
+    }
+    return Project;
+  }
+  function isProjectOpen(project) {
+    return typeof ModelProject !== "undefined" && ModelProject.all.includes(project);
+  }
+  function makeResult(operation, lease, context, overrides = {}) {
+    return {
+      operation,
+      operationId: lease.operationId,
+      status: "completed",
+      targetProjectId: context.projectId ?? null,
+      sourceCount: 0,
+      plannedCubes: 0,
+      createdCubes: 0,
+      createdGroups: 0,
+      removedCubes: 0,
+      restoredCubes: 0,
+      replacedGroups: 0,
+      durationMs: 0,
+      warnings: [],
+      copiedProject: false,
+      templateProjectCreated: false,
+      templateRetainedBare: false,
+      ...overrides
+    };
+  }
+  function requireProject() {
+    const project = activeProject();
+    if (!project || !hasOpenProject()) {
+      throw new SkinOperationError("NO_PROJECT", "Open a Blockbench project before running this operation.");
+    }
+    return project;
+  }
+  function requireEditMode() {
+    if (!isEditMode()) {
+      throw new SkinOperationError("INVALID_MODE", "This operation requires Blockbench Edit mode.");
+    }
+  }
+  function createContext(lease) {
+    return new ProjectOperationContext(activeProject, lease.signal, isProjectOpen);
+  }
+  function getBoundHost(context) {
+    const target = context.assertActive();
+    return bindWriterHost(blockbenchHostForProject(target), context);
+  }
+  function resolveCube(context, key) {
+    context.assertActive();
+    return Cube.all.find((cube) => cube.uuid === key);
+  }
+  function resolveOptions(raw) {
+    return resolveGeneratorOptions(raw ?? {});
+  }
+  function copyToTarget(context, suffix) {
+    context.assertActive();
+    duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, suffix);
+    context.bindActiveProject();
+  }
+  function checkPlan(outcome, options) {
+    if (outcome.voxelCount > options.maxVoxels) {
+      throw new VoxelLimitError(outcome.voxelCount, options.maxVoxels);
+    }
+  }
+  function normalizeConfirmed(confirmed) {
+    return resolveGeneratorOptions(confirmed);
+  }
+  var SkinOperations = class {
+    constructor() {
+      this.coordinator = new OperationCoordinator();
+    }
+    async generate(input = {}) {
+      return this.coordinator.run("generate", async (lease) => {
+        requireEditMode();
+        requireProject();
+        const context = createContext(lease);
+        context.bindActiveProject();
+        const started = performance.now();
+        let options = resolveOptions(input.options);
+        let outcome = scanAndPlan(options);
+        if (outcome.snapshots.length === 0) {
+          if (input.auto) {
+            return makeResult("generate", lease, context, { status: "cancelled" });
+          }
+          throw new SkinOperationError("NO_TARGETS", "No layer cubes are available to generate.");
+        }
+        checkPlan(outcome, options);
+        if (input.auto && !options.autoApplyOnLoad) {
+          return makeResult("generate", lease, context, {
+            status: "detected",
+            sourceCount: outcome.snapshots.length,
+            plannedCubes: outcome.voxelCount,
+            createdCubes: 0,
+            createdGroups: 0,
+            warnings: outcome.warnings,
+            durationMs: performance.now() - started
+          });
+        }
+        if (!input.auto && input.confirm) {
+          const confirmed = await awaitOperationInput(input.confirm({
+            groupCount: outcome.snapshots.length,
+            cubeCount: outcome.snapshots.length,
+            voxelCount: outcome.voxelCount,
+            warnings: outcome.warnings
+          }, options), lease.signal);
+          context.assertActive();
+          if (!confirmed) {
+            return makeResult("generate", lease, context, { status: "cancelled" });
+          }
+          options = normalizeConfirmed(confirmed);
+        }
+        context.assertActive();
+        outcome = scanAndPlan(options);
+        if (outcome.snapshots.length === 0) {
+          throw new SkinOperationError("NO_TARGETS", "No layer cubes are available to generate.");
+        }
+        checkPlan(outcome, options);
+        const copiedProject = !input.auto && options.targetModel === "copy";
+        if (copiedProject) {
+          copyToTarget(context, " - 3D Layers");
+          outcome = scanAndPlan(options);
+          if (outcome.snapshots.length === 0) {
+            throw new SkinOperationError("NO_TARGETS", "The copied project has no layer cubes to generate.");
+          }
+          checkPlan(outcome, options);
+        }
+        context.assertActive();
+        const applied = await applyOutcome(
+          outcome,
+          options,
+          getBoundHost(context),
+          (key) => resolveCube(context, key)
+        );
+        return makeResult("generate", lease, context, {
+          createdCubes: applied.createdCubes,
+          createdGroups: applied.createdGroups,
+          sourceCount: outcome.snapshots.length,
+          plannedCubes: outcome.voxelCount,
+          durationMs: performance.now() - started,
+          warnings: outcome.warnings,
+          copiedProject
+        });
+      }, input.signal);
+    }
+    async restore(input = {}) {
+      return this.coordinator.run("restore", async (lease) => {
+        requireEditMode();
+        requireProject();
+        const context = createContext(lease);
+        context.bindActiveProject();
+        const started = performance.now();
+        let options = resolveOptions(input.options);
+        let candidates = collectRestoreCandidates();
+        if (!candidates.length) {
+          throw new SkinOperationError("NO_TARGETS", "No generated layers are available to restore.");
+        }
+        const cubeCount = candidates.reduce((sum, candidate) => sum + candidate.children.length, 0);
+        if (input.confirm) {
+          const confirmed = await awaitOperationInput(input.confirm({
+            groupCount: candidates.length,
+            cubeCount,
+            voxelCount: cubeCount,
+            warnings: []
+          }, options), lease.signal);
+          context.assertActive();
+          if (!confirmed) {
+            return makeResult("restore", lease, context, { status: "cancelled" });
+          }
+          options = normalizeConfirmed(confirmed);
+        }
+        context.assertActive();
+        const copiedProject = options.targetModel === "copy";
+        if (copiedProject) {
+          copyToTarget(context, " - Restored");
+          candidates = collectRestoreCandidates();
+          if (!candidates.length) {
+            throw new SkinOperationError("NO_TARGETS", "The copied project has no generated layers to restore.");
+          }
+        }
+        const result = applyRestores(candidates, getBoundHost(context));
+        return makeResult("restore", lease, context, {
+          restoredCubes: result.restoredCubes,
+          removedCubes: result.removedVoxels,
+          durationMs: performance.now() - started,
+          copiedProject
+        });
+      }, input.signal);
+    }
+    async regenerate(input = {}) {
+      return this.coordinator.run("regenerate", async (lease) => {
+        requireProject();
+        const context = createContext(lease);
+        context.bindActiveProject();
+        const started = performance.now();
+        let options = resolveOptions({ ...input.options, includeTransparent: input.includeTransparent ?? input.options?.includeTransparent });
+        const sources = collectRegenerationSources();
+        if (!sources.length) {
+          throw new SkinOperationError("NO_TARGETS", "No generated layers are available to regenerate.");
+        }
+        let outcome = planFromSnapshots(sources.map((source) => source.snapshot), options);
+        checkPlan(outcome, options);
+        if (input.confirm) {
+          const confirmed = await awaitOperationInput(input.confirm({
+            groupCount: sources.length,
+            cubeCount: 0,
+            voxelCount: outcome.voxelCount,
+            warnings: outcome.warnings
+          }, options), lease.signal);
+          context.assertActive();
+          if (!confirmed) {
+            return makeResult("regenerate", lease, context, { status: "cancelled" });
+          }
+          options = normalizeConfirmed({ ...confirmed, includeTransparent: input.includeTransparent ?? confirmed.includeTransparent });
+          outcome = planFromSnapshots(sources.map((source) => source.snapshot), options);
+          checkPlan(outcome, options);
+        }
+        context.assertActive();
+        const summary = await applyRegenerations(
+          sources,
+          outcome.plans,
+          { maxVoxels: options.maxVoxels, batchSize: options.batchSize },
+          getBoundHost(context)
+        );
+        return makeResult("regenerate", lease, context, {
+          createdCubes: summary.createdCubes,
+          removedCubes: summary.removedCubes,
+          replacedGroups: summary.replacedGroups,
+          sourceCount: sources.length,
+          plannedCubes: outcome.voxelCount,
+          durationMs: performance.now() - started,
+          warnings: outcome.warnings
+        });
+      }, input.signal);
+    }
+    async clearTransparent(input = {}) {
+      return this.coordinator.run("clear_transparent", async (lease) => {
+        requireProject();
+        const context = createContext(lease);
+        context.bindActiveProject();
+        const started = performance.now();
+        const options = resolveOptions(input.options);
+        const summary = clearTransparentCubes(getBoundHost(context), options.alphaThreshold);
+        return makeResult("clear_transparent", lease, context, {
+          removedCubes: summary.removed,
+          durationMs: performance.now() - started,
+          warnings: [...summary.warnings]
+        });
+      }, input.signal);
+    }
+    async newSkin(input) {
+      return this.coordinator.run("new_skin", async (lease) => {
+        const context = createContext(lease);
+        const started = performance.now();
+        const previousProject = activeProject();
+        const { projectName } = input.createTemplateProject();
+        context.bindActiveProject();
+        const target = context.assertActive();
+        if (previousProject?.uuid === target.uuid) {
+          throw new SkinOperationError("EXECUTION_FAILED", "Blockbench did not open a new template project.");
+        }
+        target.name = input.name || projectName;
+        if (input.identifier) {
+          target.model_identifier = input.identifier;
+        }
+        const templateProjectCreated = true;
+        await awaitOperationInput(input.waitForTextures(), lease.signal);
+        context.assertActive();
+        const options = resolveGeneratorOptions({
+          ...DEFAULT_OPTIONS,
+          includeTransparent: true,
+          processSelectedOnly: false,
+          targetModel: "current"
+        });
+        const outcome = scanAndPlan(options);
+        if (outcome.snapshots.length === 0) {
+          return makeResult("new_skin", lease, context, {
+            status: "template_retained",
+            templateProjectCreated,
+            templateRetainedBare: true,
+            warnings: ["The template contains no layer cubes to voxelize."],
+            durationMs: performance.now() - started
+          });
+        }
+        if (outcome.voxelCount > options.maxVoxels) {
+          throw new SkinOperationError(
+            "VOXEL_LIMIT",
+            `Voxel plan needs ${outcome.voxelCount} cubes; fixed limit is ${options.maxVoxels}.`,
+            void 0,
+            {
+              voxelCount: outcome.voxelCount,
+              limit: options.maxVoxels,
+              targetProjectId: context.projectId,
+              templateProjectCreated,
+              templateRetainedBare: true
+            }
+          );
+        }
+        for (const plan of outcome.plans) {
+          plan.visibility = true;
+        }
+        const applied = await applyOutcome(
+          outcome,
+          options,
+          getBoundHost(context),
+          (key) => resolveCube(context, key)
+        );
+        return makeResult("new_skin", lease, context, {
+          createdCubes: applied.createdCubes,
+          createdGroups: applied.createdGroups,
+          sourceCount: outcome.snapshots.length,
+          plannedCubes: outcome.voxelCount,
+          durationMs: performance.now() - started,
+          warnings: outcome.warnings,
+          templateProjectCreated
+        });
+      }, input.signal);
+    }
+  };
+  var skinOperations = new SkinOperations();
+
   // src/newSkin/newSkinFormat.ts
   var registeredFormat;
-  var creating = false;
   async function waitForTexturePixels(texture) {
     const img = texture.img;
-    if (!img || img.complete) {
-      return;
-    }
+    if (!img || img.complete) return;
     await new Promise((resolve) => {
       img.addEventListener("load", () => resolve(), { once: true });
       img.addEventListener("error", () => resolve(), { once: true });
@@ -1748,53 +2378,44 @@ ${t("m3sl.dialog.warnings_header")}
   }
   async function waitForProjectTextures(timeoutMs = 1e4) {
     const pending = Texture.all.map((texture) => waitForTexturePixels(texture));
-    if (pending.length === 0) {
-      return;
-    }
+    if (!pending.length) return;
     await Promise.race([
       Promise.all(pending),
       new Promise((resolve) => setTimeout(resolve, timeoutMs))
     ]);
   }
   async function createSkinProject(skinType, template, size, name, identifier) {
-    if (creating || !registeredFormat) {
-      return;
-    }
-    creating = true;
+    if (!registeredFormat) return;
     try {
-      const { model, projectName } = buildTemplateModel(skinType, template, size);
-      newProject(registeredFormat);
-      suppressAutoScanDuring(() => {
-        const parse = Codecs.project.parse;
-        if (typeof parse !== "function") {
-          throw new Error("Blockbench project codec cannot parse models");
-        }
-        parse.call(Codecs.project, model, "");
+      const result = await skinOperations.newSkin({
+        skinType,
+        template,
+        size,
+        name,
+        identifier,
+        createTemplateProject() {
+          const { model, projectName } = buildTemplateModel(skinType, template, size);
+          suppressAutoScanDuring(() => {
+            if (!newProject(registeredFormat)) {
+              throw new Error("Blockbench could not create the template project");
+            }
+            const parse = Codecs.project.parse;
+            if (typeof parse !== "function") {
+              throw new Error("Blockbench project codec cannot parse models");
+            }
+            parse.call(Codecs.project, model, "");
+          });
+          return { projectName };
+        },
+        waitForTextures: () => waitForProjectTextures()
       });
-      Project.name = name || projectName;
-      if (identifier) {
-        Project.model_identifier = identifier;
-      }
-      await waitForProjectTextures();
-      const options = { ...loadOptions(), includeTransparent: true };
-      const outcome = scanAndPlan(options);
-      if (outcome.snapshots.length === 0) {
+      if (result.status === "template_retained") {
         reportNoLayers();
         return;
       }
-      if (outcome.voxelCount > options.maxVoxels) {
-        reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
-        return;
-      }
-      for (const plan of outcome.plans) {
-        plan.visibility = true;
-      }
-      const result = await applyOutcome(outcome, options);
       toast(t("m3sl.toast.wizard_created", [result.createdCubes, (result.durationMs / 1e3).toFixed(2)]), "view_in_ar");
     } catch (error) {
-      reportError(error);
-    } finally {
-      creating = false;
+      reportOperationFailure(error, "new_skin");
     }
   }
   function openWizard() {
@@ -1836,58 +2457,11 @@ ${t("m3sl.dialog.warnings_header")}
     registeredFormat = void 0;
   }
 
-  // src/infra/logger.ts
-  var logger = {
-    info(message) {
-      console.info(`[${PLUGIN_NAME}] ${message}`);
-    },
-    warn(message) {
-      console.warn(`[${PLUGIN_NAME}] ${message}`);
-    },
-    error(message, error) {
-      console.error(`[${PLUGIN_NAME}] ${message}`, error);
-    }
-  };
-  var PLUGIN_NAME = "minecraft_3d_skin_layers";
-
   // src/plugin.ts
-  async function runGeneration(auto) {
-    if (!isEditMode()) {
-      if (!auto) {
-        toast(t("m3sl.toast.edit_mode"), "edit");
-      }
-      return;
-    }
-    if (!hasOpenProject()) {
-      if (!auto) {
-        toast(t("m3sl.toast.open_project"), "info");
-      }
-      return;
-    }
-    const options = loadOptions();
-    const outcome = scanAndPlan(options);
-    if (outcome.snapshots.length === 0) {
-      if (!auto) {
-        reportNoLayers();
-      }
-      return;
-    }
-    if (outcome.voxelCount > options.maxVoxels) {
-      reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
-      return;
-    }
-    if (auto && !options.autoApplyOnLoad) {
-      status(t("m3sl.status.detected", [outcome.snapshots.length, outcome.voxelCount]));
-      return;
-    }
-    if (auto) {
-      const result2 = await applyOutcome(outcome, options);
-      reportGenerationResult({ ...result2, warnings: outcome.warnings });
-      return;
-    }
-    const confirmed = await new Promise((resolve) => {
+  function confirmGeneration(preview, options) {
+    return new Promise((resolve) => {
       showGenerationDialog(
-        { layerCount: outcome.snapshots.length, voxelCount: outcome.voxelCount, warnings: outcome.warnings },
+        { layerCount: preview.groupCount, voxelCount: preview.voxelCount, warnings: preview.warnings },
         options,
         (merged) => {
           persistOptions(merged);
@@ -1896,211 +2470,99 @@ ${t("m3sl.dialog.warnings_header")}
         () => resolve(null)
       );
     });
-    if (!confirmed) {
+  }
+  function confirmRestore(preview, options) {
+    return new Promise((resolve) => {
+      showRestoreDialog(
+        { groupCount: preview.groupCount, voxelCount: preview.voxelCount },
+        options,
+        (merged) => {
+          persistOptions(merged);
+          resolve(merged);
+        },
+        () => resolve(null)
+      );
+    });
+  }
+  function confirmRegenerate(preview, options) {
+    return new Promise((resolve) => {
+      showRegenerateDialog(
+        { groupCount: preview.groupCount, voxelCount: preview.voxelCount },
+        options,
+        (merged) => {
+          persistOptions(merged);
+          resolve(merged);
+        },
+        () => resolve(null)
+      );
+    });
+  }
+  function reportGeneration(result) {
+    if (result.status === "cancelled") return;
+    if (result.status === "detected") {
+      status(t("m3sl.status.detected", [result.sourceCount, result.plannedCubes]));
       return;
     }
-    const fresh = scanAndPlan(confirmed);
-    if (fresh.snapshots.length === 0) {
+    if (result.sourceCount === 0) {
       reportNoLayers();
       return;
     }
-    if (fresh.voxelCount > confirmed.maxVoxels) {
-      reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
-      return;
-    }
-    const appliedToCopy = confirmed.targetModel === "copy";
-    if (appliedToCopy) {
-      duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, " - 3D Layers");
-    }
-    const result = await applyOutcome(fresh, confirmed);
     reportGenerationResult(
-      { ...result, warnings: fresh.warnings },
-      appliedToCopy ? t("m3sl.toast.copied_note") : void 0
+      { createdCubes: result.createdCubes, createdGroups: result.createdGroups, durationMs: result.durationMs, warnings: result.warnings },
+      result.copiedProject ? t("m3sl.toast.copied_note") : void 0
     );
   }
-  var running = false;
-  async function runGenerationGuarded(auto) {
-    if (running) {
-      reportBusy();
-      return;
-    }
-    running = true;
-    try {
-      await runGeneration(auto);
-    } catch (error) {
-      if (error instanceof VoxelLimitError) {
-        reportVoxelLimit(error);
-      } else {
-        logger.error("generation failed", error);
-        reportError(error);
-      }
-    } finally {
-      running = false;
-    }
+  async function runGeneration(auto) {
+    const result = await skinOperations.generate({
+      options: loadOptions(),
+      auto,
+      confirm: auto ? void 0 : confirmGeneration
+    });
+    reportGeneration(result);
   }
   async function runRestore() {
-    if (!isEditMode()) {
-      toast(t("m3sl.toast.edit_mode_restore"), "edit");
-      return;
-    }
-    if (!hasOpenProject()) {
-      toast(t("m3sl.toast.open_project"), "info");
-      return;
-    }
-    const candidates = collectRestoreCandidates();
-    if (candidates.length === 0) {
+    const result = await skinOperations.restore({ options: loadOptions(), confirm: confirmRestore });
+    if (result.status === "cancelled") return;
+    if (result.restoredCubes === 0) {
       reportNoRestorableGroups();
       return;
     }
-    const voxelCount = candidates.reduce((sum, candidate) => sum + candidate.children.length, 0);
-    const confirmed = await new Promise((resolve) => {
-      showRestoreDialog(
-        { groupCount: candidates.length, voxelCount },
-        loadOptions(),
-        (merged) => {
-          persistOptions(merged);
-          resolve(merged);
-        },
-        () => resolve(null)
-      );
-    });
-    if (!confirmed) {
-      return;
-    }
-    const appliedToCopy = confirmed.targetModel === "copy";
-    if (appliedToCopy) {
-      duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, " - Restored");
-    }
-    const activeCandidates = collectRestoreCandidates();
-    if (activeCandidates.length === 0) {
-      reportNoRestorableGroups();
-      return;
-    }
-    const result = applyRestores(activeCandidates, blockbenchHost);
     reportRestoreResult(
-      result,
-      appliedToCopy ? t("m3sl.toast.copied_note") : void 0
+      { restoredCubes: result.restoredCubes, restoredGroups: result.restoredCubes, removedVoxels: result.removedCubes },
+      result.copiedProject ? t("m3sl.toast.copied_note") : void 0
     );
-  }
-  async function runRestoreGuarded() {
-    if (running) {
-      reportBusy();
-      return;
-    }
-    running = true;
-    try {
-      await runRestore();
-    } catch (error) {
-      reportRestoreError(error);
-    } finally {
-      running = false;
-    }
   }
   async function runRegenerate() {
-    if (!hasOpenProject()) {
-      toast(t("m3sl.toast.open_project"), "info");
-      return;
-    }
-    const sources = collectRegenerationSources();
-    if (sources.length === 0) {
-      reportNoRegeneratable();
-      return;
-    }
-    const snapshots = sources.map((source) => source.snapshot);
-    const options = loadOptions();
-    const outcome = planFromSnapshots(snapshots, options);
-    if (outcome.voxelCount > options.maxVoxels) {
-      reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
-      return;
-    }
-    const confirmed = await new Promise((resolve) => {
-      showRegenerateDialog(
-        { groupCount: sources.length, voxelCount: outcome.voxelCount },
-        options,
-        (merged) => {
-          persistOptions(merged);
-          resolve(merged);
-        },
-        () => resolve(null)
-      );
-    });
-    if (!confirmed) {
-      return;
-    }
-    const fresh = planFromSnapshots(snapshots, confirmed);
-    if (fresh.voxelCount > confirmed.maxVoxels) {
-      reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
-      return;
-    }
-    const started = performance.now();
-    const summary = await applyRegenerations(
-      sources,
-      fresh.plans,
-      { maxVoxels: confirmed.maxVoxels, batchSize: confirmed.batchSize },
-      blockbenchHost
-    );
+    const result = await skinOperations.regenerate({ options: loadOptions(), confirm: confirmRegenerate });
+    if (result.status === "cancelled") return;
     reportRegenerated({
-      replacedGroups: summary.replacedGroups,
-      createdCubes: summary.createdCubes,
-      durationMs: performance.now() - started,
-      warnings: fresh.warnings
+      replacedGroups: result.replacedGroups,
+      createdCubes: result.createdCubes,
+      durationMs: result.durationMs,
+      warnings: result.warnings
     });
   }
-  function runRegenerateGuarded() {
-    if (running) {
-      reportBusy();
-      return;
-    }
-    running = true;
+  async function runClearTransparent() {
+    const result = await skinOperations.clearTransparent({ options: loadOptions() });
+    reportCleared({ removed: result.removedCubes, warnings: result.warnings });
+  }
+  async function guarded(operation, name) {
     try {
-      void runRegenerate();
+      await operation();
     } catch (error) {
-      if (error instanceof VoxelLimitError) {
-        reportVoxelLimit(error);
-      } else {
-        logger.error("regeneration failed", error);
-        reportError(error);
-      }
-    } finally {
-      running = false;
+      reportOperationFailure(error, name);
     }
   }
-  function runClearTransparent() {
-    if (!hasOpenProject()) {
-      toast(t("m3sl.toast.open_project"), "info");
-      return;
-    }
-    const options = loadOptions();
-    const summary = clearTransparentCubes(blockbenchHost, options.alphaThreshold);
-    reportCleared(summary);
-  }
-  function runClearTransparentGuarded() {
-    if (running) {
-      reportBusy();
-      return;
-    }
-    running = true;
-    try {
-      runClearTransparent();
-    } catch (error) {
-      logger.error("transparent cleanup failed", error);
-      reportError(error);
-    } finally {
-      running = false;
-    }
+  function onProjectLoaded() {
+    return () => {
+      if (isAutoScanSuppressed()) return;
+      void guarded(() => runGeneration(true), "generate");
+    };
   }
   var actions = [];
   var listeners = [];
   var generatedSourceProperty;
   var skinMenu;
-  function onProjectLoaded() {
-    return () => {
-      if (isAutoScanSuppressed()) {
-        return;
-      }
-      void runGenerationGuarded(true);
-    };
-  }
   function registerPlugin() {
     registerTranslations();
     generatedSourceProperty = new Property(Group, "object", GENERATED_SOURCE_PROPERTY, {
@@ -2115,7 +2577,7 @@ ${t("m3sl.dialog.warnings_header")}
       category: "edit",
       condition: () => isEditMode() && hasOpenProject(),
       click: () => {
-        void runGenerationGuarded(false);
+        void guarded(() => runGeneration(false), "generate");
       }
     });
     const restoreAction = new Action(`${PLUGIN_ID}.restore`, {
@@ -2125,7 +2587,7 @@ ${t("m3sl.dialog.warnings_header")}
       category: "edit",
       condition: () => isEditMode() && hasOpenProject() && hasRestorableGroups(),
       click: () => {
-        void runRestoreGuarded();
+        void guarded(runRestore, "restore");
       }
     });
     const clearTransparentAction = new Action(`${PLUGIN_ID}.clear_transparent`, {
@@ -2135,7 +2597,7 @@ ${t("m3sl.dialog.warnings_header")}
       category: "edit",
       condition: () => hasOpenProject(),
       click: () => {
-        runClearTransparentGuarded();
+        void guarded(runClearTransparent, "clear_transparent");
       }
     });
     const regenerateAction = new Action(`${PLUGIN_ID}.regenerate`, {
@@ -2145,7 +2607,7 @@ ${t("m3sl.dialog.warnings_header")}
       category: "edit",
       condition: () => hasOpenProject() && hasRegeneratableGroups(),
       click: () => {
-        runRegenerateGuarded();
+        void guarded(runRegenerate, "regenerate");
       }
     });
     actions = [generateAction, restoreAction, clearTransparentAction, regenerateAction];
@@ -2157,20 +2619,15 @@ ${t("m3sl.dialog.warnings_header")}
         `${PLUGIN_ID}.restore`,
         `${PLUGIN_ID}.clear_transparent`
       ],
-      {
-        name: "m3sl.menu.name",
-        condition: () => hasOpenProject(),
-        icon: "view_in_ar"
-      }
+      { name: "m3sl.menu.name", condition: () => hasOpenProject(), icon: "view_in_ar" }
     );
     MenuBar.addMenu(skinMenu, "file");
     registerNewSkinFormat();
     listeners = [onProjectEvent("load_project", onProjectLoaded())];
   }
   function unregisterPlugin() {
-    for (const listener of listeners) {
-      listener.dispose();
-    }
+    skinOperations.coordinator.cancelActive("Plugin disabled");
+    for (const listener of listeners) listener.dispose();
     listeners = [];
     unregisterNewSkinFormat();
     if (skinMenu && typeof skinMenu.delete === "function") {
@@ -2178,9 +2635,7 @@ ${t("m3sl.dialog.warnings_header")}
       MenuBar.update();
     }
     skinMenu = void 0;
-    for (const action of actions) {
-      action.delete();
-    }
+    for (const action of actions) action.delete();
     actions = [];
     generatedSourceProperty?.delete();
     generatedSourceProperty = void 0;

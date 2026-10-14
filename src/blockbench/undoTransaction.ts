@@ -15,27 +15,51 @@ import type { CommitAspects, UndoAspects } from './modelWriter';
  * the two saves against each other, and a missing list crashes redo with
  * "groups is not iterable". Every generation run is one transaction.
  */
-export const blockbenchUndo = {
-  begin(aspects: UndoAspects): void {
-    const elements = aspects.sources as Cube[];
-    Undo.initEdit({
-      outliner: true,
-      elements,
-      groups: aspects.groups as Group[],
-      selection: true,
-    });
-  },
+export interface UndoTransaction {
+  begin(aspects: UndoAspects): void;
+  finish(label: string, aspects: CommitAspects): void;
+  cancel(revertChanges: boolean): void;
+}
 
-  finish(label: string, aspects: CommitAspects): void {
-    Undo.finishEdit(label, {
-      outliner: true,
-      elements: aspects.created as Cube[],
-      groups: aspects.groups as Group[],
-      selection: true,
-    });
-  },
+export function createUndoTransaction(
+  system: Pick<UndoSystem, 'initEdit' | 'finishEdit' | 'cancelEdit'>,
+): UndoTransaction {
+  return {
+    begin(aspects: UndoAspects): void {
+      const elements = aspects.sources as Cube[];
+      system.initEdit({
+        outliner: true,
+        elements,
+        groups: aspects.groups as Group[],
+        selection: true,
+      });
+    },
 
-  cancel(revertChanges: boolean): void {
-    Undo.cancelEdit(revertChanges);
+    finish(label: string, aspects: CommitAspects): void {
+      system.finishEdit(label, {
+        outliner: true,
+        elements: aspects.created as Cube[],
+        groups: aspects.groups as Group[],
+        selection: true,
+      });
+    },
+
+    cancel(revertChanges: boolean): void {
+      system.cancelEdit(revertChanges);
+    },
+  };
+}
+
+// Resolve the global undo system at call time so importing pure code in tests or
+// non-Blockbench contexts does not eagerly access the host runtime.
+export const blockbenchUndo: UndoTransaction = {
+  begin(aspects) {
+    createUndoTransaction(Undo).begin(aspects);
+  },
+  finish(label, aspects) {
+    createUndoTransaction(Undo).finish(label, aspects);
+  },
+  cancel(revertChanges) {
+    createUndoTransaction(Undo).cancel(revertChanges);
   },
 };

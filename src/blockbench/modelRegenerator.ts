@@ -118,9 +118,9 @@ export async function applyRegenerations(
       }
       for (const spec of target.voxels) {
         const cube = host.createCube(spec);
+        created.push(cube);
         host.initElement(cube);
         host.adopt(cube, target.group);
-        created.push(cube);
         if (++batch >= options.batchSize) {
           batch = 0;
           await host.yieldToUI();
@@ -137,7 +137,11 @@ export async function applyRegenerations(
       createdCubes: created.length,
     };
   } catch (error) {
-    host.cancelUndo(true);
+    if (host.rollback) {
+      host.rollback(created, [], true);
+    } else {
+      host.cancelUndo(true);
+    }
     throw error;
   }
 }
