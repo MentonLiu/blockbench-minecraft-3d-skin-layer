@@ -2,13 +2,13 @@ import { DEFAULT_OPTIONS } from '../domain/constants';
 import { resolveGeneratorOptions } from '../domain/options';
 import { VoxelLimitError } from '../domain/types';
 import type { GeneratorOptions, GeneratorPreferences } from '../domain/types';
-import { applyOutcome, planFromSnapshots, scanAndPlan } from '../generate';
+import { applyOutcome, scanAndPlan } from '../generate';
 import type { ScanOutcome } from '../generate';
 import { collectRestoreCandidates, hasOpenProject, isEditMode } from '../blockbench/compatibility';
 import { applyRestores } from '../blockbench/modelRestorer';
 import { blockbenchDuplicateHost, duplicateCurrentProjectAsCopy } from '../blockbench/projectDuplicate';
 import { clearTransparentCubes } from '../blockbench/transparentCleaner';
-import { applyRegenerations, collectRegenerationSources } from '../blockbench/modelRegenerator';
+import { applyRegenerations, collectRegenerationSources, planRegenerations } from '../blockbench/modelRegenerator';
 import { blockbenchHostForProject } from '../blockbench/blockbenchHost';
 import type { WriterHost } from '../blockbench/modelWriter';
 import type { SkinSize, SkinType, TemplateId } from '../newSkin/templates';
@@ -304,7 +304,7 @@ export class SkinOperations {
       if (!sources.length) {
         throw new SkinOperationError('NO_TARGETS', 'No generated layers are available to regenerate.');
       }
-      let outcome = planFromSnapshots(sources.map(source => source.snapshot), options);
+      let outcome = planRegenerations(sources, options);
       checkPlan(outcome, options);
       if (input.confirm) {
         const confirmed = await awaitOperationInput(input.confirm({
@@ -318,7 +318,7 @@ export class SkinOperations {
           return makeResult('regenerate', lease, context, { status: 'cancelled' });
         }
         options = normalizeConfirmed({ ...confirmed, includeTransparent: input.includeTransparent ?? confirmed.includeTransparent });
-        outcome = planFromSnapshots(sources.map(source => source.snapshot), options);
+        outcome = planRegenerations(sources, options);
         checkPlan(outcome, options);
       }
       context.assertActive();
