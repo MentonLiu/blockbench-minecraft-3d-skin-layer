@@ -44,7 +44,7 @@ Every step is one undo transaction (`Ctrl/Cmd + Z`).
 ## Quick start B — voxelize an existing skin model
 
 1. Open the model in **Edit** mode. It needs cubes named `... Layer` (`Hat Layer`, `Body Layer1`, ... — digit suffixes on jointed models are fine). The layer cubes' geometry and UVs are the source of truth, so 64×64, 128×128 and custom layouts all work without a hard-coded atlas.
-2. Run **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many layer cubes and texels were found; adjust the options and confirm.
+2. Run **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many layer cubes and texels were found; choose the remaining options and confirm. Alpha handling, the 10,000-cube limit and batch size use fixed defaults.
 3. To get the original model back, run **3D Skin Model > Restore 3D Skin Layers** — generated groups store the complete original cube data (works after saving and reopening).
 
 Both dialogs offer a **Use a new model project** checkbox at the bottom: check it to duplicate the project and run against the copy. The original tab stays untouched, and the copy never inherits the original's save path, so saving it always asks where to store it and can never overwrite the original file.
@@ -55,7 +55,7 @@ Both dialogs offer a **Use a new model project** checkbox at the bottom: check i
 
 - Templates are embedded in the plugin — no extra files needed. 128 loads a 128×128 texture over the same 64-unit UV space (2× texel density, e.g. 16×16 head faces).
 - The optional **model name** becomes the project (tab) name; the optional **model identifier** is stored as the bbmodel `model_identifier` (also editable under File > Project).
-- The model is voxelized immediately with transparent pixels included, ready for the paint-then-clean-up loop. If the run would exceed the cube limit, the un-voxelized template is kept so you can raise the limit and generate manually.
+- The model is voxelized immediately with transparent pixels included, ready for the paint-then-clean-up loop. If the run needs more than 10,000 cubes, the plugin keeps the newly created project as an un-voxelized template and reports the required count and fixed limit.
 
 ### Generate 3D Skin Layers
 
@@ -78,13 +78,10 @@ Both dialogs offer a **Use a new model project** checkbox at the bottom: check i
 
 ## Options reference
 
-Options are remembered across sessions.
+User-adjustable options are remembered across sessions. Alpha threshold is fixed at 0, the run limit at 10,000 cubes, and the UI batch size at 200 cubes.
 
 | Option | Where | Default | Meaning |
 |---|---|---|---|
-| Alpha threshold | Generate dialog | 0 | texels with alpha above this become cubes |
-| Maximum cube count | Generate dialog | 10,000 | run aborts above this; nothing is modified |
-| Cubes created per batch | Generate dialog | 200 | UI yield frequency for large models |
 | Keep original layer cubes | Generate dialog | off | hide the sources instead of deleting them |
 | Replace fully transparent layers | Generate dialog | off | empty groups instead of leaving them untouched |
 | Only process selected layer cubes | Generate dialog | off | restrict to selected layer cubes |

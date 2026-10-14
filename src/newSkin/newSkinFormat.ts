@@ -90,8 +90,8 @@ export async function createSkinProject(
       return;
     }
     if (outcome.voxelCount > options.maxVoxels) {
-      // 保留未体素化的模板，让用户调高上限后手动生成
-      // keep the un-voxelized template so the user can raise the limit and generate manually
+      // 保留未体素化的模板，并提示需要量与固定上限；模板项目已经创建。
+      // keep the un-voxelized template and report required count and fixed limit.
       reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
       return;
     }

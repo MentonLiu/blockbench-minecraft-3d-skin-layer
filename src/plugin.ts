@@ -101,11 +101,10 @@ async function runGeneration(auto: boolean): Promise<void> {
     return;
   }
 
-  // 用确认后的选项重新扫描：对话框里可能改了 alpha 阈值等参数，
-  // 对话框之前的计划已经过期。此次扫描也作为复制/应用前的最终预检。
-  // Re-plan with the confirmed options: the dialog may have changed the alpha
-  // threshold etc., so the pre-dialog plan is stale. This scan also serves as
-  // the final preflight before copying/applying.
+  // 用确认后的选项重新扫描：选择范围可能变化，对话框之前的计划已经过期。
+  // 此次扫描也作为复制/应用前的最终预检。
+  // Re-plan with the confirmed options: the selected range may have changed,
+  // so the pre-dialog plan is stale. This scan is the final preflight.
   const fresh = scanAndPlan(confirmed);
   if (fresh.snapshots.length === 0) {
     reportNoLayers();

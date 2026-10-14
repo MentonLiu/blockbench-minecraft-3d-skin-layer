@@ -1,7 +1,7 @@
 import { PLUGIN_ID } from '../domain/constants';
+import { resolveGeneratorOptions } from '../domain/options';
 import type { GeneratorOptions } from '../domain/types';
 import { t } from '../i18n';
-import { sanitizeOptions } from './settingsDialog';
 
 export interface RegenerateSummaryInfo {
   groupCount: number;
@@ -37,7 +37,7 @@ export function showRegenerateDialog(
       },
     },
     onConfirm(formResult: unknown) {
-      onConfirm(sanitizeOptions({ ...options, ...(formResult as Record<string, unknown>) }));
+      onConfirm(resolveGeneratorOptions({ ...options, ...(formResult as Record<string, unknown>) }));
     },
     onClose() {
       onCancel();

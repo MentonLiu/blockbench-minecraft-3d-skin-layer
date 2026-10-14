@@ -989,9 +989,6 @@
     "m3sl.restore_dialog.title": "Restore 3D Skin Layers",
     "m3sl.restore_dialog.intro": "Found **%0** generated layer group(s) with **%1** voxel cube(s). Restoring recreates the original layer cubes and removes the generated groups.",
     "m3sl.form.use_new_project": "Use a new model project (copy the current model and modify the copy; the original stays untouched)",
-    "m3sl.form.alpha_threshold": "Alpha threshold (texels with alpha above this become cubes)",
-    "m3sl.form.max_voxels": "Maximum cube count (run aborts above this)",
-    "m3sl.form.batch_size": "Cubes created per batch",
     "m3sl.form.preserve_original": "Keep original layer cubes (hide instead of delete)",
     "m3sl.form.replace_empty": "Replace fully transparent layers with empty groups",
     "m3sl.form.selected_only": "Only process selected layer cubes",
@@ -1001,7 +998,7 @@
     "m3sl.toast.no_layers": 'No "* Layer" cubes found - model left unchanged',
     "m3sl.toast.no_restorable_groups": "No generated 3D skin layer groups found - model left unchanged",
     "m3sl.toast.busy": "A generation run is already in progress",
-    "m3sl.toast.limit": "Aborted: run needs %0 cubes, maxVoxels is %1. Raise the limit in the settings dialog if you really want this.",
+    "m3sl.toast.limit": "Aborted: run needs %0 cubes, exceeding the fixed maximum of %1.",
     "m3sl.toast.edit_mode": "Switch to Edit mode to generate 3D skin layers",
     "m3sl.toast.open_project": "Open a project first",
     "m3sl.toast.failed": "Generation failed: %0",
@@ -1049,9 +1046,6 @@
     "m3sl.restore_dialog.title": "\u8FD8\u539F 3D \u76AE\u80A4\u5C42",
     "m3sl.restore_dialog.intro": "\u627E\u5230 **%0** \u4E2A\u5DF2\u751F\u6210\u7684\u76AE\u80A4\u5C42\u5206\u7EC4\uFF08\u5171 **%1** \u4E2A\u4F53\u7D20\u65B9\u5757\uFF09\u3002\u8FD8\u539F\u4F1A\u91CD\u5EFA\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF0C\u5E76\u5220\u9664\u751F\u6210\u7684\u5206\u7EC4\u3002",
     "m3sl.form.use_new_project": "\u4F7F\u7528\u65B0\u6A21\u578B\u9879\u76EE",
-    "m3sl.form.alpha_threshold": "Alpha \u9608\u503C\uFF08Alpha \u9AD8\u4E8E\u8BE5\u503C\u7684\u50CF\u7D20\u4F1A\u751F\u6210\u65B9\u5757\uFF09",
-    "m3sl.form.max_voxels": "\u6700\u5927\u65B9\u5757\u6570\u91CF\uFF08\u8D85\u8FC7\u6B64\u6570\u91CF\u5C06\u4E2D\u6B62\uFF09",
-    "m3sl.form.batch_size": "\u6BCF\u6279\u521B\u5EFA\u7684\u65B9\u5757\u6570\u91CF",
     "m3sl.form.preserve_original": "\u4FDD\u7559\u539F\u59CB\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53\uFF08\u9690\u85CF\u800C\u975E\u5220\u9664\uFF09",
     "m3sl.form.replace_empty": "\u7528\u7A7A\u7EC4\u66FF\u6362\u5B8C\u5168\u900F\u660E\u7684\u76AE\u80A4\u5C42",
     "m3sl.form.selected_only": "\u4EC5\u5904\u7406\u9009\u4E2D\u7684\u76AE\u80A4\u5C42\u7ACB\u65B9\u4F53",
@@ -1061,7 +1055,7 @@
     "m3sl.toast.no_layers": '\u672A\u627E\u5230 "* Layer" \u7ACB\u65B9\u4F53 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539',
     "m3sl.toast.no_restorable_groups": "\u672A\u627E\u5230\u53EF\u8FD8\u539F\u7684 3D \u76AE\u80A4\u5C42\u7EC4 \u2014\u2014 \u6A21\u578B\u672A\u505A\u4EFB\u4F55\u4FEE\u6539",
     "m3sl.toast.busy": "\u5DF2\u6709\u4E00\u6B21\u751F\u6210\u6B63\u5728\u8FDB\u884C\u4E2D",
-    "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u4E0A\u9650 %1\u3002\u5982\u786E\u6709\u9700\u8981\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u5BF9\u8BDD\u6846\u4E2D\u8C03\u9AD8\u4E0A\u9650\u3002",
+    "m3sl.toast.limit": "\u5DF2\u4E2D\u6B62\uFF1A\u672C\u6B21\u9700\u8981 %0 \u4E2A\u65B9\u5757\uFF0C\u8D85\u51FA\u56FA\u5B9A\u4E0A\u9650 %1\u3002",
     "m3sl.toast.edit_mode": "\u8BF7\u5148\u5207\u6362\u5230\u7F16\u8F91\u6A21\u5F0F\u518D\u751F\u6210 3D \u76AE\u80A4\u5C42",
     "m3sl.toast.open_project": "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u9879\u76EE",
     "m3sl.toast.failed": "\u751F\u6210\u5931\u8D25\uFF1A%0",
@@ -1368,14 +1362,9 @@
     }
   }
 
-  // src/ui/settingsDialog.ts
-  var STORAGE_KEY = `${PLUGIN_ID}.options`;
-  function toNumber(value, fallback, min, max) {
-    const parsed = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-    return Math.min(max, Math.max(min, parsed));
+  // src/domain/options.ts
+  function asRecord(raw) {
+    return typeof raw === "object" && raw !== null ? raw : {};
   }
   function toBool(value, fallback) {
     return typeof value === "boolean" ? value : fallback;
@@ -1383,12 +1372,9 @@
   function toTargetModel(value, fallback) {
     return value === "copy" || value === "current" ? value : fallback;
   }
-  function sanitizeOptions(raw) {
-    const source = typeof raw === "object" && raw !== null ? raw : {};
+  function normalizeGeneratorPreferences(raw) {
+    const source = asRecord(raw);
     return {
-      alphaThreshold: Math.round(toNumber(source.alphaThreshold, DEFAULT_OPTIONS.alphaThreshold, 0, 255)),
-      maxVoxels: Math.round(toNumber(source.maxVoxels, DEFAULT_OPTIONS.maxVoxels, 1, 1e6)),
-      batchSize: Math.round(toNumber(source.batchSize, DEFAULT_OPTIONS.batchSize, 10, 5e3)),
       preserveOriginal: toBool(source.preserveOriginal, DEFAULT_OPTIONS.preserveOriginal),
       replaceEmptyLayer: toBool(source.replaceEmptyLayer, DEFAULT_OPTIONS.replaceEmptyLayer),
       autoApplyOnLoad: toBool(source.autoApplyOnLoad, DEFAULT_OPTIONS.autoApplyOnLoad),
@@ -1401,20 +1387,29 @@
       includeTransparent: toBool(source.includeTransparent, DEFAULT_OPTIONS.includeTransparent)
     };
   }
+  function resolveGeneratorOptions(raw) {
+    return {
+      ...DEFAULT_OPTIONS,
+      ...normalizeGeneratorPreferences(raw)
+    };
+  }
+
+  // src/ui/settingsDialog.ts
+  var STORAGE_KEY = `${PLUGIN_ID}.options`;
   function loadOptions() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) {
         return { ...DEFAULT_OPTIONS };
       }
-      return sanitizeOptions(JSON.parse(stored));
+      return resolveGeneratorOptions(JSON.parse(stored));
     } catch {
       return { ...DEFAULT_OPTIONS };
     }
   }
   function persistOptions(options) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeGeneratorPreferences(options)));
     } catch {
     }
   }
@@ -1432,33 +1427,6 @@ ${t("m3sl.dialog.warnings_header")}
         intro: {
           type: "info",
           text: t("m3sl.dialog.intro", [summary.layerCount, summary.voxelCount]) + warningText
-        },
-        alphaThreshold: {
-          label: t("m3sl.form.alpha_threshold"),
-          type: "number",
-          value: options.alphaThreshold,
-          min: 0,
-          max: 255,
-          step: 1,
-          force_step: true
-        },
-        maxVoxels: {
-          label: t("m3sl.form.max_voxels"),
-          type: "number",
-          value: options.maxVoxels,
-          min: 1,
-          max: 1e6,
-          step: 100,
-          force_step: true
-        },
-        batchSize: {
-          label: t("m3sl.form.batch_size"),
-          type: "number",
-          value: options.batchSize,
-          min: 10,
-          max: 5e3,
-          step: 10,
-          force_step: true
         },
         preserveOriginal: {
           label: t("m3sl.form.preserve_original"),
@@ -1489,7 +1457,7 @@ ${t("m3sl.dialog.warnings_header")}
       onConfirm(formResult) {
         const raw = { ...options, ...formResult };
         raw.targetModel = formResult.useNewProject === true ? "copy" : "current";
-        onConfirm(sanitizeOptions(raw));
+        onConfirm(resolveGeneratorOptions(raw));
       },
       onClose() {
         onCancel();
@@ -1517,7 +1485,7 @@ ${t("m3sl.dialog.warnings_header")}
       onConfirm(formResult) {
         const raw = { ...options, ...formResult };
         raw.targetModel = formResult.useNewProject === true ? "copy" : "current";
-        onConfirm(sanitizeOptions(raw));
+        onConfirm(resolveGeneratorOptions(raw));
       },
       onClose() {
         onCancel();
@@ -1543,7 +1511,7 @@ ${t("m3sl.dialog.warnings_header")}
         }
       },
       onConfirm(formResult) {
-        onConfirm(sanitizeOptions({ ...options, ...formResult }));
+        onConfirm(resolveGeneratorOptions({ ...options, ...formResult }));
       },
       onClose() {
         onCancel();

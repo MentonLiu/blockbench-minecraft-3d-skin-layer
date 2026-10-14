@@ -6,11 +6,11 @@ export type UVRect = [number, number, number, number];
 
 /** 体素生成选项 / Voxel generation options. */
 export interface GeneratorOptions {
-  /** Alpha 阈值：alpha 高于该值的像素生成方块 / Texels with alpha above this become cubes. */
+  /** 固定工程默认值；插件入口不提供调节项 / Fixed engineering default; not user-configurable. */
   alphaThreshold: number;
-  /** 单次运行允许生成的最大体素数 / Preflight aborts above this count. */
+  /** 固定工程上限；预检超过时中止 / Fixed engineering limit; preflight aborts above it. */
   maxVoxels: number;
-  /** 每批创建的方块数量（让出 UI 线程）/ Cubes created per UI batch. */
+  /** 固定批次大小，用于让出 UI 线程 / Fixed batch size for yielding to the UI. */
   batchSize: number;
   /** 为 true 时隐藏而非删除源层立方体 / Hide the sources instead of deleting them. */
   preserveOriginal: boolean;
@@ -39,6 +39,9 @@ export interface GeneratorOptions {
    */
   includeTransparent: boolean;
 }
+
+/** 可由用户调整并持久化的选项，不包含固定工程参数。 */
+export type GeneratorPreferences = Omit<GeneratorOptions, 'alphaThreshold' | 'maxVoxels' | 'batchSize'>;
 
 export interface FaceSnapshot {
   direction: FaceDirection;

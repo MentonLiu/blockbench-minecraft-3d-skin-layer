@@ -1,44 +1,9 @@
 import { DEFAULT_OPTIONS, PLUGIN_ID } from '../domain/constants';
-import type { GeneratorOptions } from '../domain/types';
+import { normalizeGeneratorPreferences, resolveGeneratorOptions } from '../domain/options';
+import type { GeneratorOptions, GeneratorPreferences } from '../domain/types';
 import { t } from '../i18n';
 
 const STORAGE_KEY = `${PLUGIN_ID}.options`;
-
-function toNumber(value: unknown, fallback: number, min: number, max: number): number {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
-  }
-  return Math.min(max, Math.max(min, parsed));
-}
-
-function toBool(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
-}
-
-function toTargetModel(value: unknown, fallback: 'current' | 'copy'): 'current' | 'copy' {
-  return value === 'copy' || value === 'current' ? value : fallback;
-}
-
-/** 清洗并校验用户输入，得到合法的生成选项 / Validate raw input into legal options. */
-export function sanitizeOptions(raw: unknown): GeneratorOptions {
-  const source = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
-  return {
-    alphaThreshold: Math.round(toNumber(source.alphaThreshold, DEFAULT_OPTIONS.alphaThreshold, 0, 255)),
-    maxVoxels: Math.round(toNumber(source.maxVoxels, DEFAULT_OPTIONS.maxVoxels, 1, 1_000_000)),
-    batchSize: Math.round(toNumber(source.batchSize, DEFAULT_OPTIONS.batchSize, 10, 5000)),
-    preserveOriginal: toBool(source.preserveOriginal, DEFAULT_OPTIONS.preserveOriginal),
-    replaceEmptyLayer: toBool(source.replaceEmptyLayer, DEFAULT_OPTIONS.replaceEmptyLayer),
-    autoApplyOnLoad: toBool(source.autoApplyOnLoad, DEFAULT_OPTIONS.autoApplyOnLoad),
-    processSelectedOnly: toBool(source.processSelectedOnly, DEFAULT_OPTIONS.processSelectedOnly),
-    useUVToLocalWhenAvailable: toBool(
-      source.useUVToLocalWhenAvailable,
-      DEFAULT_OPTIONS.useUVToLocalWhenAvailable,
-    ),
-    targetModel: toTargetModel(source.targetModel, DEFAULT_OPTIONS.targetModel),
-    includeTransparent: toBool(source.includeTransparent, DEFAULT_OPTIONS.includeTransparent),
-  };
-}
 
 export function loadOptions(): GeneratorOptions {
   try {
@@ -46,15 +11,15 @@ export function loadOptions(): GeneratorOptions {
     if (!stored) {
       return { ...DEFAULT_OPTIONS };
     }
-    return sanitizeOptions(JSON.parse(stored));
+    return resolveGeneratorOptions(JSON.parse(stored));
   } catch {
     return { ...DEFAULT_OPTIONS };
   }
 }
 
-export function persistOptions(options: GeneratorOptions): void {
+export function persistOptions(options: GeneratorOptions | GeneratorPreferences): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeGeneratorPreferences(options)));
   } catch {
     // 持久化尽力而为；失败时选项仍在本次会话内可用
     // persistence is best-effort; in-memory options still work for this session
@@ -92,33 +57,6 @@ export function showGenerationDialog(
         type: 'info',
         text: t('m3sl.dialog.intro', [summary.layerCount, summary.voxelCount]) + warningText,
       },
-      alphaThreshold: {
-        label: t('m3sl.form.alpha_threshold'),
-        type: 'number',
-        value: options.alphaThreshold,
-        min: 0,
-        max: 255,
-        step: 1,
-        force_step: true,
-      },
-      maxVoxels: {
-        label: t('m3sl.form.max_voxels'),
-        type: 'number',
-        value: options.maxVoxels,
-        min: 1,
-        max: 1_000_000,
-        step: 100,
-        force_step: true,
-      },
-      batchSize: {
-        label: t('m3sl.form.batch_size'),
-        type: 'number',
-        value: options.batchSize,
-        min: 10,
-        max: 5000,
-        step: 10,
-        force_step: true,
-      },
       preserveOriginal: {
         label: t('m3sl.form.preserve_original'),
         type: 'checkbox',
@@ -152,7 +90,7 @@ export function showGenerationDialog(
       raw.targetModel = (formResult as Record<string, unknown>).useNewProject === true
         ? 'copy'
         : 'current';
-      onConfirm(sanitizeOptions(raw));
+      onConfirm(resolveGeneratorOptions(raw));
     },
     onClose() {
       onCancel();
