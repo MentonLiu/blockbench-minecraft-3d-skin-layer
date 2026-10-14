@@ -7,7 +7,7 @@ import { applyOutcome, scanAndPlan } from '../generate';
 import { suppressAutoScanDuring } from '../blockbench/projectDuplicate';
 import { showNewSkinDialog } from './newSkinDialog';
 import { buildTemplateModel } from './templates';
-import type { SkinSize, TemplateId } from './templates';
+import type { SkinSize, SkinType, TemplateId } from './templates';
 
 let registeredFormat: ModelFormat | undefined;
 let creating = false;
@@ -54,6 +54,7 @@ export async function waitForProjectTextures(timeoutMs = 10_000): Promise<void> 
  * stays unset (both editable later under File > Project).
  */
 export async function createSkinProject(
+  skinType: SkinType,
   template: TemplateId,
   size: SkinSize,
   name?: string,
@@ -64,7 +65,7 @@ export async function createSkinProject(
   }
   creating = true;
   try {
-    const { model, projectName } = buildTemplateModel(template, size);
+    const { model, projectName } = buildTemplateModel(skinType, template, size);
     newProject(registeredFormat);
     // parse 会触发 load_project；此时不能让自动扫描体素化空模板
     // parse fires load_project; the auto-scan must not voxelize the bare template
@@ -112,7 +113,13 @@ export async function createSkinProject(
 function openWizard(): void {
   showNewSkinDialog(
     selection => {
-      void createSkinProject(selection.template, selection.size, selection.name, selection.identifier);
+      void createSkinProject(
+        selection.skinType,
+        selection.template,
+        selection.size,
+        selection.name,
+        selection.identifier,
+      );
     },
     () => undefined,
   );

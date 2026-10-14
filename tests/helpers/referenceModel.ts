@@ -10,6 +10,7 @@ export interface FixtureModel {
     outliner: unknown[];
     groups: FixtureGroupJson[];
     textures: FixtureTextureJson[];
+    animations?: Array<{ animators?: Record<string, unknown> }>;
   };
   /** 全部已解码纹理（uuid -> 像素快照）/ All decoded textures (uuid -> pixel source). */
   textures: Map<string, PixelSource>;
@@ -42,6 +43,7 @@ interface FixtureGroupJson {
 }
 
 interface FixtureTextureJson {
+  id?: string;
   name: string;
   uuid: string;
   width: number;
@@ -83,7 +85,11 @@ export function loadFixtureModel(filename: string): FixtureModel {
   const raw = JSON.parse(
     readFileSync(new URL(`../fixtures/${filename}`, import.meta.url), 'utf8'),
   ) as FixtureModel['raw'];
+  return loadModelData(raw);
+}
 
+/** Parse a bbmodel object already in memory using the same fixture adapter. */
+export function loadModelData(raw: FixtureModel['raw']): FixtureModel {
   const textures = new Map<string, PixelSource>();
   for (const textureJson of raw.textures) {
     textures.set(textureJson.uuid, decodeTexture(textureJson));
