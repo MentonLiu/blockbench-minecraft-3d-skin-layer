@@ -478,6 +478,274 @@
     }
   };
 
+  // src/geometry/faceMapper.ts
+  function adjustedBox(from, to, inflate, stretch) {
+    const inflatedFrom = [0, 0, 0];
+    const inflatedTo = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      const size = to[i] - from[i];
+      const center = from[i] + size / 2;
+      const half = (size / 2 + inflate) * stretch[i];
+      inflatedFrom[i] = center - half;
+      inflatedTo[i] = center + half;
+    }
+    return { from: inflatedFrom, to: inflatedTo };
+  }
+  function facePoint(direction, box, mx, my) {
+    const f = box.from;
+    const t2 = box.to;
+    const lerp = (a, b, k) => a + (b - a) * k;
+    switch (direction) {
+      case "north":
+        return [lerp(t2[0], f[0], mx), lerp(t2[1], f[1], my), f[2]];
+      case "south":
+        return [lerp(f[0], t2[0], mx), lerp(t2[1], f[1], my), t2[2]];
+      case "east":
+        return [t2[0], lerp(t2[1], f[1], my), lerp(t2[2], f[2], mx)];
+      case "west":
+        return [f[0], lerp(t2[1], f[1], my), lerp(f[2], t2[2], mx)];
+      case "up":
+        return [lerp(f[0], t2[0], mx), t2[1], lerp(f[2], t2[2], my)];
+      case "down":
+        return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
+    }
+  }
+  function voxelBounds(direction, faceBox, rawFrom, rawTo, mx0, mx1, my0, my1, standoff, depth) {
+    const a = facePoint(direction, faceBox, mx0, my0);
+    const b = facePoint(direction, faceBox, mx1, my1);
+    const minX = Math.min(a[0], b[0]);
+    const maxX = Math.max(a[0], b[0]);
+    const minY = Math.min(a[1], b[1]);
+    const maxY = Math.max(a[1], b[1]);
+    const minZ = Math.min(a[2], b[2]);
+    const maxZ = Math.max(a[2], b[2]);
+    switch (direction) {
+      case "north":
+        return { from: [minX, minY, rawFrom[2] - standoff - depth], to: [maxX, maxY, rawFrom[2] - standoff] };
+      case "south":
+        return { from: [minX, minY, rawTo[2] + standoff], to: [maxX, maxY, rawTo[2] + standoff + depth] };
+      case "east":
+        return { from: [rawTo[0] + standoff, minY, minZ], to: [rawTo[0] + standoff + depth, maxY, maxZ] };
+      case "west":
+        return { from: [rawFrom[0] - standoff - depth, minY, minZ], to: [rawFrom[0] - standoff, maxY, maxZ] };
+      case "up":
+        return { from: [minX, rawTo[1] + standoff, minZ], to: [maxX, rawTo[1] + standoff + depth, maxZ] };
+      case "down":
+        return { from: [minX, rawFrom[1] - standoff - depth, minZ], to: [maxX, rawFrom[1] - standoff, maxZ] };
+    }
+  }
+
+  // src/texture/pixelReader.ts
+  function textureScales(texture) {
+    const uvWidth = texture.uvWidth > 0 ? texture.uvWidth : texture.width;
+    const uvHeight = texture.uvHeight > 0 ? texture.uvHeight : texture.height;
+    return { sx: texture.width / uvWidth, sy: texture.height / uvHeight };
+  }
+  function getAlpha(texture, x, y) {
+    const index = (y * texture.width + x) * 4;
+    return texture.rgba[index + 3];
+  }
+  function faceGridSize(face, texture, warnings) {
+    const { sx, sy } = textureScales(texture);
+    const [u1, v1, u2, v2] = face.uv;
+    const texelsU = Math.abs(u2 - u1) * sx;
+    const texelsV = Math.abs(v2 - v1) * sy;
+    const roundedU = Math.round(texelsU);
+    const roundedV = Math.round(texelsV);
+    const maxU = texture.width / sx;
+    const maxV = texture.height / sy;
+    if (Math.min(u1, u2) < 0 || Math.min(v1, v2) < 0 || Math.max(u1, u2) > maxU || Math.max(v1, v2) > maxV) {
+      warnings.push(
+        `${face.direction}: UV rect ${face.uv.join(", ")} exceeds the texture bounds, sampled area clamped`
+      );
+    }
+    if (roundedU < 1 || roundedV < 1) {
+      warnings.push(
+        `${face.direction}: UV rect ${face.uv.join(", ")} spans no texels, face skipped`
+      );
+      return null;
+    }
+    if (Math.abs(texelsU - roundedU) > TEXEL_EPSILON || Math.abs(texelsV - roundedV) > TEXEL_EPSILON) {
+      warnings.push(
+        `${face.direction}: UV rect ${face.uv.join(", ")} spans non-integer texel counts (${texelsU} x ${texelsV}), face skipped`
+      );
+      return null;
+    }
+    const swapped = face.rotation === 90 || face.rotation === 270;
+    return {
+      cols: swapped ? roundedV : roundedU,
+      rows: swapped ? roundedU : roundedV,
+      texelsU: roundedU,
+      texelsV: roundedV
+    };
+  }
+  function clamp(value, min, max) {
+    return value < min ? min : value > max ? max : value;
+  }
+  function sampleCell(face, uv, texture, sx, sy, grid, col, row) {
+    const mx = (col + 0.5) / grid.cols;
+    const my = (row + 0.5) / grid.rows;
+    let pu;
+    let pv;
+    switch (face.rotation) {
+      case 90:
+        pu = my;
+        pv = 1 - mx;
+        break;
+      case 180:
+        pu = 1 - mx;
+        pv = 1 - my;
+        break;
+      case 270:
+        pu = 1 - my;
+        pv = mx;
+        break;
+      default:
+        pu = mx;
+        pv = my;
+    }
+    let u = uv[0] + (uv[2] - uv[0]) * pu;
+    let v = uv[1] + (uv[3] - uv[1]) * pv;
+    const maxU = texture.width / sx;
+    const maxV = texture.height / sy;
+    if (u < 0 || u > maxU || v < 0 || v > maxV) {
+      u = clamp(u, 0, Math.max(maxU - Number.EPSILON, 0));
+      v = clamp(v, 0, Math.max(maxV - Number.EPSILON, 0));
+    }
+    const imageX = clamp(Math.floor(u * sx), 0, texture.width - 1);
+    const imageY = clamp(Math.floor(v * sy), 0, texture.height - 1);
+    const pixelUV = [
+      imageX / sx,
+      imageY / sy,
+      (imageX + 1) / sx,
+      (imageY + 1) / sy
+    ];
+    return { imageX, imageY, pixelUV };
+  }
+  function enumerateVisibleTexels(face, texture, alphaThreshold, includeTransparent = false) {
+    const warnings = [];
+    const grid = faceGridSize(face, texture, warnings);
+    const cells = [];
+    if (!grid) {
+      return { cells, warnings };
+    }
+    const { sx, sy } = textureScales(texture);
+    for (let row = 0; row < grid.rows; row++) {
+      for (let col = 0; col < grid.cols; col++) {
+        const sample = sampleCell(face, face.uv, texture, sx, sy, grid, col, row);
+        const alpha = getAlpha(texture, sample.imageX, sample.imageY);
+        if (includeTransparent || alpha > alphaThreshold) {
+          cells.push({
+            direction: face.direction,
+            col,
+            row,
+            cols: grid.cols,
+            rows: grid.rows,
+            imageX: sample.imageX,
+            imageY: sample.imageY,
+            alpha,
+            pixelUV: sample.pixelUV
+          });
+        }
+      }
+    }
+    return { cells, warnings };
+  }
+
+  // src/geometry/voxelPlanner.ts
+  function countPlanVoxels(plans) {
+    return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
+  }
+  function directionEpsilon(direction) {
+    return FACE_DIRECTIONS.indexOf(direction) * FACE_EPSILON_STEP;
+  }
+  function snapshotFace(layer, direction) {
+    return layer.faces.find((face) => face.direction === direction);
+  }
+  function buildVoxelPlans(layers, textures, options) {
+    const warnings = [];
+    const plans = [];
+    layers.forEach((layer) => {
+      if (layer.to[0] <= layer.from[0] || layer.to[1] <= layer.from[1] || layer.to[2] <= layer.from[2]) {
+        warnings.push(`${layer.name}: cube has non-positive size, skipped`);
+        return;
+      }
+      const inflated = adjustedBox(layer.from, layer.to, layer.inflate, layer.stretch);
+      const voxels = [];
+      for (const direction of FACE_DIRECTIONS) {
+        const face = snapshotFace(layer, direction);
+        if (!face || !face.enabled) {
+          continue;
+        }
+        const texture = face.textureKey !== null ? textures.get(face.textureKey) : void 0;
+        if (!texture) {
+          warnings.push(`${layer.name}/${direction}: face has no usable texture, face skipped`);
+          continue;
+        }
+        const epsilon = directionEpsilon(direction);
+        const faceBox = {
+          from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
+          to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon]
+        };
+        const scan = enumerateVisibleTexels(
+          face,
+          texture,
+          options.alphaThreshold,
+          options.includeTransparent
+        );
+        warnings.push(...scan.warnings.map((warning) => `${layer.name}/${warning}`));
+        if (scan.cells.length === 0) {
+          continue;
+        }
+        const depth = layer.inflate + epsilon;
+        for (const cell of scan.cells) {
+          const bounds = voxelBounds(
+            direction,
+            faceBox,
+            layer.from,
+            layer.to,
+            cell.col / cell.cols,
+            (cell.col + 1) / cell.cols,
+            cell.row / cell.rows,
+            (cell.row + 1) / cell.rows,
+            VOXEL_STANDOFF,
+            depth
+          );
+          const pixelUV = [
+            cell.imageX / textureScales(texture).sx,
+            cell.imageY / textureScales(texture).sy,
+            (cell.imageX + 1) / textureScales(texture).sx,
+            (cell.imageY + 1) / textureScales(texture).sy
+          ];
+          voxels.push({
+            name: `px_${direction}_${cell.col}_${cell.row}`,
+            from: bounds.from,
+            to: bounds.to,
+            origin: [...layer.origin],
+            rotation: [...layer.rotation],
+            textureKey: face.textureKey,
+            pixelUV,
+            face: direction
+          });
+        }
+      }
+      const isEmpty = voxels.length === 0;
+      if (isEmpty && !options.replaceEmptyLayer) {
+        return;
+      }
+      plans.push({
+        sourceKey: layer.key,
+        sourceName: layer.name,
+        origin: [...layer.origin],
+        voxels,
+        visiblePixelCount: voxels.length,
+        visibility: layer.visibility,
+        source: layer
+      });
+    });
+    return { plans, warnings };
+  }
+
   // src/blockbench/modelRegenerator.ts
   function readRegenerationSource(group) {
     const metadata = group?.[GENERATED_SOURCE_PROPERTY];
@@ -501,15 +769,39 @@
     }
     return Group.all.some((group) => readRegenerationSource(group) !== void 0);
   }
+  function planRegenerations(sources, options) {
+    const snapshots = sources.map((source) => source.snapshot);
+    const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
+    const warnings = [...textureWarnings];
+    const readable = snapshots.filter((snapshot) => {
+      const missing = snapshot.faces.some(
+        (face) => face.enabled && (face.textureKey === null || !textures.has(face.textureKey))
+      );
+      if (missing) {
+        warnings.push(`${snapshot.name}: layer has an enabled face without a usable texture, regeneration skipped`);
+      }
+      return !missing;
+    });
+    const { plans, warnings: planWarnings } = buildVoxelPlans(
+      readable,
+      textures,
+      { ...options, replaceEmptyLayer: true }
+    );
+    warnings.push(...planWarnings);
+    return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
+  }
   function buildRegenerationTargets(sources, plans) {
     const planByKey = new Map(plans.map((plan) => [plan.sourceKey, plan]));
-    return sources.map((source) => {
+    return sources.flatMap((source) => {
       const plan = planByKey.get(source.snapshot.key);
-      return {
+      if (!plan) {
+        return [];
+      }
+      return [{
         group: source.group,
         oldChildren: [...source.group.children ?? []],
-        voxels: plan ? plan.voxels : []
-      };
+        voxels: plan.voxels
+      }];
     });
   }
   async function applyRegenerations(sources, plans, options, host) {
@@ -517,10 +809,10 @@
     if (voxelCount > options.maxVoxels) {
       throw new VoxelLimitError(voxelCount, options.maxVoxels);
     }
-    if (sources.length === 0) {
+    const targets = buildRegenerationTargets(sources, plans);
+    if (targets.length === 0) {
       return { replacedGroups: 0, removedCubes: 0, createdCubes: 0 };
     }
-    const targets = buildRegenerationTargets(sources, plans);
     const oldChildren = targets.flatMap((target) => [...target.oldChildren]);
     host.beginUndo({ sources: oldChildren, groups: [] });
     const created = [];
@@ -1133,274 +1425,6 @@ ${t("m3sl.dialog.warnings_header")}
     }).show();
   }
 
-  // src/geometry/faceMapper.ts
-  function adjustedBox(from, to, inflate, stretch) {
-    const inflatedFrom = [0, 0, 0];
-    const inflatedTo = [0, 0, 0];
-    for (let i = 0; i < 3; i++) {
-      const size = to[i] - from[i];
-      const center = from[i] + size / 2;
-      const half = (size / 2 + inflate) * stretch[i];
-      inflatedFrom[i] = center - half;
-      inflatedTo[i] = center + half;
-    }
-    return { from: inflatedFrom, to: inflatedTo };
-  }
-  function facePoint(direction, box, mx, my) {
-    const f = box.from;
-    const t2 = box.to;
-    const lerp = (a, b, k) => a + (b - a) * k;
-    switch (direction) {
-      case "north":
-        return [lerp(t2[0], f[0], mx), lerp(t2[1], f[1], my), f[2]];
-      case "south":
-        return [lerp(f[0], t2[0], mx), lerp(t2[1], f[1], my), t2[2]];
-      case "east":
-        return [t2[0], lerp(t2[1], f[1], my), lerp(t2[2], f[2], mx)];
-      case "west":
-        return [f[0], lerp(t2[1], f[1], my), lerp(f[2], t2[2], mx)];
-      case "up":
-        return [lerp(f[0], t2[0], mx), t2[1], lerp(f[2], t2[2], my)];
-      case "down":
-        return [lerp(f[0], t2[0], mx), f[1], lerp(t2[2], f[2], my)];
-    }
-  }
-  function voxelBounds(direction, faceBox, rawFrom, rawTo, mx0, mx1, my0, my1, standoff, depth) {
-    const a = facePoint(direction, faceBox, mx0, my0);
-    const b = facePoint(direction, faceBox, mx1, my1);
-    const minX = Math.min(a[0], b[0]);
-    const maxX = Math.max(a[0], b[0]);
-    const minY = Math.min(a[1], b[1]);
-    const maxY = Math.max(a[1], b[1]);
-    const minZ = Math.min(a[2], b[2]);
-    const maxZ = Math.max(a[2], b[2]);
-    switch (direction) {
-      case "north":
-        return { from: [minX, minY, rawFrom[2] - standoff - depth], to: [maxX, maxY, rawFrom[2] - standoff] };
-      case "south":
-        return { from: [minX, minY, rawTo[2] + standoff], to: [maxX, maxY, rawTo[2] + standoff + depth] };
-      case "east":
-        return { from: [rawTo[0] + standoff, minY, minZ], to: [rawTo[0] + standoff + depth, maxY, maxZ] };
-      case "west":
-        return { from: [rawFrom[0] - standoff - depth, minY, minZ], to: [rawFrom[0] - standoff, maxY, maxZ] };
-      case "up":
-        return { from: [minX, rawTo[1] + standoff, minZ], to: [maxX, rawTo[1] + standoff + depth, maxZ] };
-      case "down":
-        return { from: [minX, rawFrom[1] - standoff - depth, minZ], to: [maxX, rawFrom[1] - standoff, maxZ] };
-    }
-  }
-
-  // src/texture/pixelReader.ts
-  function textureScales(texture) {
-    const uvWidth = texture.uvWidth > 0 ? texture.uvWidth : texture.width;
-    const uvHeight = texture.uvHeight > 0 ? texture.uvHeight : texture.height;
-    return { sx: texture.width / uvWidth, sy: texture.height / uvHeight };
-  }
-  function getAlpha(texture, x, y) {
-    const index = (y * texture.width + x) * 4;
-    return texture.rgba[index + 3];
-  }
-  function faceGridSize(face, texture, warnings) {
-    const { sx, sy } = textureScales(texture);
-    const [u1, v1, u2, v2] = face.uv;
-    const texelsU = Math.abs(u2 - u1) * sx;
-    const texelsV = Math.abs(v2 - v1) * sy;
-    const roundedU = Math.round(texelsU);
-    const roundedV = Math.round(texelsV);
-    const maxU = texture.width / sx;
-    const maxV = texture.height / sy;
-    if (Math.min(u1, u2) < 0 || Math.min(v1, v2) < 0 || Math.max(u1, u2) > maxU || Math.max(v1, v2) > maxV) {
-      warnings.push(
-        `${face.direction}: UV rect ${face.uv.join(", ")} exceeds the texture bounds, sampled area clamped`
-      );
-    }
-    if (roundedU < 1 || roundedV < 1) {
-      warnings.push(
-        `${face.direction}: UV rect ${face.uv.join(", ")} spans no texels, face skipped`
-      );
-      return null;
-    }
-    if (Math.abs(texelsU - roundedU) > TEXEL_EPSILON || Math.abs(texelsV - roundedV) > TEXEL_EPSILON) {
-      warnings.push(
-        `${face.direction}: UV rect ${face.uv.join(", ")} spans non-integer texel counts (${texelsU} x ${texelsV}), face skipped`
-      );
-      return null;
-    }
-    const swapped = face.rotation === 90 || face.rotation === 270;
-    return {
-      cols: swapped ? roundedV : roundedU,
-      rows: swapped ? roundedU : roundedV,
-      texelsU: roundedU,
-      texelsV: roundedV
-    };
-  }
-  function clamp(value, min, max) {
-    return value < min ? min : value > max ? max : value;
-  }
-  function sampleCell(face, uv, texture, sx, sy, grid, col, row) {
-    const mx = (col + 0.5) / grid.cols;
-    const my = (row + 0.5) / grid.rows;
-    let pu;
-    let pv;
-    switch (face.rotation) {
-      case 90:
-        pu = my;
-        pv = 1 - mx;
-        break;
-      case 180:
-        pu = 1 - mx;
-        pv = 1 - my;
-        break;
-      case 270:
-        pu = 1 - my;
-        pv = mx;
-        break;
-      default:
-        pu = mx;
-        pv = my;
-    }
-    let u = uv[0] + (uv[2] - uv[0]) * pu;
-    let v = uv[1] + (uv[3] - uv[1]) * pv;
-    const maxU = texture.width / sx;
-    const maxV = texture.height / sy;
-    if (u < 0 || u > maxU || v < 0 || v > maxV) {
-      u = clamp(u, 0, Math.max(maxU - Number.EPSILON, 0));
-      v = clamp(v, 0, Math.max(maxV - Number.EPSILON, 0));
-    }
-    const imageX = clamp(Math.floor(u * sx), 0, texture.width - 1);
-    const imageY = clamp(Math.floor(v * sy), 0, texture.height - 1);
-    const pixelUV = [
-      imageX / sx,
-      imageY / sy,
-      (imageX + 1) / sx,
-      (imageY + 1) / sy
-    ];
-    return { imageX, imageY, pixelUV };
-  }
-  function enumerateVisibleTexels(face, texture, alphaThreshold, includeTransparent = false) {
-    const warnings = [];
-    const grid = faceGridSize(face, texture, warnings);
-    const cells = [];
-    if (!grid) {
-      return { cells, warnings };
-    }
-    const { sx, sy } = textureScales(texture);
-    for (let row = 0; row < grid.rows; row++) {
-      for (let col = 0; col < grid.cols; col++) {
-        const sample = sampleCell(face, face.uv, texture, sx, sy, grid, col, row);
-        const alpha = getAlpha(texture, sample.imageX, sample.imageY);
-        if (includeTransparent || alpha > alphaThreshold) {
-          cells.push({
-            direction: face.direction,
-            col,
-            row,
-            cols: grid.cols,
-            rows: grid.rows,
-            imageX: sample.imageX,
-            imageY: sample.imageY,
-            alpha,
-            pixelUV: sample.pixelUV
-          });
-        }
-      }
-    }
-    return { cells, warnings };
-  }
-
-  // src/geometry/voxelPlanner.ts
-  function countPlanVoxels(plans) {
-    return plans.reduce((sum, plan) => sum + plan.voxels.length, 0);
-  }
-  function directionEpsilon(direction) {
-    return FACE_DIRECTIONS.indexOf(direction) * FACE_EPSILON_STEP;
-  }
-  function snapshotFace(layer, direction) {
-    return layer.faces.find((face) => face.direction === direction);
-  }
-  function buildVoxelPlans(layers, textures, options) {
-    const warnings = [];
-    const plans = [];
-    layers.forEach((layer) => {
-      if (layer.to[0] <= layer.from[0] || layer.to[1] <= layer.from[1] || layer.to[2] <= layer.from[2]) {
-        warnings.push(`${layer.name}: cube has non-positive size, skipped`);
-        return;
-      }
-      const inflated = adjustedBox(layer.from, layer.to, layer.inflate, layer.stretch);
-      const voxels = [];
-      for (const direction of FACE_DIRECTIONS) {
-        const face = snapshotFace(layer, direction);
-        if (!face || !face.enabled) {
-          continue;
-        }
-        const texture = face.textureKey !== null ? textures.get(face.textureKey) : void 0;
-        if (!texture) {
-          warnings.push(`${layer.name}/${direction}: face has no usable texture, face skipped`);
-          continue;
-        }
-        const epsilon = directionEpsilon(direction);
-        const faceBox = {
-          from: [inflated.from[0] + epsilon, inflated.from[1] + epsilon, inflated.from[2] + epsilon],
-          to: [inflated.to[0] + epsilon, inflated.to[1] + epsilon, inflated.to[2] + epsilon]
-        };
-        const scan = enumerateVisibleTexels(
-          face,
-          texture,
-          options.alphaThreshold,
-          options.includeTransparent
-        );
-        warnings.push(...scan.warnings.map((warning) => `${layer.name}/${warning}`));
-        if (scan.cells.length === 0) {
-          continue;
-        }
-        const depth = layer.inflate + epsilon;
-        for (const cell of scan.cells) {
-          const bounds = voxelBounds(
-            direction,
-            faceBox,
-            layer.from,
-            layer.to,
-            cell.col / cell.cols,
-            (cell.col + 1) / cell.cols,
-            cell.row / cell.rows,
-            (cell.row + 1) / cell.rows,
-            VOXEL_STANDOFF,
-            depth
-          );
-          const pixelUV = [
-            cell.imageX / textureScales(texture).sx,
-            cell.imageY / textureScales(texture).sy,
-            (cell.imageX + 1) / textureScales(texture).sx,
-            (cell.imageY + 1) / textureScales(texture).sy
-          ];
-          voxels.push({
-            name: `px_${direction}_${cell.col}_${cell.row}`,
-            from: bounds.from,
-            to: bounds.to,
-            origin: [...layer.origin],
-            rotation: [...layer.rotation],
-            textureKey: face.textureKey,
-            pixelUV,
-            face: direction
-          });
-        }
-      }
-      const isEmpty = voxels.length === 0;
-      if (isEmpty && !options.replaceEmptyLayer) {
-        return;
-      }
-      plans.push({
-        sourceKey: layer.key,
-        sourceName: layer.name,
-        origin: [...layer.origin],
-        voxels,
-        visiblePixelCount: voxels.length,
-        visibility: layer.visibility,
-        source: layer
-      });
-    });
-    return { plans, warnings };
-  }
-
   // src/blockbench/modelWriter.ts
   async function applyPlans(plans, options, host, resolveSource) {
     const voxelCount = countPlanVoxels(plans);
@@ -1658,10 +1682,10 @@ ${t("m3sl.dialog.warnings_header")}
         throw new Error("The operation target project was closed before its changes could be rolled back.");
       }
       suppressAutoScanDuring(() => {
-        if (!targetProject.select() || Project.uuid !== targetProject.uuid) {
-          throw new Error("Blockbench could not restore the operation target project for rollback.");
-        }
         try {
+          if (!targetProject.select() || Project.uuid !== targetProject.uuid) {
+            throw new Error("Blockbench could not restore the operation target project for rollback.");
+          }
           cancelCapturedUndo(revertChanges);
         } finally {
           if (activeProject2 && ModelProject.all.includes(activeProject2)) {
@@ -2245,7 +2269,7 @@ ${t("m3sl.dialog.warnings_header")}
         if (!sources.length) {
           throw new SkinOperationError("NO_TARGETS", "No generated layers are available to regenerate.");
         }
-        let outcome = planFromSnapshots(sources.map((source) => source.snapshot), options);
+        let outcome = planRegenerations(sources, options);
         checkPlan(outcome, options);
         if (input.confirm) {
           const confirmed = await awaitOperationInput(input.confirm({
@@ -2259,7 +2283,7 @@ ${t("m3sl.dialog.warnings_header")}
             return makeResult("regenerate", lease, context, { status: "cancelled" });
           }
           options = normalizeConfirmed({ ...confirmed, includeTransparent: input.includeTransparent ?? confirmed.includeTransparent });
-          outcome = planFromSnapshots(sources.map((source) => source.snapshot), options);
+          outcome = planRegenerations(sources, options);
           checkPlan(outcome, options);
         }
         context.assertActive();
@@ -2533,8 +2557,8 @@ ${t("m3sl.dialog.warnings_header")}
       availableOperations: {
         generate: projectOpen && editMode && layerCount > 0,
         restore: projectOpen && editMode && restoreCount > 0,
-        regenerate: projectOpen && editMode && regenerateCount > 0,
-        clearTransparent: projectOpen && editMode && voxelCount > 0,
+        regenerate: projectOpen && regenerateCount > 0,
+        clearTransparent: projectOpen && voxelCount > 0,
         newSkin: isNewSkinFormatRegistered()
       }
     };
@@ -2582,6 +2606,7 @@ ${t("m3sl.dialog.warnings_header")}
     if (activeApi === api && activeDisposers.length === TOOL_NAMES.length) return;
     disposeCurrentRegistration();
     const z = api.z;
+    const projectCondition = (method) => ({ project: true, method });
     const projectEditCondition = (method) => ({ project: true, modes: ["edit"], method });
     const emptyParameters = z.object({}).strict();
     const generatorParameters = z.object({
@@ -2647,7 +2672,7 @@ ${t("m3sl.dialog.warnings_header")}
         name: TOOL_NAMES[3],
         description: "Rebuild existing generated voxel layers from their saved source geometry and current textures.",
         parameters: regenerateParameters,
-        condition: projectEditCondition(() => safelyAvailable(hasRegenerationTargets)),
+        condition: projectCondition(() => safelyAvailable(hasRegenerationTargets)),
         annotations: { title: "Regenerate 3D Skin Layers", destructiveHint: true, idempotentHint: false },
         plugin: PLUGIN_ID,
         execute: (args, context) => executeSafely(api, async () => skinOperations.regenerate({
@@ -2659,7 +2684,7 @@ ${t("m3sl.dialog.warnings_header")}
         name: TOOL_NAMES[4],
         description: "Remove generated voxel cubes whose referenced skin pixels are fully transparent.",
         parameters: emptyParameters,
-        condition: projectEditCondition(() => safelyAvailable(hasTransparentTargets)),
+        condition: projectCondition(() => safelyAvailable(hasTransparentTargets)),
         annotations: { title: "Clear Transparent Skin Voxels", destructiveHint: true, idempotentHint: true },
         plugin: PLUGIN_ID,
         execute: (_args, context) => executeSafely(api, async () => skinOperations.clearTransparent({
@@ -2700,25 +2725,33 @@ ${t("m3sl.dialog.warnings_header")}
     if (queueEntry) return;
     const entry = {
       plugin: PLUGIN_ID,
-      setup: setupTools
+      setup(api) {
+        if (queueEntry !== entry) return;
+        setupTools(api);
+      }
     };
     try {
       if (globalThis.MCP_QUEUE !== void 0 && !Array.isArray(globalThis.MCP_QUEUE)) {
         console.warn(`[${PLUGIN_ID}] MCP_QUEUE is not an array; skipping optional MCP registration.`);
         return;
       }
-      (globalThis.MCP_QUEUE ?? (globalThis.MCP_QUEUE = [])).push(entry);
       queueEntry = entry;
+      (globalThis.MCP_QUEUE ?? (globalThis.MCP_QUEUE = [])).push(entry);
     } catch (error) {
+      if (queueEntry === entry) {
+        queueEntry = void 0;
+        disposeCurrentRegistration();
+      }
       console.warn(`[${PLUGIN_ID}] Could not queue optional MCP tools; the regular plugin UI remains available.`, error);
     }
   }
   function unregisterMcpTools() {
-    disposeCurrentRegistration();
-    if (!globalThis.MCP && queueEntry && Array.isArray(globalThis.MCP_QUEUE)) {
-      globalThis.MCP_QUEUE = globalThis.MCP_QUEUE.filter((entry) => entry !== queueEntry);
-    }
+    const entry = queueEntry;
     queueEntry = void 0;
+    disposeCurrentRegistration();
+    if (!globalThis.MCP && entry && Array.isArray(globalThis.MCP_QUEUE)) {
+      globalThis.MCP_QUEUE = globalThis.MCP_QUEUE.filter((candidate) => candidate !== entry);
+    }
   }
 
   // src/plugin.ts
