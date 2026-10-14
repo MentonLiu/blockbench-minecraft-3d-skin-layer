@@ -21,6 +21,7 @@ import { t } from './i18n';
 import { registerTranslations } from './i18n';
 import { skinOperations } from './operations/skinOperations';
 import type { SkinOperationResult } from './operations/skinOperations';
+import { registerMcpTools, unregisterMcpTools } from './mcp/registerTools';
 
 export type { ScanOutcome } from './generate';
 
@@ -208,9 +209,11 @@ export function registerPlugin(): void {
   MenuBar.addMenu(skinMenu, 'file');
   registerNewSkinFormat();
   listeners = [onProjectEvent('load_project', onProjectLoaded())];
+  registerMcpTools();
 }
 
 export function unregisterPlugin(): void {
+  unregisterMcpTools();
   skinOperations.coordinator.cancelActive('Plugin disabled');
   for (const listener of listeners) listener.dispose();
   listeners = [];

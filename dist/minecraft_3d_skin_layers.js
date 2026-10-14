@@ -2384,6 +2384,26 @@ ${t("m3sl.dialog.warnings_header")}
       new Promise((resolve) => setTimeout(resolve, timeoutMs))
     ]);
   }
+  function isNewSkinFormatRegistered() {
+    return registeredFormat !== void 0;
+  }
+  function createSkinTemplateProject(skinType, template, size) {
+    if (!registeredFormat) {
+      throw new Error("The 3D skin project format is not registered.");
+    }
+    const { model, projectName } = buildTemplateModel(skinType, template, size);
+    suppressAutoScanDuring(() => {
+      if (!newProject(registeredFormat)) {
+        throw new Error("Blockbench could not create the template project");
+      }
+      const parse = Codecs.project.parse;
+      if (typeof parse !== "function") {
+        throw new Error("Blockbench project codec cannot parse models");
+      }
+      parse.call(Codecs.project, model, "");
+    });
+    return { projectName };
+  }
   async function createSkinProject(skinType, template, size, name, identifier) {
     if (!registeredFormat) return;
     try {
@@ -2393,20 +2413,7 @@ ${t("m3sl.dialog.warnings_header")}
         size,
         name,
         identifier,
-        createTemplateProject() {
-          const { model, projectName } = buildTemplateModel(skinType, template, size);
-          suppressAutoScanDuring(() => {
-            if (!newProject(registeredFormat)) {
-              throw new Error("Blockbench could not create the template project");
-            }
-            const parse = Codecs.project.parse;
-            if (typeof parse !== "function") {
-              throw new Error("Blockbench project codec cannot parse models");
-            }
-            parse.call(Codecs.project, model, "");
-          });
-          return { projectName };
-        },
+        createTemplateProject: () => createSkinTemplateProject(skinType, template, size),
         waitForTextures: () => waitForProjectTextures()
       });
       if (result.status === "template_retained") {
@@ -2455,6 +2462,263 @@ ${t("m3sl.dialog.warnings_header")}
       registeredFormat.delete();
     }
     registeredFormat = void 0;
+  }
+
+  // src/mcp/registerTools.ts
+  var TOOL_NAMES = [
+    `${PLUGIN_ID}_inspect`,
+    `${PLUGIN_ID}_generate`,
+    `${PLUGIN_ID}_restore`,
+    `${PLUGIN_ID}_regenerate`,
+    `${PLUGIN_ID}_clear_transparent`,
+    `${PLUGIN_ID}_new_skin`
+  ];
+  var queueEntry;
+  var activeApi;
+  var activeDisposers = [];
+  function isSupportedVersion(version) {
+    const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(version);
+    if (!match) return false;
+    const [, majorText, minorText, patchText, prerelease] = match;
+    const major = Number(majorText);
+    const minor = Number(minorText);
+    const patch = Number(patchText);
+    if (major !== 1 || prerelease) return false;
+    return minor > 10 || minor === 10 && patch >= 0;
+  }
+  function isCompatibleApi(api) {
+    return isSupportedVersion(api.version) && typeof api.z?.object === "function" && typeof api.z?.enum === "function" && typeof api.z?.boolean === "function" && typeof api.z?.string === "function" && typeof api.z?.literal === "function" && typeof api.z?.union === "function" && typeof api.registerTool === "function" && typeof api.createJsonResult === "function" && typeof api.listTools === "function";
+  }
+  function safelyAvailable(check) {
+    try {
+      return check();
+    } catch {
+      return false;
+    }
+  }
+  function hasLayers() {
+    return hasOpenProject() && collectLayerSnapshots(resolveGeneratorOptions({})).length > 0;
+  }
+  function hasRestoreTargets() {
+    return hasOpenProject() && collectRestoreCandidates().length > 0;
+  }
+  function hasRegenerationTargets() {
+    return hasOpenProject() && collectRegenerationSources().length > 0;
+  }
+  function hasTransparentTargets() {
+    return hasOpenProject() && collectVoxelPixelRefs().length > 0;
+  }
+  function inspectProject() {
+    const projectOpen = hasOpenProject();
+    const project = projectOpen && typeof Project !== "undefined" ? Project : void 0;
+    const layerCount = projectOpen ? collectLayerSnapshots(resolveGeneratorOptions({})).length : 0;
+    const restoreCount = projectOpen ? collectRestoreCandidates().length : 0;
+    const regenerateCount = projectOpen ? collectRegenerationSources().length : 0;
+    const voxelCount = projectOpen ? collectVoxelPixelRefs().length : 0;
+    const editMode = isEditMode();
+    return {
+      projectId: project && typeof project.uuid === "string" ? project.uuid : null,
+      projectName: project && typeof project.name === "string" ? project.name : null,
+      projectOpen,
+      mode: editMode ? "edit" : "other",
+      layerCount,
+      generatedGroupCount: restoreCount,
+      regeneratableGroupCount: regenerateCount,
+      generatedVoxelCount: voxelCount,
+      limits: {
+        alphaThreshold: DEFAULT_OPTIONS.alphaThreshold,
+        maxVoxels: DEFAULT_OPTIONS.maxVoxels,
+        batchSize: DEFAULT_OPTIONS.batchSize
+      },
+      availableOperations: {
+        generate: projectOpen && editMode && layerCount > 0,
+        restore: projectOpen && editMode && restoreCount > 0,
+        regenerate: projectOpen && editMode && regenerateCount > 0,
+        clearTransparent: projectOpen && editMode && voxelCount > 0,
+        newSkin: isNewSkinFormatRegistered()
+      }
+    };
+  }
+  function jsonResult(api, value, isError = false) {
+    const result = api.createJsonResult(value);
+    return isError ? { ...result, isError: true } : result;
+  }
+  function errorResult(api, error) {
+    const normalized = toSkinOperationError(error);
+    return jsonResult(api, {
+      ok: false,
+      error: {
+        code: normalized.code,
+        message: normalized.message,
+        ...normalized.details ? { details: normalized.details } : {}
+      }
+    }, true);
+  }
+  async function executeSafely(api, operation) {
+    try {
+      const result = await operation();
+      return jsonResult(api, { ok: true, result });
+    } catch (error) {
+      return errorResult(api, error);
+    }
+  }
+  function disposeCurrentRegistration() {
+    for (const dispose of activeDisposers.splice(0)) {
+      try {
+        dispose();
+      } catch (error) {
+        console.warn(`[${PLUGIN_ID}] Could not dispose an MCP tool registration.`, error);
+      }
+    }
+    activeApi = void 0;
+  }
+  function setupTools(api) {
+    if (!isCompatibleApi(api)) {
+      console.warn(
+        `[${PLUGIN_ID}] MCP tools require Blockbench MCP v1.10.0 or later in the 1.x series; found ${api.version}.`
+      );
+      return;
+    }
+    if (activeApi === api && activeDisposers.length === TOOL_NAMES.length) return;
+    disposeCurrentRegistration();
+    const z = api.z;
+    const projectEditCondition = (method) => ({ project: true, modes: ["edit"], method });
+    const emptyParameters = z.object({}).strict();
+    const generatorParameters = z.object({
+      targetModel: z.enum(["current", "copy"]).default("current").describe("Modify the open project, or duplicate it first."),
+      preserveOriginal: z.boolean().default(false).describe("Keep the original layer cubes hidden instead of replacing them."),
+      replaceEmptyLayer: z.boolean().default(false).describe("Replace fully transparent source layers with empty generated groups."),
+      processSelectedOnly: z.boolean().default(false).describe("Process only selected layer cubes.")
+    }).strict();
+    const restoreParameters = z.object({
+      targetModel: z.enum(["current", "copy"]).default("current").describe("Restore in the open project, or duplicate it first.")
+    }).strict();
+    const regenerateParameters = z.object({
+      includeTransparent: z.boolean().default(false).describe("Generate cubes for transparent texels too.")
+    }).strict();
+    const newSkinParameters = z.object({
+      skinType: z.enum(["steve", "alex"]).default("steve").describe("Minecraft player skin arm type."),
+      template: z.enum(["root", "classic", "joint"]).default("root").describe("The embedded model template."),
+      size: z.union([z.literal(64), z.literal(128)]).default(64).describe("Skin texture size in pixels."),
+      name: z.string().trim().min(1).max(128).optional().describe("Optional Blockbench project name."),
+      identifier: z.string().trim().min(1).max(128).optional().describe("Optional model identifier.")
+    }).strict();
+    const registered2 = [];
+    try {
+      registered2.push(api.registerTool({
+        name: TOOL_NAMES[0],
+        description: "Inspect the current Blockbench project and report Minecraft 3D skin layer counts, fixed generation limits, and available operations.",
+        parameters: emptyParameters,
+        annotations: { title: "Inspect 3D Skin Layers", readOnlyHint: true, idempotentHint: true },
+        plugin: PLUGIN_ID,
+        execute: () => {
+          try {
+            return jsonResult(api, { ok: true, result: inspectProject() });
+          } catch (error) {
+            return errorResult(api, error);
+          }
+        }
+      }));
+      registered2.push(api.registerTool({
+        name: TOOL_NAMES[1],
+        description: "Convert matching Minecraft skin layer cubes into per-pixel voxel cubes without opening a dialog.",
+        parameters: generatorParameters,
+        condition: projectEditCondition(() => safelyAvailable(hasLayers)),
+        annotations: { title: "Generate 3D Skin Layers", destructiveHint: true, idempotentHint: false },
+        plugin: PLUGIN_ID,
+        execute: (args, context) => executeSafely(api, async () => skinOperations.generate({
+          options: args,
+          signal: context.signal
+        }))
+      }));
+      registered2.push(api.registerTool({
+        name: TOOL_NAMES[2],
+        description: "Restore generated voxel layers to their original layer cubes without opening a dialog.",
+        parameters: restoreParameters,
+        condition: projectEditCondition(() => safelyAvailable(hasRestoreTargets)),
+        annotations: { title: "Restore 3D Skin Layers", destructiveHint: true, idempotentHint: false },
+        plugin: PLUGIN_ID,
+        execute: (args, context) => executeSafely(api, async () => skinOperations.restore({
+          options: args,
+          signal: context.signal
+        }))
+      }));
+      registered2.push(api.registerTool({
+        name: TOOL_NAMES[3],
+        description: "Rebuild existing generated voxel layers from their saved source geometry and current textures.",
+        parameters: regenerateParameters,
+        condition: projectEditCondition(() => safelyAvailable(hasRegenerationTargets)),
+        annotations: { title: "Regenerate 3D Skin Layers", destructiveHint: true, idempotentHint: false },
+        plugin: PLUGIN_ID,
+        execute: (args, context) => executeSafely(api, async () => skinOperations.regenerate({
+          includeTransparent: args.includeTransparent,
+          signal: context.signal
+        }))
+      }));
+      registered2.push(api.registerTool({
+        name: TOOL_NAMES[4],
+        description: "Remove generated voxel cubes whose referenced skin pixels are fully transparent.",
+        parameters: emptyParameters,
+        condition: projectEditCondition(() => safelyAvailable(hasTransparentTargets)),
+        annotations: { title: "Clear Transparent Skin Voxels", destructiveHint: true, idempotentHint: true },
+        plugin: PLUGIN_ID,
+        execute: (_args, context) => executeSafely(api, async () => skinOperations.clearTransparent({
+          signal: context.signal
+        }))
+      }));
+      registered2.push(api.registerTool({
+        name: TOOL_NAMES[5],
+        description: "Create and voxelize a complete Steve or Alex 3D skin project from an embedded template.",
+        parameters: newSkinParameters,
+        condition: () => isNewSkinFormatRegistered(),
+        annotations: { title: "Create a 3D Skin Project", destructiveHint: false, idempotentHint: false },
+        plugin: PLUGIN_ID,
+        execute: (args, context) => executeSafely(api, async () => skinOperations.newSkin({
+          skinType: args.skinType,
+          template: args.template,
+          size: args.size,
+          name: args.name,
+          identifier: args.identifier,
+          signal: context.signal,
+          createTemplateProject: () => createSkinTemplateProject(args.skinType, args.template, args.size),
+          waitForTextures: waitForProjectTextures
+        }))
+      }));
+    } catch (error) {
+      for (const dispose of registered2.reverse()) {
+        try {
+          dispose();
+        } catch {
+        }
+      }
+      throw error;
+    }
+    activeApi = api;
+    activeDisposers = registered2;
+  }
+  function registerMcpTools() {
+    if (queueEntry) return;
+    const entry = {
+      plugin: PLUGIN_ID,
+      setup: setupTools
+    };
+    try {
+      if (globalThis.MCP_QUEUE !== void 0 && !Array.isArray(globalThis.MCP_QUEUE)) {
+        console.warn(`[${PLUGIN_ID}] MCP_QUEUE is not an array; skipping optional MCP registration.`);
+        return;
+      }
+      (globalThis.MCP_QUEUE ?? (globalThis.MCP_QUEUE = [])).push(entry);
+      queueEntry = entry;
+    } catch (error) {
+      console.warn(`[${PLUGIN_ID}] Could not queue optional MCP tools; the regular plugin UI remains available.`, error);
+    }
+  }
+  function unregisterMcpTools() {
+    disposeCurrentRegistration();
+    if (!globalThis.MCP && queueEntry && Array.isArray(globalThis.MCP_QUEUE)) {
+      globalThis.MCP_QUEUE = globalThis.MCP_QUEUE.filter((entry) => entry !== queueEntry);
+    }
+    queueEntry = void 0;
   }
 
   // src/plugin.ts
@@ -2624,8 +2888,10 @@ ${t("m3sl.dialog.warnings_header")}
     MenuBar.addMenu(skinMenu, "file");
     registerNewSkinFormat();
     listeners = [onProjectEvent("load_project", onProjectLoaded())];
+    registerMcpTools();
   }
   function unregisterPlugin() {
+    unregisterMcpTools();
     skinOperations.coordinator.cancelActive("Plugin disabled");
     for (const listener of listeners) listener.dispose();
     listeners = [];
