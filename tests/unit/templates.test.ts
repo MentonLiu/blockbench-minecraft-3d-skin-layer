@@ -3,14 +3,24 @@ import {
   buildTemplateModel,
   parseOptionalText,
   parseSkinSize,
+  parseSkinType,
   parseTemplateId,
   SKIN_SIZES,
+  SKIN_TYPES,
   TEMPLATE_IDS,
   TEMPLATE_UV_SIZE,
 } from '../../src/newSkin/templates';
 import { NEW_SKIN_FORMAT_ID, TEMP_TEXTURE_DATA_URLS } from '../../src/assets/embedded';
 
-describe('parseSkinSize / parseTemplateId', () => {
+describe('parseSkinType / parseSkinSize / parseTemplateId', () => {
+  it('accepts Steve and Alex and defaults invalid types to Steve', () => {
+    expect(SKIN_TYPES).toEqual(['steve', 'alex']);
+    expect(parseSkinType('steve')).toBe('steve');
+    expect(parseSkinType('alex')).toBe('alex');
+    expect(parseSkinType(undefined)).toBe('steve');
+    expect(parseSkinType('classic')).toBe('steve');
+  });
+
   it('accepts numeric and string dialog values for size', () => {
     expect(parseSkinSize(64)).toBe(64);
     expect(parseSkinSize(128)).toBe(128);
@@ -26,12 +36,13 @@ describe('parseSkinSize / parseTemplateId', () => {
     expect(parseSkinSize('temp-128')).toBe(64);
   });
 
-  it('accepts template ids as strings and falls back to classic', () => {
+  it('accepts template ids and defaults to root', () => {
+    expect(TEMPLATE_IDS).toEqual(['root', 'classic', 'joint']);
     expect(parseTemplateId('classic')).toBe('classic');
     expect(parseTemplateId('root')).toBe('root');
     expect(parseTemplateId('joint')).toBe('joint');
-    expect(parseTemplateId(undefined)).toBe('classic');
-    expect(parseTemplateId('nope')).toBe('classic');
+    expect(parseTemplateId(undefined)).toBe('root');
+    expect(parseTemplateId('nope')).toBe('root');
   });
 
   it('does not mis-detect dialog string sizes via number-array includes', () => {
@@ -65,12 +76,12 @@ describe('parseOptionalText', () => {
 
 describe('buildTemplateModel', () => {
   it('exposes the three templates and two sizes', () => {
-    expect(TEMPLATE_IDS).toEqual(['classic', 'root', 'joint']);
+    expect(TEMPLATE_IDS).toEqual(['root', 'classic', 'joint']);
     expect(SKIN_SIZES).toEqual([64, 128]);
   });
 
-  it('deep-copies the template and injects the 64px temp texture', () => {
-    const { model, projectName } = buildTemplateModel('root', 64);
+  it('deep-copies the default Steve template and injects the matching texture', () => {
+    const { model, projectName } = buildTemplateModel('steve', 'root', 64);
     const meta = model.meta as Record<string, unknown>;
     // meta 指向本插件格式，parse 不会把项目切回 free
     // meta points at the plugin format, so parse never falls back to free
@@ -78,7 +89,7 @@ describe('buildTemplateModel', () => {
     const textures = model.textures as Array<Record<string, unknown>>;
     expect(textures).toHaveLength(1);
     expect(textures[0].source).toMatch(/^data:image\/png;base64,/);
-    expect(textures[0].name).toBe('temp-64.png');
+    expect(textures[0].name).toBe('steve-64.png');
     expect(textures[0].width).toBe(64);
     expect(textures[0].height).toBe(64);
     expect(textures[0].internal).toBe(true);
@@ -88,11 +99,11 @@ describe('buildTemplateModel', () => {
   });
 
   it('injects the 128px temp texture while the UV space stays 64', () => {
-    const small = buildTemplateModel('joint', 64);
-    const large = buildTemplateModel('joint', 128);
+    const small = buildTemplateModel('steve', 'joint', 64);
+    const large = buildTemplateModel('steve', 'joint', 128);
     const smallTexture = (small.model.textures as Array<Record<string, unknown>>)[0];
     const largeTexture = (large.model.textures as Array<Record<string, unknown>>)[0];
-    expect(largeTexture.name).toBe('temp-128.png');
+    expect(largeTexture.name).toBe('steve-128.png');
     expect(largeTexture.width).toBe(128);
     expect(largeTexture.height).toBe(128);
     expect(largeTexture.uv_width).toBe(64);
@@ -100,18 +111,18 @@ describe('buildTemplateModel', () => {
     // 两个尺寸使用不同的 temp 纹理
     // the two sizes use different temp textures
     expect(largeTexture.source).not.toBe(smallTexture.source);
-    expect(largeTexture.source).toBe(TEMP_TEXTURE_DATA_URLS[128]);
-    expect(smallTexture.source).toBe(TEMP_TEXTURE_DATA_URLS[64]);
+    expect(largeTexture.source).toBe(TEMP_TEXTURE_DATA_URLS.steve[128]);
+    expect(smallTexture.source).toBe(TEMP_TEXTURE_DATA_URLS.steve[64]);
     expect(large.projectName).toBe('temp-128');
   });
 
   it('injects the 128px texture when the size arrives as a dialog string', () => {
     // 新建向导 Dialog 回传 "128"，必须仍然命中 128 纹理而不是 temp-64
     // The wizard Dialog returns "128"; that must still hit the 128 texture, not temp-64.
-    const { model, projectName } = buildTemplateModel('classic', '128' as never);
+    const { model, projectName } = buildTemplateModel('alex', 'classic', '128' as never);
     const texture = (model.textures as Array<Record<string, unknown>>)[0];
-    expect(texture.source).toBe(TEMP_TEXTURE_DATA_URLS[128]);
-    expect(texture.name).toBe('temp-128.png');
+    expect(texture.source).toBe(TEMP_TEXTURE_DATA_URLS.alex[128]);
+    expect(texture.name).toBe('alex-128.png');
     expect(texture.width).toBe(128);
     expect(texture.height).toBe(128);
     expect(texture.uv_width).toBe(64);
@@ -119,8 +130,8 @@ describe('buildTemplateModel', () => {
   });
 
   it('returns independent copies on every call', () => {
-    const a = buildTemplateModel('classic', 64);
-    const b = buildTemplateModel('classic', 64);
+    const a = buildTemplateModel('steve', 'classic', 64);
+    const b = buildTemplateModel('steve', 'classic', 64);
     expect(a.model).not.toBe(b.model);
     const textureA = (a.model.textures as Array<Record<string, unknown>>)[0];
     textureA.width = 999;
@@ -129,7 +140,8 @@ describe('buildTemplateModel', () => {
   });
 
   it('rejects unknown templates and sizes', () => {
-    expect(() => buildTemplateModel('nope' as never, 64)).toThrow('Unknown template');
-    expect(() => buildTemplateModel('classic', 96 as never)).toThrow('No temp skin texture');
+    expect(() => buildTemplateModel('steve', 'nope' as never, 64)).toThrow('Unknown template');
+    expect(() => buildTemplateModel('steve', 'classic', 96 as never)).toThrow('No temp skin texture');
+    expect(() => buildTemplateModel('invalid' as never, 'root', 64)).toThrow('Unknown template');
   });
 });

@@ -1,9 +1,10 @@
 import { PLUGIN_ID } from '../domain/constants';
 import { t } from '../i18n';
-import type { TemplateId, SkinSize } from './templates';
-import { parseOptionalText, parseSkinSize, parseTemplateId } from './templates';
+import type { SkinType, TemplateId, SkinSize } from './templates';
+import { parseOptionalText, parseSkinSize, parseSkinType, parseTemplateId } from './templates';
 
 export interface NewSkinWizardSelection {
+  skinType: SkinType;
   template: TemplateId;
   size: SkinSize;
   /** 可选项目名，留空保持默认 temp-<尺寸> / Optional project name; empty keeps temp-<size>. */
@@ -13,9 +14,9 @@ export interface NewSkinWizardSelection {
 }
 
 /**
- * 新建 3D 皮肤向导：选择模板模型与皮肤纹理尺寸；
+ * 新建 3D 皮肤向导：选择 Steve/Alex、模板模型与皮肤纹理尺寸；
  * 模型名称与标识符可自由填写，也可留空。
- * New 3D skin wizard: pick a template model and the skin texture size;
+ * New 3D skin wizard: pick Steve/Alex, a template model and skin texture size;
  * model name and identifier are free-form and may be left empty.
  */
 export function showNewSkinDialog(
@@ -28,13 +29,22 @@ export function showNewSkinDialog(
     width: 512,
     form: {
       intro: { type: 'info', text: t('m3sl.wizard.intro') },
+      skinType: {
+        label: t('m3sl.wizard.skin_type'),
+        type: 'select',
+        value: 'steve',
+        options: {
+          steve: t('m3sl.wizard.skin_type.steve'),
+          alex: t('m3sl.wizard.skin_type.alex'),
+        },
+      },
       template: {
         label: t('m3sl.wizard.template'),
         type: 'select',
-        value: 'classic',
+        value: 'root',
         options: {
-          classic: t('m3sl.wizard.template.classic'),
           root: t('m3sl.wizard.template.root'),
+          classic: t('m3sl.wizard.template.classic'),
           joint: t('m3sl.wizard.template.joint'),
         },
       },
@@ -65,6 +75,7 @@ export function showNewSkinDialog(
       // Dialog 回传可能是 "128"/"classic" 等字符串；统一走 parse*，避免 includes 数字数组失败
       // Dialog results may be strings ("128"/"classic"); always parse instead of includes() on number arrays.
       onConfirm({
+        skinType: parseSkinType(raw.skinType),
         template: parseTemplateId(raw.template),
         size: parseSkinSize(raw.size),
         name: parseOptionalText(raw.name),

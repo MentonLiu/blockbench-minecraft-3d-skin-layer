@@ -33,7 +33,7 @@ The **3D Skin Model** menu appears in the menu bar (next to **File**) whenever a
 ## Quick start A — paint a new skin (recommended)
 
 1. Open the start screen or **File > New > 3D Skin Model**.
-2. In the wizard pick a **template** (Classic / Root-wrapped / Jointed segments) and a **texture size** (64 or 128). Optionally type a **model name** and/or **model identifier** — both can be left empty (an empty name keeps the template default, an empty identifier stays unset; both are editable later under File > Project). The matching texture is loaded into the template and *every* pixel — transparent ones included — becomes a cube, so you can paint anywhere right away.
+2. In the wizard pick a **skin type** (Steve or Alex; Steve is the default), a **template** (Default model, Blockbench classic or Joint model; Default model is preselected) and a **texture size** (64 or 128). Optionally type a **model name** and/or **model identifier** — both can be left empty (an empty name keeps the `temp-<size>` project name, an empty identifier stays unset; both are editable later under File > Project). The matching skin texture is loaded into the template and *every* pixel — transparent ones included — becomes a cube, so you can paint anywhere right away.
 3. Paint your skin (Paint mode works; the texture behaves like a normal skin).
 4. Clean up as you go:
    - **Clear Transparent Cubes** deletes voxels on pixels that are still transparent.
@@ -115,7 +115,7 @@ npm run test:watch # vitest watch mode
 - `docs/UV_MAPPING.md` — the exact UV/geometry math (ported from Blockbench)
 - `docs/TEST_PLAN.md` — test matrix and manual acceptance steps
 
-Golden fixtures (characterized, covered by integration tests): `skin_model.bbmodel` — 880 visible cubes; `skins_model_root.bbmodel` — 618 visible / 1632 full pixels; `skins_model_root_joint.bbmodel` — 680 visible / 1792 full pixels.
+Legacy compatibility fixtures (covered by integration tests): `skin_model.bbmodel` — 880 visible cubes; `skins_model_root.bbmodel` — 618 visible / 1632 full pixels; `skins_model_root_joint.bbmodel` — 680 visible / 1792 full pixels. Current Steve/Alex templates and their updated joint goldens are listed in `docs/TEMPLATE_ASSETS.md`.
 
 ### Contributing
 

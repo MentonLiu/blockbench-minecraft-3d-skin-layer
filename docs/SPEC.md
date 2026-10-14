@@ -175,21 +175,22 @@ copy     duplicate the project into a new tab, then run against the copy
 
 ```
 Entry points   start screen card + File > New (custom ModelFormat.new)
-Wizard         template (classic / root / joint) + skin texture size (64 / 128)
+Wizard         skin type (Steve / Alex) + template (root / classic / joint) + size (64 / 128)
 Creation       newProject -> Codecs.project.parse(embedded template) ->
-               inject temp-64.png / temp-128.png as the texture data URL
+               inject [steve|alex]-[64|128].png as the matching texture data URL
                (UV space stays 64; 128 = 2x texel density) ->
                wait for texture img.onload -> voxelize with
                includeTransparent: true -> created groups forced visible
 ```
 
 - The embedded templates carry NO texture source; the plugin injects the
-  matching temp texture per chosen size. Template meta points at the plugin
+  matching skin type and size texture. Template meta points at the plugin
   format so parse never falls back to `free`.
 - All pixels become cubes, transparent ones included (paint-then-cleanup
   workflow); preflight maxVoxels still applies and leaves the bare template
   untouched when exceeded.
-- Project name after creation: `temp-64` / `temp-128`.
+- Default template selection is `root` (Default model); skin type defaults to
+  Steve. Project name after creation remains `temp-64` / `temp-128`.
 
 ## Clear transparent cubes (top-level menu "3D Skin Model")
 
