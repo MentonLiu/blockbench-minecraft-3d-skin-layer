@@ -30,9 +30,13 @@ function resolveCubeByKey(key: string): Cube | undefined {
 }
 
 /** 在当前活动项目上应用计划 / Applies the plans against the active project. */
-export async function applyOutcome(outcome: ScanOutcome, options: GeneratorOptions): Promise<GenerationResult> {
+export async function applyOutcome(
+  outcome: ScanOutcome,
+  options: GeneratorOptions,
+  host: WriterHost = blockbenchHost,
+  resolveSource: (key: string) => unknown | undefined = resolveCubeByKey,
+): Promise<GenerationResult> {
   const started = performance.now();
-  const host: WriterHost = blockbenchHost;
   const summary = await applyPlans(
     outcome.plans,
     {
@@ -41,7 +45,7 @@ export async function applyOutcome(outcome: ScanOutcome, options: GeneratorOptio
       preserveOriginal: options.preserveOriginal,
     },
     host,
-    key => resolveCubeByKey(key),
+    resolveSource,
   );
   return {
     createdCubes: summary.createdCubes,

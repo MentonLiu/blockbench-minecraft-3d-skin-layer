@@ -63,6 +63,8 @@ export const en = {
   'm3sl.toast.no_layers': 'No "* Layer" cubes found - model left unchanged',
   'm3sl.toast.no_restorable_groups': 'No generated 3D skin layer groups found - model left unchanged',
   'm3sl.toast.busy': 'A generation run is already in progress',
+  'm3sl.toast.operation_stopped': 'Operation stopped because the active project changed or the plugin was disabled',
+  'm3sl.toast.template_retained': 'The new template project was created and kept without voxel generation.',
   'm3sl.toast.limit':
     'Aborted: run needs %0 cubes, exceeding the fixed maximum of %1.',
   'm3sl.toast.edit_mode': 'Switch to Edit mode to generate 3D skin layers',
@@ -138,6 +140,8 @@ export const zh: Partial<Record<TranslationKey, string>> = {
   'm3sl.toast.no_layers': '未找到 "* Layer" 立方体 —— 模型未做任何修改',
   'm3sl.toast.no_restorable_groups': '未找到可还原的 3D 皮肤层组 —— 模型未做任何修改',
   'm3sl.toast.busy': '已有一次生成正在进行中',
+  'm3sl.toast.operation_stopped': '活动项目已切换或插件已停用，操作已停止',
+  'm3sl.toast.template_retained': '已创建并保留未体素化的新模板项目。',
   'm3sl.toast.limit': '已中止：本次需要 %0 个方块，超出固定上限 %1。',
   'm3sl.toast.edit_mode': '请先切换到编辑模式再生成 3D 皮肤层',
   'm3sl.toast.open_project': '请先打开一个项目',

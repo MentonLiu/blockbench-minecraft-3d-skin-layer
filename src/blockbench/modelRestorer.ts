@@ -16,6 +16,7 @@ export interface RestoreHost {
   beginUndo(aspects: UndoAspects): void;
   finishUndo(label: string, aspects: CommitAspects): void;
   cancelUndo(revertChanges: boolean): void;
+  rollback?(created: readonly unknown[], groups: readonly unknown[], revertChanges: boolean): void;
   createCubeFromSnapshot(snapshot: LayerSnapshot): unknown;
   initElement(element: unknown): void;
   adopt(element: unknown, parent: unknown | null): void;
@@ -58,10 +59,10 @@ export function applyRestores(
         host.setVisibility(candidate.existingSource, candidate.source.visibility);
       } else {
         const cube = host.createCubeFromSnapshot(candidate.source);
+        restored.push(cube);
         host.initElement(cube);
         host.adopt(cube, parent);
         host.placeBefore(cube, candidate.group);
-        restored.push(cube);
       }
       removedVoxels += candidate.children.length;
       host.remove(candidate.group);
@@ -75,7 +76,11 @@ export function applyRestores(
       removedVoxels,
     };
   } catch (error) {
-    host.cancelUndo(true);
+    if (host.rollback) {
+      host.rollback(restored, [], true);
+    } else {
+      host.cancelUndo(true);
+    }
     throw error;
   }
 }

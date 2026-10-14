@@ -157,6 +157,7 @@ describe('applyRegenerations', () => {
     // 回滚后：旧子方块回到分组，分组仍在大纲上
     // after rollback: old children back in the group, group still in the outliner
     expect(runtime.cancelCount).toBe(1);
+    expect(runtime.rollbackCount).toBe(1);
     expect(runtime.root).toContain(group);
     expect(group.children).toHaveLength(2);
     expect(group.children[0].name).toBe('px_north_0_0');

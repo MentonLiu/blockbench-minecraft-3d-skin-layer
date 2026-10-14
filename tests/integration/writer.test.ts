@@ -186,6 +186,7 @@ describe('applyPlans against the mock outliner', () => {
       applyPlans(plans, { ...DEFAULT_OPTIONS }, runtime, key => runtime.registry.get(key)),
     ).rejects.toThrow('simulated cube creation failure');
     expect(runtime.cancelCount).toBe(1);
+    expect(runtime.rollbackCount).toBe(1);
     expect(runtime.snapshot()).toEqual(before);
   });
 
