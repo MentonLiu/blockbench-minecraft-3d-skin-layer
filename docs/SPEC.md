@@ -218,6 +218,26 @@ Apply       one undo transaction: groups kept (poses untouched),
 - Missing textures skip their layer with a warning.
 - Idempotent: same texture -> same cubes.
 
+## Blockbench MCP integration
+
+The optional Desktop integration uses the public Blockbench MCP plugin extension
+API (minimum v1.10.0 in the 1.x series). It registers through the plugin-owned
+`MCP_QUEUE` entry and does not start a second MCP server or bundle Zod.
+
+Six strict tools are exposed: inspect, generate, restore, regenerate, clear
+transparent cubes, and create a new skin. Generation parameters expose only
+supported user choices; `alphaThreshold`, `maxVoxels`, and `batchSize` remain
+fixed at `0`, `10_000`, and `200`. New skins default to Steve / root / 64.
+
+Read and write tools return JSON results. Failures include a stable operation
+error code; write calls await the shared operation service and forward the MCP
+request's abort signal. UI, automatic, new-skin, and MCP writes use the same
+operation lock. The upstream `runUndoableEdit` helper is synchronous, so these
+asynchronous operations keep the service's verified full-lifecycle Undo
+transaction and rollback. Missing or incompatible MCP APIs skip registration;
+plugin unload disposes owned tools and pending queue entries. Web and PWA use
+the regular UI without MCP.
+
 ## Acceptance (reference model, alphaThreshold 0)
 
 ```

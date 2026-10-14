@@ -30,6 +30,8 @@ A Blockbench plugin that turns Minecraft skins into true 3D voxel models: every 
 
 The **3D Skin Model** menu appears in the menu bar (next to **File**) whenever a project is open.
 
+On Blockbench Desktop, the optional [Blockbench MCP](docs/MCP.md) integration exposes these operations to MCP clients. The plugin still works normally when MCP is not installed.
+
 ## Quick start A — paint a new skin (recommended)
 
 1. Open the start screen or **File > New > 3D Skin Model**.

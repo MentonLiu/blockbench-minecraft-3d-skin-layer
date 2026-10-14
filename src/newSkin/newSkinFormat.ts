@@ -30,6 +30,36 @@ export async function waitForProjectTextures(timeoutMs = 10_000): Promise<void> 
   ]);
 }
 
+/** Whether the template format is available for the UI wizard and MCP tool. */
+export function isNewSkinFormatRegistered(): boolean {
+  return registeredFormat !== undefined;
+}
+
+/** Creates and parses one embedded template without opening the UI wizard. */
+export function createSkinTemplateProject(
+  skinType: SkinType,
+  template: TemplateId,
+  size: SkinSize,
+): { projectName: string } {
+  if (!registeredFormat) {
+    throw new Error('The 3D skin project format is not registered.');
+  }
+  const { model, projectName } = buildTemplateModel(skinType, template, size);
+  // Project creation and parsing can emit load_project. The owning operation
+  // already holds the shared lease, so automatic generation must stay idle.
+  suppressAutoScanDuring(() => {
+    if (!newProject(registeredFormat as ModelFormat)) {
+      throw new Error('Blockbench could not create the template project');
+    }
+    const parse = Codecs.project.parse;
+    if (typeof parse !== 'function') {
+      throw new Error('Blockbench project codec cannot parse models');
+    }
+    parse.call(Codecs.project, model, '');
+  });
+  return { projectName };
+}
+
 /** UI adapter for creating a new skin; the shared operation owns the write lease. */
 export async function createSkinProject(
   skinType: SkinType,
@@ -46,22 +76,7 @@ export async function createSkinProject(
       size,
       name,
       identifier,
-      createTemplateProject() {
-        const { model, projectName } = buildTemplateModel(skinType, template, size);
-        // Both creation and parsing can emit load_project; keep the shared lease from
-        // triggering the automatic generator while the template is being prepared.
-        suppressAutoScanDuring(() => {
-          if (!newProject(registeredFormat as ModelFormat)) {
-            throw new Error('Blockbench could not create the template project');
-          }
-          const parse = Codecs.project.parse;
-          if (typeof parse !== 'function') {
-            throw new Error('Blockbench project codec cannot parse models');
-          }
-          parse.call(Codecs.project, model, '');
-        });
-        return { projectName };
-      },
+      createTemplateProject: () => createSkinTemplateProject(skinType, template, size),
       waitForTextures: () => waitForProjectTextures(),
     });
     if (result.status === 'template_retained') {

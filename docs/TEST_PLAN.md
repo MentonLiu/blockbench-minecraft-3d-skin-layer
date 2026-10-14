@@ -37,6 +37,7 @@ exercised through the `WriterHost` mock; the final acceptance is loading
 | Reference model golden | 6 layer cubes; Hat 168, Body 168, Arms 136, Legs 136; **total 880**; per-face counts; pixel UV spans exactly one image pixel; hat voxels on inflated surfaces; inset leg geometry; hidden visibility inherited |
 | Writer on mock outliner | same-name group replaces the cube at the same parent/sibling slot; 168 voxels in the hat group; base cubes untouched; visibility/origin inherited; single undo transaction; undo/redo restore both states; maxVoxels aborts pre-mutation; mid-run failure reverts via cancelUndo; 5 UI yields at batchSize 200; targeted updateView calls; preserveOriginal hides; second scan finds no layer cubes (idempotent) |
 | 2x resolution | 128px image / 64 UV -> head front 16x16; reversed top-face UV still correct; pixelUV spans 0.5 UV units; voxel faces 0.5625 model units |
+| MCP tool registration | Six tools register through the owned queue entry; schemas reject unknown keys and fixed engineering parameters; results and stable errors are JSON; MCP reload and plugin unload dispose/re-register tools; request AbortSignal reaches the shared service |
 
 ## Manual acceptance in Blockbench (per release)
 
@@ -48,3 +49,21 @@ exercised through the `WriterHost` mock; the final acceptance is loading
 4. Running the action again reports "No * Layer cubes found".
 5. Confirm the dialog has no Alpha, maximum-cube or batch-size fields. Alpha 1 and 128 pixels remain eligible; alpha 0 pixels are skipped. A plan above 10,000 cubes reports the required count and fixed limit before model geometry changes.
 6. depthMode `pixel` -> voxels visibly protrude by ~1 unit on a 64px skin.
+
+## MCP acceptance (Blockbench Desktop)
+
+1. Install Blockbench MCP v1.10.0 (or a compatible later 1.x release) and this
+   plugin. Confirm `tools/list` includes the six `minecraft_3d_skin_layers_*`
+   tools and that availability follows project, mode, and target state.
+2. Call `inspect`, then generate / restore / regenerate / clear against a
+   disposable project. Confirm calls need no plugin dialog, report actual counts,
+   create one Undo step, and preserve the existing UI preferences.
+3. Call `new_skin` without arguments; confirm Steve / root / 64 is created.
+   Try an unknown key and each fixed numeric parameter; the server must reject
+   them before any project mutation.
+4. While a write is active, start another plugin operation and expect `BUSY`.
+   Cancel a long-running request and switch projects during a write; verify
+   rollback, no partial nodes, and lock release.
+5. Reload each plugin and verify tools re-register once; unload this plugin and
+   verify its tools and pending queue entry disappear. With MCP absent, confirm
+   the regular UI still loads on Desktop, Web, and PWA.
