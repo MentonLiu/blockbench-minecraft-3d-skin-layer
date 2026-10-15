@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_OPTIONS } from '../../src/domain/constants';
 import { buildVoxelPlans, countPlanVoxels } from '../../src/geometry/voxelPlanner';
@@ -11,10 +12,10 @@ const combinations = (['steve', 'alex'] as const).flatMap(skinType =>
 );
 
 const JOINT_GOLDENS: Record<string, { visible: number; full: number }> = {
-  'steve/64': { visible: 720, full: 1920 },
-  'steve/128': { visible: 4622, full: 7680 },
-  'alex/64': { visible: 754, full: 1840 },
-  'alex/128': { visible: 3310, full: 7360 },
+  'steve/64': { visible: 622, full: 1848 },
+  'steve/128': { visible: 3999, full: 7392 },
+  'alex/64': { visible: 648, full: 1744 },
+  'alex/128': { visible: 2762, full: 6976 },
 };
 
 function loadTemplate(skinType: SkinType, template: TemplateId, size: SkinSize) {
@@ -85,19 +86,14 @@ describe('Steve/Alex embedded skin templates', () => {
       ...model.raw.groups.map(group => group.uuid),
     ]).size).toBe(model.raw.elements.length + model.raw.groups.length);
     expect(layer.uuid).not.toBe(base.uuid);
-    expect(layer.from).toEqual(base.from);
-    expect(layer.to).toEqual(base.to);
-    expect(layer.origin).toEqual(base.origin);
+    // Authored shells may use independent bounds and cap UVs; preserve the asset.
+    const source = JSON.parse(readFileSync(new URL(
+      `../../assets/templates/${skinType}/joint.bbmodel`, import.meta.url,
+    ), 'utf8'));
+    const authoredLayer = source.elements.find((element: { name: string }) => element.name === 'Right Arm Layer2');
+    expect(layer).toEqual(authoredLayer);
     expect(layer.box_uv).toBe(false);
     expect(layer.inflate).toBe(0.25);
-    expect(layer.visibility).toBe(false);
-    expect(layer.uv_offset).toEqual([base.uv_offset![0], base.uv_offset![1] + 16]);
-    for (const direction of ['north', 'east', 'south', 'west', 'up', 'down']) {
-      const baseUv = base.faces[direction].uv;
-      expect(layer.faces[direction].uv).toEqual([
-        baseUv[0], baseUv[1] + 16, baseUv[2], baseUv[3] + 16,
-      ]);
-    }
     expect(outlinerNode.children).toEqual([base.uuid, layer.uuid]);
     expect(model.raw.animations).toHaveLength(1);
     expect(model.raw.animations![0].animators![armGroup.uuid]).toBeDefined();

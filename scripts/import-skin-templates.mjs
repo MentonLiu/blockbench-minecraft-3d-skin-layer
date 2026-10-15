@@ -30,7 +30,9 @@ for (const skinType of ['steve', 'alex']) {
 for (const entry of sourceTemplates) {
   const inputPath = join(sourceRoot, entry.source);
   const model = JSON.parse(readFileSync(inputPath, 'utf8'));
-  if (entry.addOuter) addRightArmLayer2(model, entry.skinType, entry.source);
+  if (entry.addOuter && !model.elements?.some(element => element.name === 'Right Arm Layer2')) {
+    addRightArmLayer2(model, entry.skinType, entry.source);
+  }
   model.meta = model.meta ?? {};
   model.meta.model_format = formatId;
   prepareTemplateForEmbedding(model);
