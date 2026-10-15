@@ -69,6 +69,7 @@ Both dialogs offer a **Use a new model project** checkbox at the bottom: check i
 
 - Re-scans the current texture and rebuilds every generated group in place. Groups (and anything you posed on them) are kept; only the voxel cubes are replaced. Use it after repainting instead of undoing.
 - The dialog has an **Include transparent pixels** checkbox to voxelize every grid cell.
+- Layers with missing or unreadable textures are kept unchanged and reported as warnings.
 
 ### Restore 3D Skin Layers
 
@@ -99,7 +100,7 @@ User-adjustable options are remembered across sessions. Alpha threshold is fixed
 
 ## Limitations & roadmap
 
-- Works in the desktop app and in the web app / PWA on mobile; voxelizing a full skin (hundreds to ~1600 cubes) is noticeably slower on phone hardware.
+- Works in the desktop app and in the web app / PWA on mobile; a full embedded 128px template can create up to 7,680 voxel cubes and is noticeably slower on phone hardware.
 - Hairline seams can appear at extreme grazing angles along layer edges.
 - Regeneration requires plugin-generated groups (metadata); legacy groups from before 0.3.1 support restore only.
 - No greedy merging by design: one pixel = one cube is the contract.
