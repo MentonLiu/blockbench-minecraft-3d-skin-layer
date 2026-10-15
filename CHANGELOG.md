@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.5.1] - 2026-10-15
+
+### Fixed
+
+- Refresh Steve and Alex joint templates with the supplied model detail and
+  per-face UV adjustments, preserving authored outer-layer geometry and pivots.
+- Import joint templates that already contain `Right Arm Layer2` without adding
+  a duplicate; older templates still receive the missing outer layer.
+- Update embedded resources and 64/128px voxel-count regression baselines.
+
+### Known limitation
+
+- The supplied Alex template still places `Right Arm Layer2` at Y=18–24 while
+  the corresponding base forearm is at Y=12–18. This release preserves the
+  supplied asset; it does not claim to correct that alignment.
+
 ## [0.5.0] - 2026-10-15
 
 Stable release of the 0.5 preview cycle. Includes the Web and mobile/PWA support
