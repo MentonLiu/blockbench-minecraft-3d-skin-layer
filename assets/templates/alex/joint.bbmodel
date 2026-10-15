@@ -284,7 +284,7 @@
     },
     {
       "name": "Body Layer1",
-      "box_uv": true,
+      "box_uv": false,
       "render_order": "default",
       "locked": false,
       "export": true,
@@ -302,7 +302,6 @@
       ],
       "autouv": 0,
       "color": 0,
-      "visibility": false,
       "inflate": 0.25,
       "origin": [
         0,
@@ -319,7 +318,7 @@
             20,
             36,
             28,
-            48
+            44
           ],
           "texture": 0
         },
@@ -328,7 +327,7 @@
             16,
             36,
             20,
-            48
+            44
           ],
           "texture": 0
         },
@@ -337,7 +336,7 @@
             32,
             36,
             40,
-            48
+            44
           ],
           "texture": 0
         },
@@ -346,7 +345,7 @@
             28,
             36,
             32,
-            48
+            44
           ],
           "texture": 0
         },
@@ -361,10 +360,10 @@
         },
         "down": {
           "uv": [
-            36,
             32,
-            28,
-            36
+            0,
+            24,
+            4
           ],
           "texture": 0
         }
@@ -374,7 +373,7 @@
     },
     {
       "name": "Right Arm Layer1",
-      "box_uv": true,
+      "box_uv": false,
       "render_order": "default",
       "locked": false,
       "export": true,
@@ -450,10 +449,10 @@
         },
         "down": {
           "uv": [
-            50,
-            32,
-            47,
-            36
+            27,
+            0,
+            24,
+            4
           ],
           "texture": 0
         }
@@ -551,7 +550,7 @@
     },
     {
       "name": "Left Arm Layer",
-      "box_uv": true,
+      "box_uv": false,
       "render_order": "default",
       "locked": false,
       "export": true,
@@ -627,10 +626,10 @@
         },
         "down": {
           "uv": [
-            58,
-            48,
-            55,
-            52
+            3,
+            0,
+            0,
+            4
           ],
           "texture": 0
         }
@@ -728,7 +727,7 @@
     },
     {
       "name": "Right Leg Layer1",
-      "box_uv": true,
+      "box_uv": false,
       "render_order": "default",
       "locked": false,
       "export": true,
@@ -804,10 +803,10 @@
         },
         "down": {
           "uv": [
-            12,
-            32,
-            8,
-            36
+            28,
+            0,
+            24,
+            4
           ],
           "texture": 0
         }
@@ -905,7 +904,7 @@
     },
     {
       "name": "Left Leg Layer1",
-      "box_uv": true,
+      "box_uv": false,
       "render_order": "default",
       "locked": false,
       "export": true,
@@ -981,10 +980,10 @@
         },
         "down": {
           "uv": [
-            12,
-            48,
-            8,
-            52
+            4,
+            0,
+            0,
+            4
           ],
           "texture": 0
         }
@@ -1257,96 +1256,6 @@
       "uuid": "43be4fe2-4031-8bea-5fed-1f40691681ea"
     },
     {
-      "name": "Right Arm Layer2",
-      "box_uv": false,
-      "render_order": "default",
-      "locked": false,
-      "export": true,
-      "scope": 0,
-      "allow_mirror_modeling": true,
-      "from": [
-        4,
-        12,
-        -2
-      ],
-      "to": [
-        7,
-        18,
-        2
-      ],
-      "autouv": 0,
-      "color": 0,
-      "origin": [
-        0,
-        -6,
-        0
-      ],
-      "uv_offset": [
-        40,
-        38
-      ],
-      "faces": {
-        "north": {
-          "uv": [
-            44,
-            42,
-            47,
-            48
-          ],
-          "texture": 0
-        },
-        "east": {
-          "uv": [
-            40,
-            42,
-            44,
-            48
-          ],
-          "texture": 0
-        },
-        "south": {
-          "uv": [
-            51,
-            42,
-            54,
-            48
-          ],
-          "texture": 0
-        },
-        "west": {
-          "uv": [
-            47,
-            42,
-            51,
-            48
-          ],
-          "texture": 0
-        },
-        "up": {
-          "uv": [
-            47,
-            36,
-            44,
-            32
-          ],
-          "texture": 0
-        },
-        "down": {
-          "uv": [
-            50,
-            32,
-            47,
-            36
-          ],
-          "texture": 0
-        }
-      },
-      "type": "cube",
-      "uuid": "68cc45ad-e3ef-40a8-ac14-e5a4958db509",
-      "visibility": false,
-      "inflate": 0.25
-    },
-    {
       "name": "Left Arm2",
       "box_uv": false,
       "render_order": "default",
@@ -1511,10 +1420,10 @@
         },
         "down": {
           "uv": [
-            28,
             32,
-            20,
-            36
+            0,
+            24,
+            4
           ],
           "texture": 0
         }
@@ -1591,10 +1500,10 @@
         },
         "up": {
           "uv": [
-            55,
-            52,
-            52,
-            48
+            3,
+            4,
+            0,
+            0
           ],
           "texture": 0
         },
@@ -1768,18 +1677,18 @@
         },
         "up": {
           "uv": [
-            11,
-            36,
-            7,
-            32
+            4,
+            4,
+            0,
+            0
           ],
           "texture": 0
         },
         "down": {
           "uv": [
-            11,
+            12,
             32,
-            7,
+            8,
             36
           ],
           "texture": 0
@@ -1945,18 +1854,18 @@
         },
         "up": {
           "uv": [
-            11,
-            52,
-            7,
-            48
+            4,
+            4,
+            0,
+            0
           ],
           "texture": 0
         },
         "down": {
           "uv": [
-            11,
+            12,
             48,
-            7,
+            8,
             52
           ],
           "texture": 0
@@ -1964,6 +1873,95 @@
       },
       "type": "cube",
       "uuid": "a5f7bbdf-ebc1-f81c-48c3-c6f8a2fce36c"
+    },
+    {
+      "name": "Right Arm Layer2",
+      "box_uv": false,
+      "render_order": "default",
+      "locked": false,
+      "export": true,
+      "scope": 0,
+      "allow_mirror_modeling": true,
+      "from": [
+        4,
+        18,
+        -2
+      ],
+      "to": [
+        7,
+        24,
+        2
+      ],
+      "autouv": 0,
+      "color": 0,
+      "inflate": 0.25,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "uv_offset": [
+        40,
+        38
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            44,
+            42,
+            47,
+            48
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            40,
+            42,
+            44,
+            48
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            51,
+            42,
+            54,
+            48
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            47,
+            42,
+            51,
+            48
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            3,
+            4,
+            0,
+            0
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            50,
+            32,
+            47,
+            36
+          ],
+          "texture": 0
+        }
+      },
+      "type": "cube",
+      "uuid": "0f1d1a89-9c97-9755-695b-5a519096fe8e"
     }
   ],
   "groups": [
@@ -2023,7 +2021,7 @@
       "shade": true,
       "mirror_uv": false,
       "autouv": 0,
-      "isOpen": false
+      "isOpen": true
     },
     {
       "name": "Body",
@@ -2052,7 +2050,7 @@
       "shade": true,
       "mirror_uv": false,
       "autouv": 0,
-      "isOpen": false
+      "isOpen": true
     },
     {
       "name": "Right Arm",
@@ -2488,35 +2486,6 @@
       "mirror_uv": false,
       "autouv": 0,
       "isOpen": true
-    },
-    {
-      "name": "group",
-      "uuid": "7ef13f09-0217-0d18-6de3-dc090d4d6132",
-      "export": true,
-      "locked": false,
-      "scope": 0,
-      "visibility": true,
-      "_static": {
-        "properties": {},
-        "temp_data": {}
-      },
-      "origin": [
-        0,
-        12,
-        0
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "color": 0,
-      "children": [],
-      "reset": false,
-      "shade": true,
-      "mirror_uv": false,
-      "autouv": 0,
-      "isOpen": true
     }
   ],
   "outliner": [
@@ -2530,7 +2499,7 @@
           "children": [
             {
               "uuid": "bd1dd13e-30c7-92c2-5a14-293e01b0de33",
-              "isOpen": false,
+              "isOpen": true,
               "children": [
                 "02509d8d-5e85-a913-eac6-229cc02e6d94",
                 "413f5c34-ee39-552c-6d3b-61ac97a27182"
@@ -2538,7 +2507,7 @@
             },
             {
               "uuid": "8fc16d45-9fba-4034-37e9-2f46c2292e19",
-              "isOpen": false,
+              "isOpen": true,
               "children": [
                 {
                   "uuid": "f7782bd2-92b5-dbc0-1153-4f01c7bf1ec5",
@@ -2575,7 +2544,7 @@
                   "isOpen": true,
                   "children": [
                     "43be4fe2-4031-8bea-5fed-1f40691681ea",
-                    "68cc45ad-e3ef-40a8-ac14-e5a4958db509"
+                    "0f1d1a89-9c97-9755-695b-5a519096fe8e"
                   ]
                 }
               ]
@@ -2647,11 +2616,6 @@
               ]
             }
           ]
-        },
-        {
-          "uuid": "7ef13f09-0217-0d18-6de3-dc090d4d6132",
-          "isOpen": true,
-          "children": []
         }
       ]
     }
@@ -2968,12 +2932,6 @@
         },
         "dbad7ac0-a112-a028-7707-b01fa886e5ca": {
           "name": "Right Leg1",
-          "type": "bone",
-          "rotation_global": false,
-          "quaternion_interpolation": false
-        },
-        "7ef13f09-0217-0d18-6de3-dc090d4d6132": {
-          "name": "group",
           "type": "bone",
           "rotation_global": false,
           "quaternion_interpolation": false
