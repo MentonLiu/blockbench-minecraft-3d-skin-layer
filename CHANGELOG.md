@@ -4,6 +4,40 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com) and the
 versioning follows [SemVer 2.0.0](https://semver.org).
 
+## [0.5.0] - 2026-10-15
+
+Stable release of the 0.5 preview cycle. Includes the Web and mobile/PWA support
+introduced in `0.5.0-pre`; existing preview releases remain available unchanged.
+
+### Added
+
+- Steve and Alex skin types, each with Default, Blockbench classic and Joint
+  templates, matching 64/128px textures, and complete right forearm outer layers
+  in both joint templates. The default is Steve / Default model / 64px.
+- Six optional Desktop MCP tools for inspect, generate, restore, regenerate,
+  clear-transparent and new-skin operations. Requires Blockbench MCP 1.10.0 or
+  a compatible later 1.x release; normal UI use needs no MCP plugin.
+- A shared operation service with structured results, a single write lock,
+  request cancellation and project-bound rollback for UI and MCP operations.
+
+### Changed
+
+- Alpha threshold, maximum voxel count and batch size are fixed at 0 / 10,000 /
+  200. Their controls are removed; old numeric settings migrate while the other
+  user preferences are preserved. Oversized plans stop before voxel writes;
+  new-skin runs retain the bare template.
+
+### Fixed
+
+- Regeneration preserves a whole layer when an enabled face texture is missing
+  or unreadable, while readable fully transparent layers still clear old cubes
+  when transparent pixels are excluded.
+- Stale MCP setup callbacks cannot revive tools after unload; partial
+  registration is cleaned up and retryable. Paint-mode regeneration and
+  transparent cleanup availability matches the regular UI.
+- Undo cancellation restores the previous active project even when selecting
+  the operation target fails. Failed or cancelled writes leave no partial voxels.
+
 ## [0.5.0-pre] - 2026-10-05
 
 ### Added
