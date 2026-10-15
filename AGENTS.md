@@ -20,6 +20,9 @@ calculating versions, creating tags or publishing this project.
   do not rebuild past branch topology or renumber released versions.
 - A development commit does not automatically bump the version. Prepare versions
   once per selected change set; release an existing tag without another bump.
+- During release preparation, synchronize version fields already present in
+  `package.json`, `package-lock.json` (root and `packages[""].version`), and `src/index.ts`.
+  Do not add absent lockfile version fields merely for a version bump.
 - Build releases from their exact tag. Do not overwrite versioned export files
   or release assets under an existing version.
 - The remote `v0.2.1` conflicts with the local tag. Do not force-fetch tags,

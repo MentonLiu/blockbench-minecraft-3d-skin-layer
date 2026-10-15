@@ -75,7 +75,8 @@ git merge --no-ff feature/describe-the-change
    功能、修复和普通文档提交已经在开发分支完成，main 不临时补做这些开发。
    旧版维护在对应维护线上定版。
    执行验证，更新 `package.json`、`src/index.ts` 中插件版本及 CHANGELOG。
-   当前锁文件没有根版本字段，不为同步版本凭空新增字段。
+   锁文件按实际已有字段同步版本：当前为顶层 `version` 与 `packages[""].version`。
+   不为没有相应版本字段的锁文件凭空新增字段。
 4. 从最终源码构建并核实 dist、插件元数据和必要的版本化导出，提交全部版本准备内容，
    再在该最终提交上创建 annotated Tag。已有工具或签名要求优先。
 5. Tag 创建后保持不变。普通准备提交不等于 Release；维护者选择已有 Tag 分发。
