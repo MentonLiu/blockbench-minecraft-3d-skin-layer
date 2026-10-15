@@ -43,6 +43,7 @@ export class MockRuntime implements WriterHost {
   beginCount = 0;
   finishCount = 0;
   cancelCount = 0;
+  rollbackCount = 0;
   yieldCount = 0;
   createdCubes = 0;
   createdGroups = 0;
@@ -220,6 +221,17 @@ export class MockRuntime implements WriterHost {
       this.restore(this.currentBefore, null, this.root);
     }
     this.currentBefore = null;
+  }
+
+  rollback(created: readonly unknown[], groups: readonly unknown[], revertChanges: boolean): void {
+    this.rollbackCount++;
+    for (const node of [...created].reverse()) {
+      this.remove(node);
+    }
+    for (const group of [...groups].reverse()) {
+      this.remove(group);
+    }
+    this.cancelUndo(revertChanges);
   }
 
   undo(): void {

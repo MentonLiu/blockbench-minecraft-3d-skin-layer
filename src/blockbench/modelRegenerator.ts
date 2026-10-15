@@ -1,6 +1,8 @@
 import { GENERATED_SOURCE_PROPERTY } from '../domain/constants';
 import { VoxelLimitError } from '../domain/types';
-import type { GeneratedLayerMetadata, LayerPlan, LayerSnapshot, VoxelSpec } from '../domain/types';
+import type { GeneratedLayerMetadata, GeneratorOptions, LayerPlan, LayerSnapshot, VoxelSpec } from '../domain/types';
+import { buildVoxelPlans, countPlanVoxels } from '../geometry/voxelPlanner';
+import { buildTextureMap } from './compatibility';
 import type { WriterHost } from './modelWriter';
 
 export interface RegenerationSource {
@@ -60,24 +62,58 @@ export function hasRegeneratableGroups(): boolean {
 }
 
 /**
- * 重建体素的替换目标：按快照 key 把计划映射回分组。没有对应计划的分组
- * （可见模式下全透明的层）也会清空子方块，留下空分组。
+ * 重新生成只替换纹理全部读取成功的层；全透明层保留显式空计划，以便清理旧体素。
+ * Regeneration replaces a layer only when all of its enabled faces have usable
+ * textures. Explicit empty plans distinguish fully transparent layers from
+ * layers skipped because their texture is missing or unreadable.
+ */
+export function planRegenerations(
+  sources: readonly RegenerationSource[],
+  options: GeneratorOptions,
+) {
+  const snapshots = sources.map(source => source.snapshot);
+  const { textures, warnings: textureWarnings } = buildTextureMap(snapshots);
+  const warnings = [...textureWarnings];
+  const readable = snapshots.filter(snapshot => {
+    const missing = snapshot.faces.some(face =>
+      face.enabled && (face.textureKey === null || !textures.has(face.textureKey)),
+    );
+    if (missing) {
+      warnings.push(`${snapshot.name}: layer has an enabled face without a usable texture, regeneration skipped`);
+    }
+    return !missing;
+  });
+  const { plans, warnings: planWarnings } = buildVoxelPlans(
+    readable,
+    textures,
+    { ...options, replaceEmptyLayer: true },
+  );
+  warnings.push(...planWarnings);
+  return { snapshots, plans, warnings, voxelCount: countPlanVoxels(plans) };
+}
+
+/**
+ * 重建体素的替换目标：按快照 key 把计划映射回分组。无计划的分组保留；
+ * 只有显式空计划才清空旧子方块。
  * Replacement targets for regeneration: plans are mapped back onto groups by
- * snapshot key. Groups without a plan (fully transparent layers in visible
- * mode) are emptied too, leaving an empty group.
+ * snapshot key. Groups without a plan are kept; only explicit empty plans
+ * remove all old children without creating new cubes.
  */
 export function buildRegenerationTargets(
   sources: readonly RegenerationSource[],
   plans: readonly LayerPlan[],
 ): RegenerationTarget[] {
   const planByKey = new Map(plans.map(plan => [plan.sourceKey, plan]));
-  return sources.map(source => {
+  return sources.flatMap(source => {
     const plan = planByKey.get(source.snapshot.key);
-    return {
+    if (!plan) {
+      return [];
+    }
+    return [{
       group: source.group,
       oldChildren: [...((source.group as { children?: unknown[] }).children ?? [])],
-      voxels: plan ? plan.voxels : [],
-    };
+      voxels: plan.voxels,
+    }];
   });
 }
 
@@ -101,11 +137,11 @@ export async function applyRegenerations(
   if (voxelCount > options.maxVoxels) {
     throw new VoxelLimitError(voxelCount, options.maxVoxels);
   }
-  if (sources.length === 0) {
+  const targets = buildRegenerationTargets(sources, plans);
+  if (targets.length === 0) {
     return { replacedGroups: 0, removedCubes: 0, createdCubes: 0 };
   }
 
-  const targets = buildRegenerationTargets(sources, plans);
   const oldChildren = targets.flatMap(target => [...target.oldChildren]);
 
   host.beginUndo({ sources: oldChildren, groups: [] });
@@ -118,9 +154,9 @@ export async function applyRegenerations(
       }
       for (const spec of target.voxels) {
         const cube = host.createCube(spec);
+        created.push(cube);
         host.initElement(cube);
         host.adopt(cube, target.group);
-        created.push(cube);
         if (++batch >= options.batchSize) {
           batch = 0;
           await host.yieldToUI();
@@ -137,7 +173,11 @@ export async function applyRegenerations(
       createdCubes: created.length,
     };
   } catch (error) {
-    host.cancelUndo(true);
+    if (host.rollback) {
+      host.rollback(created, [], true);
+    } else {
+      host.cancelUndo(true);
+    }
     throw error;
   }
 }

@@ -23,12 +23,14 @@ exercised through the `WriterHost` mock; the final acceptance is loading
 | Texture scale | 64/64 -> 1; 128 image / 64 UV -> 2 |
 | Grid size | head front 8x8; 16x16 at 2x; rotation 90/270 swap; non-integer span rejected with warning; out-of-bounds rect warns |
 | Cell sampling | first cell -> region top-left pixel; last -> bottom-right; reversed U/V preserved; rotation 90 transposed; out-of-bounds clamped |
-| Alpha | threshold 0 keeps alpha 1; raised threshold filters; degenerate rect -> empty scan |
+| Alpha | plugin option resolution fixes threshold 0; alpha 1 is retained, alpha 0 is skipped; pure planner tests still cover alternate thresholds; degenerate rect -> empty scan |
 | Inflate box | inflate expansion; stretch around center |
 | Face points | all six directions match `UVToLocal` (u1/v1 corners) |
 | Voxel bounds | all six directions protrude from the raw surface; depth=inflate reproduces the layer surface |
 | Depth modes | preserve_layer (inflate + zero-inflate fallback), pixel mean edge, fixed, degenerate clamp |
 | Planner | 384 voxels for an opaque hat cube; unique names; single-texel UV; same pixel on all 6 faces; transparent skipping; alpha threshold; empty-layer policy; missing texture warnings; per-face textures; pixel/fixed depth |
+| Regeneration texture safety | Missing, unreadable or partly missing face textures preserve the whole existing layer with a warning; readable transparent layers clear their old cubes; skipped-only operations create no Undo entry |
+| Project-bound rollback | Cleanup uses the captured target Undo system, preserves another active project's geometry, and restores its tab even when selecting the target fails |
 
 ## Integration (tests/integration)
 
@@ -37,6 +39,7 @@ exercised through the `WriterHost` mock; the final acceptance is loading
 | Reference model golden | 6 layer cubes; Hat 168, Body 168, Arms 136, Legs 136; **total 880**; per-face counts; pixel UV spans exactly one image pixel; hat voxels on inflated surfaces; inset leg geometry; hidden visibility inherited |
 | Writer on mock outliner | same-name group replaces the cube at the same parent/sibling slot; 168 voxels in the hat group; base cubes untouched; visibility/origin inherited; single undo transaction; undo/redo restore both states; maxVoxels aborts pre-mutation; mid-run failure reverts via cancelUndo; 5 UI yields at batchSize 200; targeted updateView calls; preserveOriginal hides; second scan finds no layer cubes (idempotent) |
 | 2x resolution | 128px image / 64 UV -> head front 16x16; reversed top-face UV still correct; pixelUV spans 0.5 UV units; voxel faces 0.5625 model units |
+| MCP tool registration | Six tools register through the owned queue entry; schemas reject unknown keys and fixed engineering parameters; results and stable errors are JSON; MCP reload and plugin unload dispose/re-register tools; stale setup callbacks cannot revive unloaded tools; partial registration is cleaned up and can retry; Paint/Animate regenerate and clear availability follows the UI; request AbortSignal reaches the shared service |
 
 ## Manual acceptance in Blockbench (per release)
 
@@ -46,5 +49,28 @@ exercised through the `WriterHost` mock; the final acceptance is loading
    voxel cubes inside; original 6 layer cubes are gone.
 3. `Ctrl+Z` once restores the original model; `Ctrl+Shift+Z` regenerates.
 4. Running the action again reports "No * Layer cubes found".
-5. Set alphaThreshold 255 -> run -> only fully opaque pixels become cubes.
+5. Confirm the dialog has no Alpha, maximum-cube or batch-size fields. Alpha 1 and 128 pixels remain eligible; alpha 0 pixels are skipped. A plan above 10,000 cubes reports the required count and fixed limit before model geometry changes.
 6. depthMode `pixel` -> voxels visibly protrude by ~1 unit on a 64px skin.
+7. Regenerate a model with one source texture missing or unreadable. Its whole
+   generated layer must remain intact with a warning. A different layer with a
+   readable, fully transparent texture must still clear its old voxels.
+
+## MCP acceptance (Blockbench Desktop)
+
+1. Install Blockbench MCP v1.10.0 (or a compatible later 1.x release) and this
+   plugin. Confirm `tools/list` includes the six `minecraft_3d_skin_layers_*`
+   tools and that availability follows project, mode, and target state.
+2. Call `inspect`, then generate / restore / regenerate / clear against a
+   disposable project. Confirm calls need no plugin dialog, report actual counts,
+   create one Undo step, and preserve the existing UI preferences.
+3. Call `new_skin` without arguments; confirm Steve / root / 64 is created.
+   Try an unknown key and each fixed numeric parameter; the server must reject
+   them before any project mutation.
+4. While a write is active, start another plugin operation and expect `BUSY`.
+   Cancel a long-running request and switch projects during a write; verify
+   rollback, no partial nodes, and lock release.
+5. Reload each plugin and verify tools re-register once; unload this plugin and
+   verify its tools and pending queue entry disappear. With MCP absent, confirm
+   the regular UI still loads on Desktop, Web, and PWA.
+6. In Paint mode, confirm inspect and tools/list offer regenerate and
+   clear-transparent when targets exist, while generate and restore require Edit.

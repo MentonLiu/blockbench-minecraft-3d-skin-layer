@@ -7,12 +7,12 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/menton600/blockbench-minecraft-3d-skin-layer.git"
+    "url": "git+https://github.com/MentonLiu/blockbench-minecraft-3d-skin-layer.git"
   },
   "bugs": {
-    "url": "https://github.com/menton600/blockbench-minecraft-3d-skin-layer/issues"
+    "url": "https://github.com/MentonLiu/blockbench-minecraft-3d-skin-layer/issues"
   },
-  "homepage": "https://github.com/menton600/blockbench-minecraft-3d-skin-layer#readme",
+  "homepage": "https://github.com/MentonLiu/blockbench-minecraft-3d-skin-layer#readme",
   "engines": {
     "node": ">=18"
   },
@@ -30,6 +30,7 @@
     "esbuild": "^0.28.2",
     "pngjs": "^7.0.0",
     "typescript": "^7.0.2",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "zod": "^3.25.76"
   }
 }

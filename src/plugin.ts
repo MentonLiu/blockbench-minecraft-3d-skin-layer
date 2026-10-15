@@ -1,94 +1,37 @@
 import { GENERATED_SOURCE_PROPERTY, PLUGIN_ID } from './domain/constants';
-import { VoxelLimitError } from './domain/types';
-import type { GeneratorOptions } from './domain/types';
-import { applyOutcome, planFromSnapshots, scanAndPlan } from './generate';
-import { registerTranslations, t } from './i18n';
-import {
-  collectRestoreCandidates,
-  hasOpenProject,
-  hasRestorableGroups,
-  isEditMode,
-  onProjectEvent,
-} from './blockbench/compatibility';
+import { isEditMode, hasOpenProject, hasRestorableGroups, onProjectEvent } from './blockbench/compatibility';
+import { isAutoScanSuppressed } from './blockbench/projectDuplicate';
+import { hasRegeneratableGroups } from './blockbench/modelRegenerator';
 import type { ProjectListener } from './blockbench/compatibility';
-import { applyRestores } from './blockbench/modelRestorer';
-import {
-  blockbenchDuplicateHost,
-  duplicateCurrentProjectAsCopy,
-  isAutoScanSuppressed,
-} from './blockbench/projectDuplicate';
-import { clearTransparentCubes } from './blockbench/transparentCleaner';
-import {
-  applyRegenerations,
-  collectRegenerationSources,
-  hasRegeneratableGroups,
-} from './blockbench/modelRegenerator';
-import { blockbenchHost } from './blockbench/blockbenchHost';
 import { loadOptions, persistOptions, showGenerationDialog } from './ui/settingsDialog';
 import { showRestoreDialog } from './ui/restoreDialog';
 import { showRegenerateDialog } from './ui/regenerateDialog';
 import { registerNewSkinFormat, unregisterNewSkinFormat } from './newSkin/newSkinFormat';
+import { reportOperationFailure } from './ui/operationReporter';
 import {
-  reportBusy,
   reportCleared,
-  reportError,
   reportGenerationResult,
-  reportNoRegeneratable,
+  reportNoLayers,
   reportNoRestorableGroups,
   reportRegenerated,
-  reportRestoreError,
   reportRestoreResult,
-  reportNoLayers,
-  reportVoxelLimit,
   status,
-  toast,
 } from './ui/resultReporter';
-import { logger } from './infra/logger';
+import { t } from './i18n';
+import { registerTranslations } from './i18n';
+import { skinOperations } from './operations/skinOperations';
+import type { SkinOperationResult } from './operations/skinOperations';
+import { registerMcpTools, unregisterMcpTools } from './mcp/registerTools';
 
 export type { ScanOutcome } from './generate';
 
-async function runGeneration(auto: boolean): Promise<void> {
-  if (!isEditMode()) {
-    if (!auto) {
-      toast(t('m3sl.toast.edit_mode'), 'edit');
-    }
-    return;
-  }
-  if (!hasOpenProject()) {
-    if (!auto) {
-      toast(t('m3sl.toast.open_project'), 'info');
-    }
-    return;
-  }
-
-  const options = loadOptions();
-  const outcome = scanAndPlan(options);
-
-  if (outcome.snapshots.length === 0) {
-    if (!auto) {
-      reportNoLayers();
-    }
-    return;
-  }
-  if (outcome.voxelCount > options.maxVoxels) {
-    reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
-    return;
-  }
-
-  if (auto && !options.autoApplyOnLoad) {
-    status(t('m3sl.status.detected', [outcome.snapshots.length, outcome.voxelCount]));
-    return;
-  }
-
-  if (auto) {
-    const result = await applyOutcome(outcome, options);
-    reportGenerationResult({ ...result, warnings: outcome.warnings });
-    return;
-  }
-
-  const confirmed = await new Promise<GeneratorOptions | null>(resolve => {
+function confirmGeneration(
+  preview: { groupCount: number; voxelCount: number; warnings: string[] },
+  options: ReturnType<typeof loadOptions>,
+): Promise<ReturnType<typeof loadOptions> | null> {
+  return new Promise(resolve => {
     showGenerationDialog(
-      { layerCount: outcome.snapshots.length, voxelCount: outcome.voxelCount, warnings: outcome.warnings },
+      { layerCount: preview.groupCount, voxelCount: preview.voxelCount, warnings: preview.warnings },
       options,
       merged => {
         persistOptions(merged);
@@ -97,255 +40,119 @@ async function runGeneration(auto: boolean): Promise<void> {
       () => resolve(null),
     );
   });
-  if (!confirmed) {
+}
+
+function confirmRestore(
+  preview: { groupCount: number; voxelCount: number },
+  options: ReturnType<typeof loadOptions>,
+): Promise<ReturnType<typeof loadOptions> | null> {
+  return new Promise(resolve => {
+    showRestoreDialog(
+      { groupCount: preview.groupCount, voxelCount: preview.voxelCount },
+      options,
+      merged => {
+        persistOptions(merged);
+        resolve(merged);
+      },
+      () => resolve(null),
+    );
+  });
+}
+
+function confirmRegenerate(
+  preview: { groupCount: number; voxelCount: number },
+  options: ReturnType<typeof loadOptions>,
+): Promise<ReturnType<typeof loadOptions> | null> {
+  return new Promise(resolve => {
+    showRegenerateDialog(
+      { groupCount: preview.groupCount, voxelCount: preview.voxelCount },
+      options,
+      merged => {
+        persistOptions(merged);
+        resolve(merged);
+      },
+      () => resolve(null),
+    );
+  });
+}
+
+function reportGeneration(result: SkinOperationResult): void {
+  if (result.status === 'cancelled') return;
+  if (result.status === 'detected') {
+    status(t('m3sl.status.detected', [result.sourceCount, result.plannedCubes]));
     return;
   }
-
-  // 用确认后的选项重新扫描：对话框里可能改了 alpha 阈值等参数，
-  // 对话框之前的计划已经过期。此次扫描也作为复制/应用前的最终预检。
-  // Re-plan with the confirmed options: the dialog may have changed the alpha
-  // threshold etc., so the pre-dialog plan is stale. This scan also serves as
-  // the final preflight before copying/applying.
-  const fresh = scanAndPlan(confirmed);
-  if (fresh.snapshots.length === 0) {
+  if (result.sourceCount === 0) {
     reportNoLayers();
     return;
   }
-  if (fresh.voxelCount > confirmed.maxVoxels) {
-    reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
-    return;
-  }
-
-  // 复制模式：先把当前项目复制成新标签页（副本成为活动项目），再在副本上
-  // 应用计划——计划是纯数据 + uuid，写入时会解析到活动项目的元素。
-  // Copy mode: duplicate the open project into a new tab (the copy becomes the
-  // active project), then apply the plans there - plans are plain data plus
-  // uuids, resolved against the active project at write time.
-  const appliedToCopy = confirmed.targetModel === 'copy';
-  if (appliedToCopy) {
-    duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, ' - 3D Layers');
-  }
-
-  const result = await applyOutcome(fresh, confirmed);
   reportGenerationResult(
-    { ...result, warnings: fresh.warnings },
-    appliedToCopy ? t('m3sl.toast.copied_note') : undefined,
+    { createdCubes: result.createdCubes, createdGroups: result.createdGroups, durationMs: result.durationMs, warnings: result.warnings },
+    result.copiedProject ? t('m3sl.toast.copied_note') : undefined,
   );
 }
 
-let running = false;
-
-async function runGenerationGuarded(auto: boolean): Promise<void> {
-  if (running) {
-    reportBusy();
-    return;
-  }
-  running = true;
-  try {
-    await runGeneration(auto);
-  } catch (error) {
-    if (error instanceof VoxelLimitError) {
-      reportVoxelLimit(error);
-    } else {
-      logger.error('generation failed', error);
-      reportError(error);
-    }
-  } finally {
-    running = false;
-  }
+async function runGeneration(auto: boolean): Promise<void> {
+  const result = await skinOperations.generate({
+    options: loadOptions(),
+    auto,
+    confirm: auto ? undefined : confirmGeneration,
+  });
+  reportGeneration(result);
 }
 
 async function runRestore(): Promise<void> {
-  if (!isEditMode()) {
-    toast(t('m3sl.toast.edit_mode_restore'), 'edit');
-    return;
-  }
-  if (!hasOpenProject()) {
-    toast(t('m3sl.toast.open_project'), 'info');
-    return;
-  }
-  const candidates = collectRestoreCandidates();
-  if (candidates.length === 0) {
+  const result = await skinOperations.restore({ options: loadOptions(), confirm: confirmRestore });
+  if (result.status === 'cancelled') return;
+  if (result.restoredCubes === 0) {
     reportNoRestorableGroups();
     return;
   }
-
-  const voxelCount = candidates.reduce((sum, candidate) => sum + candidate.children.length, 0);
-  const confirmed = await new Promise<GeneratorOptions | null>(resolve => {
-    showRestoreDialog(
-      { groupCount: candidates.length, voxelCount },
-      loadOptions(),
-      merged => {
-        persistOptions(merged);
-        resolve(merged);
-      },
-      () => resolve(null),
-    );
-  });
-  if (!confirmed) {
-    return;
-  }
-
-  // 复制模式：先复制项目（副本成为活动项目），再在副本上执行还原。
-  // 候选持有旧项目的活动对象引用，必须在副本上重新收集。
-  // Copy mode: duplicate first (the copy becomes the active project), then
-  // restore there. Candidates hold live references to the old project's
-  // objects, so they must be re-collected in the copy.
-  const appliedToCopy = confirmed.targetModel === 'copy';
-  if (appliedToCopy) {
-    duplicateCurrentProjectAsCopy(blockbenchDuplicateHost, ' - Restored');
-  }
-  const activeCandidates = collectRestoreCandidates();
-  if (activeCandidates.length === 0) {
-    reportNoRestorableGroups();
-    return;
-  }
-  const result = applyRestores(activeCandidates, blockbenchHost);
   reportRestoreResult(
-    result,
-    appliedToCopy ? t('m3sl.toast.copied_note') : undefined,
+    { restoredCubes: result.restoredCubes, restoredGroups: result.restoredCubes, removedVoxels: result.removedCubes },
+    result.copiedProject ? t('m3sl.toast.copied_note') : undefined,
   );
 }
 
-async function runRestoreGuarded(): Promise<void> {
-  if (running) {
-    reportBusy();
-    return;
-  }
-  running = true;
-  try {
-    await runRestore();
-  } catch (error) {
-    reportRestoreError(error);
-  } finally {
-    running = false;
-  }
-}
-
-/** 按当前纹理原位重建已生成的体素方块 / Rebuilds generated voxels from the live texture, in place. */
 async function runRegenerate(): Promise<void> {
-  if (!hasOpenProject()) {
-    toast(t('m3sl.toast.open_project'), 'info');
-    return;
-  }
-  const sources = collectRegenerationSources();
-  if (sources.length === 0) {
-    reportNoRegeneratable();
-    return;
-  }
-  const snapshots = sources.map(source => source.snapshot);
-
-  const options = loadOptions();
-  const outcome = planFromSnapshots(snapshots, options);
-  if (outcome.voxelCount > options.maxVoxels) {
-    reportVoxelLimit(new VoxelLimitError(outcome.voxelCount, options.maxVoxels));
-    return;
-  }
-
-  const confirmed = await new Promise<GeneratorOptions | null>(resolve => {
-    showRegenerateDialog(
-      { groupCount: sources.length, voxelCount: outcome.voxelCount },
-      options,
-      merged => {
-        persistOptions(merged);
-        resolve(merged);
-      },
-      () => resolve(null),
-    );
-  });
-  if (!confirmed) {
-    return;
-  }
-
-  // 用确认后的选项重新规划（纹理读取总是最新的，"扫描当前纹理"即在此发生）
-  // re-plan with the confirmed options; the texture read always happens fresh -
-  // this is where "scan the current texture" takes place
-  const fresh = planFromSnapshots(snapshots, confirmed);
-  if (fresh.voxelCount > confirmed.maxVoxels) {
-    reportVoxelLimit(new VoxelLimitError(fresh.voxelCount, confirmed.maxVoxels));
-    return;
-  }
-
-  const started = performance.now();
-  const summary = await applyRegenerations(
-    sources,
-    fresh.plans,
-    { maxVoxels: confirmed.maxVoxels, batchSize: confirmed.batchSize },
-    blockbenchHost,
-  );
+  const result = await skinOperations.regenerate({ options: loadOptions(), confirm: confirmRegenerate });
+  if (result.status === 'cancelled') return;
   reportRegenerated({
-    replacedGroups: summary.replacedGroups,
-    createdCubes: summary.createdCubes,
-    durationMs: performance.now() - started,
-    warnings: fresh.warnings,
+    replacedGroups: result.replacedGroups,
+    createdCubes: result.createdCubes,
+    durationMs: result.durationMs,
+    warnings: result.warnings,
   });
 }
 
-function runRegenerateGuarded(): void {
-  if (running) {
-    reportBusy();
-    return;
-  }
-  running = true;
+async function runClearTransparent(): Promise<void> {
+  const result = await skinOperations.clearTransparent({ options: loadOptions() });
+  reportCleared({ removed: result.removedCubes, warnings: result.warnings });
+}
+
+async function guarded(
+  operation: () => Promise<void>,
+  name: 'generate' | 'restore' | 'regenerate' | 'clear_transparent',
+): Promise<void> {
   try {
-    void runRegenerate();
+    await operation();
   } catch (error) {
-    if (error instanceof VoxelLimitError) {
-      reportVoxelLimit(error);
-    } else {
-      logger.error('regeneration failed', error);
-      reportError(error);
-    }
-  } finally {
-    running = false;
+    reportOperationFailure(error, name);
   }
 }
 
-/** 一键清除透明体素 / One-click transparent voxel cleanup. */
-function runClearTransparent(): void {
-  if (!hasOpenProject()) {
-    toast(t('m3sl.toast.open_project'), 'info');
-    return;
-  }
-  const options = loadOptions();
-  const summary = clearTransparentCubes(blockbenchHost, options.alphaThreshold);
-  reportCleared(summary);
-}
-
-function runClearTransparentGuarded(): void {
-  if (running) {
-    reportBusy();
-    return;
-  }
-  running = true;
-  try {
-    runClearTransparent();
-  } catch (error) {
-    logger.error('transparent cleanup failed', error);
-    reportError(error);
-  } finally {
-    running = false;
-  }
+function onProjectLoaded(): ProjectListener {
+  return () => {
+    // Parsing a copied project emits load_project; its explicit operation already owns the lease.
+    if (isAutoScanSuppressed()) return;
+    void guarded(() => runGeneration(true), 'generate');
+  };
 }
 
 let actions: Action[] = [];
 let listeners: { dispose(): void }[] = [];
 let generatedSourceProperty: Property | undefined;
 let skinMenu: BarMenu | undefined;
-
-function onProjectLoaded(): ProjectListener {
-  return () => {
-    // 项目复制过程中的 parse 会触发 load_project；此时必须抑制自动扫描，
-    // 否则刚复制出的副本会被误体素化
-    // parsing during project duplication fires load_project; the auto-scan
-    // must stay suppressed then, or the fresh copy would be voxelized
-    // unintendedly
-    if (isAutoScanSuppressed()) {
-      return;
-    }
-    void runGenerationGuarded(true);
-  };
-}
 
 export function registerPlugin(): void {
   registerTranslations();
@@ -361,9 +168,7 @@ export function registerPlugin(): void {
     icon: 'view_in_ar',
     category: 'edit',
     condition: () => isEditMode() && hasOpenProject(),
-    click: () => {
-      void runGenerationGuarded(false);
-    },
+    click: () => { void guarded(() => runGeneration(false), 'generate'); },
   });
   const restoreAction = new Action(`${PLUGIN_ID}.restore`, {
     name: t('m3sl.restore_action.name'),
@@ -371,9 +176,7 @@ export function registerPlugin(): void {
     icon: 'unarchive',
     category: 'edit',
     condition: () => isEditMode() && hasOpenProject() && hasRestorableGroups(),
-    click: () => {
-      void runRestoreGuarded();
-    },
+    click: () => { void guarded(runRestore, 'restore'); },
   });
   const clearTransparentAction = new Action(`${PLUGIN_ID}.clear_transparent`, {
     name: t('m3sl.clear_action.name'),
@@ -381,9 +184,7 @@ export function registerPlugin(): void {
     icon: 'layers_clear',
     category: 'edit',
     condition: () => hasOpenProject(),
-    click: () => {
-      runClearTransparentGuarded();
-    },
+    click: () => { void guarded(runClearTransparent, 'clear_transparent'); },
   });
   const regenerateAction = new Action(`${PLUGIN_ID}.regenerate`, {
     name: t('m3sl.regenerate_action.name'),
@@ -391,16 +192,10 @@ export function registerPlugin(): void {
     icon: 'autorenew',
     category: 'edit',
     condition: () => hasOpenProject() && hasRegeneratableGroups(),
-    click: () => {
-      runRegenerateGuarded();
-    },
+    click: () => { void guarded(runRegenerate, 'regenerate'); },
   });
   actions = [generateAction, restoreAction, clearTransparentAction, regenerateAction];
 
-  // Blockbench 不会自动把插件动作插入菜单栏；所有功能统一放进顶部菜单栏的
-  // "3D 皮肤模型"菜单，不再散落在编辑菜单里
-  // plugin actions are not added to menus automatically; they all live in the
-  // top-level "3D Skin Model" menu instead of being scattered into Edit
   skinMenu = new BarMenu(
     `${PLUGIN_ID}.menu`,
     [
@@ -409,23 +204,18 @@ export function registerPlugin(): void {
       `${PLUGIN_ID}.restore`,
       `${PLUGIN_ID}.clear_transparent`,
     ],
-    {
-      name: 'm3sl.menu.name',
-      condition: () => hasOpenProject(),
-      icon: 'view_in_ar',
-    },
+    { name: 'm3sl.menu.name', condition: () => hasOpenProject(), icon: 'view_in_ar' },
   );
   MenuBar.addMenu(skinMenu, 'file');
-
   registerNewSkinFormat();
-
   listeners = [onProjectEvent('load_project', onProjectLoaded())];
+  registerMcpTools();
 }
 
 export function unregisterPlugin(): void {
-  for (const listener of listeners) {
-    listener.dispose();
-  }
+  unregisterMcpTools();
+  skinOperations.coordinator.cancelActive('Plugin disabled');
+  for (const listener of listeners) listener.dispose();
   listeners = [];
   unregisterNewSkinFormat();
   if (skinMenu && typeof skinMenu.delete === 'function') {
@@ -433,9 +223,7 @@ export function unregisterPlugin(): void {
     MenuBar.update();
   }
   skinMenu = undefined;
-  for (const action of actions) {
-    action.delete();
-  }
+  for (const action of actions) action.delete();
   actions = [];
   generatedSourceProperty?.delete();
   generatedSourceProperty = undefined;

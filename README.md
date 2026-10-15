@@ -30,10 +30,12 @@ A Blockbench plugin that turns Minecraft skins into true 3D voxel models: every 
 
 The **3D Skin Model** menu appears in the menu bar (next to **File**) whenever a project is open.
 
+On Blockbench Desktop, the optional [Blockbench MCP](docs/MCP.md) integration exposes these operations to MCP clients. The plugin still works normally when MCP is not installed.
+
 ## Quick start A — paint a new skin (recommended)
 
 1. Open the start screen or **File > New > 3D Skin Model**.
-2. In the wizard pick a **template** (Classic / Root-wrapped / Jointed segments) and a **texture size** (64 or 128). Optionally type a **model name** and/or **model identifier** — both can be left empty (an empty name keeps the template default, an empty identifier stays unset; both are editable later under File > Project). The matching texture is loaded into the template and *every* pixel — transparent ones included — becomes a cube, so you can paint anywhere right away.
+2. In the wizard pick a **skin type** (Steve or Alex; Steve is the default), a **template** (Default model, Blockbench classic or Joint model; Default model is preselected) and a **texture size** (64 or 128). Optionally type a **model name** and/or **model identifier** — both can be left empty (an empty name keeps the `temp-<size>` project name, an empty identifier stays unset; both are editable later under File > Project). The matching skin texture is loaded into the template and *every* pixel — transparent ones included — becomes a cube, so you can paint anywhere right away.
 3. Paint your skin (Paint mode works; the texture behaves like a normal skin).
 4. Clean up as you go:
    - **Clear Transparent Cubes** deletes voxels on pixels that are still transparent.
@@ -44,7 +46,7 @@ Every step is one undo transaction (`Ctrl/Cmd + Z`).
 ## Quick start B — voxelize an existing skin model
 
 1. Open the model in **Edit** mode. It needs cubes named `... Layer` (`Hat Layer`, `Body Layer1`, ... — digit suffixes on jointed models are fine). The layer cubes' geometry and UVs are the source of truth, so 64×64, 128×128 and custom layouts all work without a hard-coded atlas.
-2. Run **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many layer cubes and texels were found; adjust the options and confirm.
+2. Run **3D Skin Model > Generate 3D Skin Layers**. The preflight dialog shows how many layer cubes and texels were found; choose the remaining options and confirm. Alpha handling, the 10,000-cube limit and batch size use fixed defaults.
 3. To get the original model back, run **3D Skin Model > Restore 3D Skin Layers** — generated groups store the complete original cube data (works after saving and reopening).
 
 Both dialogs offer a **Use a new model project** checkbox at the bottom: check it to duplicate the project and run against the copy. The original tab stays untouched, and the copy never inherits the original's save path, so saving it always asks where to store it and can never overwrite the original file.
@@ -55,7 +57,7 @@ Both dialogs offer a **Use a new model project** checkbox at the bottom: check i
 
 - Templates are embedded in the plugin — no extra files needed. 128 loads a 128×128 texture over the same 64-unit UV space (2× texel density, e.g. 16×16 head faces).
 - The optional **model name** becomes the project (tab) name; the optional **model identifier** is stored as the bbmodel `model_identifier` (also editable under File > Project).
-- The model is voxelized immediately with transparent pixels included, ready for the paint-then-clean-up loop. If the run would exceed the cube limit, the un-voxelized template is kept so you can raise the limit and generate manually.
+- The model is voxelized immediately with transparent pixels included, ready for the paint-then-clean-up loop. If the run needs more than 10,000 cubes, the plugin keeps the newly created project as an un-voxelized template and reports the required count and fixed limit.
 
 ### Generate 3D Skin Layers
 
@@ -67,6 +69,7 @@ Both dialogs offer a **Use a new model project** checkbox at the bottom: check i
 
 - Re-scans the current texture and rebuilds every generated group in place. Groups (and anything you posed on them) are kept; only the voxel cubes are replaced. Use it after repainting instead of undoing.
 - The dialog has an **Include transparent pixels** checkbox to voxelize every grid cell.
+- Layers with missing or unreadable textures are kept unchanged and reported as warnings.
 
 ### Restore 3D Skin Layers
 
@@ -78,13 +81,10 @@ Both dialogs offer a **Use a new model project** checkbox at the bottom: check i
 
 ## Options reference
 
-Options are remembered across sessions.
+User-adjustable options are remembered across sessions. Alpha threshold is fixed at 0, the run limit at 10,000 cubes, and the UI batch size at 200 cubes.
 
 | Option | Where | Default | Meaning |
 |---|---|---|---|
-| Alpha threshold | Generate dialog | 0 | texels with alpha above this become cubes |
-| Maximum cube count | Generate dialog | 10,000 | run aborts above this; nothing is modified |
-| Cubes created per batch | Generate dialog | 200 | UI yield frequency for large models |
 | Keep original layer cubes | Generate dialog | off | hide the sources instead of deleting them |
 | Replace fully transparent layers | Generate dialog | off | empty groups instead of leaving them untouched |
 | Only process selected layer cubes | Generate dialog | off | restrict to selected layer cubes |
@@ -100,7 +100,7 @@ Options are remembered across sessions.
 
 ## Limitations & roadmap
 
-- Works in the desktop app and in the web app / PWA on mobile; voxelizing a full skin (hundreds to ~1600 cubes) is noticeably slower on phone hardware.
+- Works in the desktop app and in the web app / PWA on mobile; a full embedded 128px template can create up to 7,680 voxel cubes and is noticeably slower on phone hardware.
 - Hairline seams can appear at extreme grazing angles along layer edges.
 - Regeneration requires plugin-generated groups (metadata); legacy groups from before 0.3.1 support restore only.
 - No greedy merging by design: one pixel = one cube is the contract.
@@ -118,7 +118,7 @@ npm run test:watch # vitest watch mode
 - `docs/UV_MAPPING.md` — the exact UV/geometry math (ported from Blockbench)
 - `docs/TEST_PLAN.md` — test matrix and manual acceptance steps
 
-Golden fixtures (characterized, covered by integration tests): `skin_model.bbmodel` — 880 visible cubes; `skins_model_root.bbmodel` — 618 visible / 1632 full pixels; `skins_model_root_joint.bbmodel` — 680 visible / 1792 full pixels.
+Legacy compatibility fixtures (covered by integration tests): `skin_model.bbmodel` — 880 visible cubes; `skins_model_root.bbmodel` — 618 visible / 1632 full pixels; `skins_model_root_joint.bbmodel` — 680 visible / 1792 full pixels. Current Steve/Alex templates and their updated joint goldens are listed in `docs/TEMPLATE_ASSETS.md`.
 
 ### Contributing
 

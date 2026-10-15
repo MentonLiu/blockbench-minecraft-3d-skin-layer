@@ -1,21 +1,27 @@
-import { EMBEDDED_TEMPLATES, TEMP_TEXTURE_DATA_URLS } from '../assets/embedded';
-import { NEW_SKIN_FORMAT_ID } from '../assets/embedded';
+import { EMBEDDED_TEMPLATES, NEW_SKIN_FORMAT_ID, TEMP_TEXTURE_DATA_URLS } from '../assets/embedded';
 
+export type SkinType = 'steve' | 'alex';
 export type TemplateId = 'classic' | 'root' | 'joint';
 export type SkinSize = 64 | 128;
 
-export const TEMPLATE_IDS: readonly TemplateId[] = ['classic', 'root', 'joint'];
+export const SKIN_TYPES: readonly SkinType[] = ['steve', 'alex'];
+export const TEMPLATE_IDS: readonly TemplateId[] = ['root', 'classic', 'joint'];
 export const SKIN_SIZES: readonly SkinSize[] = [64, 128];
 
 /** UV 空间固定 64：128 纹理即 2 倍像素密度 / UV space stays 64; a 128 texture doubles texel density. */
 export const TEMPLATE_UV_SIZE = 64;
+
+/** 解析向导中的皮肤类型；未知值回退到 Steve。 */
+export function parseSkinType(value: unknown): SkinType {
+  return SKIN_TYPES.includes(value as SkinType) ? value as SkinType : 'steve';
+}
 
 /**
  * 解析向导中的模板 id。
  * Normalizes a wizard template id.
  */
 export function parseTemplateId(value: unknown): TemplateId {
-  return TEMPLATE_IDS.includes(value as TemplateId) ? (value as TemplateId) : 'classic';
+  return TEMPLATE_IDS.includes(value as TemplateId) ? (value as TemplateId) : 'root';
 }
 
 /**
@@ -58,17 +64,21 @@ export interface TemplateModelBuild {
  * 128 doubles the texel density). meta.model_format was patched to this
  * plugin's format at embed time, so parse never falls back to `free`.
  */
-export function buildTemplateModel(id: TemplateId, size: SkinSize): TemplateModelBuild {
-  // 模板 id 保持严格查找：未知 id 必须报错，不能被 parse 回退成 classic
-  // Template id stays strict: unknown ids must throw, not silently fall back via parse*.
-  const source = EMBEDDED_TEMPLATES[id];
+export function buildTemplateModel(
+  skinType: SkinType,
+  id: TemplateId,
+  size: SkinSize,
+): TemplateModelBuild {
+  // 模板 id 保持严格查找：未知 id 必须报错，不能被 parse 回退成默认模板。
+  // Template ids stay strict: unknown values must throw instead of falling back via parse*.
+  const source = EMBEDDED_TEMPLATES[skinType]?.[id];
   if (!source) {
-    throw new Error(`Unknown template: ${id}`);
+    throw new Error(`Unknown template: ${skinType}/${id}`);
   }
   // Dialog 回传可能是 "128"；仅把可解析的字符串尺寸转成 number，未知值仍进入查表并失败
   // Dialog results may be "128"; coerce parseable string sizes only — unknown values still fail the lookup.
   const numericSize = typeof size === 'number' ? size : Number(String(size ?? '').trim());
-  const dataUrl = TEMP_TEXTURE_DATA_URLS[numericSize];
+  const dataUrl = TEMP_TEXTURE_DATA_URLS[skinType]?.[numericSize];
   if (!dataUrl) {
     throw new Error(`No temp skin texture embedded for size ${size}`);
   }
@@ -79,7 +89,7 @@ export function buildTemplateModel(id: TemplateId, size: SkinSize): TemplateMode
   if (Array.isArray(model.textures)) {
     for (const texture of model.textures) {
       texture.source = dataUrl;
-      texture.name = `temp-${numericSize}.png`;
+      texture.name = `${skinType}-${numericSize}.png`;
       texture.width = numericSize;
       texture.height = numericSize;
       // UV 空间保持 64，128 图像才会得到 2 倍 texel 密度

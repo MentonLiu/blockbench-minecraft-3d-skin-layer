@@ -16,7 +16,9 @@ inside Blockbench. Derived from `plan.md`; the reference model
 8. Deleting/adding Outliner nodes must use `outliner` undo tracking.
 9. A generated voxel's shell face must sample exactly its source pixel; the
    other faces follow the box UV unwrap of the voxel cube.
-10. `alpha === 0` is skipped by default (`alphaThreshold: 0`, visible when `alpha > threshold`).
+10. Plugin entry points use the fixed `alphaThreshold: 0`: `alpha === 0` is skipped
+    and any positive alpha is visible. Internal pure planner tests may exercise
+    other thresholds.
 11. Run typecheck, test and build before every engineering commit.
 12. Use Conventional Commits.
 13. One logical change per commit.
@@ -119,8 +121,10 @@ Second run finds no `* Layer` cubes (they are Groups now) and is a no-op.
 ## Preflight
 
 All expensive work (texture reads, alpha scan, planning, counting) happens
-before the model is touched. If the total voxel count exceeds `maxVoxels`
-(default 10000) the run aborts with `VoxelLimitError` and the model is unchanged.
+before model geometry is touched. If the total voxel count exceeds the fixed
+`maxVoxels` limit (10,000), the run aborts with `VoxelLimitError`. Existing
+projects remain unchanged; the new-skin wizard keeps its already-created
+project as an un-voxelized template and reports the count and limit.
 
 ## Defaults
 
@@ -139,7 +143,9 @@ before the model is touched. If the total voxel count exceeds `maxVoxels`
 }
 ```
 
-`10_000` / `200` are engineering defaults, not Blockbench limits.
+`alphaThreshold`, `10_000` and `200` are fixed engineering parameters, not
+user-adjustable settings or Blockbench limits. Legacy stored values are
+ignored on read; only user preferences are written back to storage.
 
 ## Run target (targetModel)
 
@@ -169,21 +175,22 @@ copy     duplicate the project into a new tab, then run against the copy
 
 ```
 Entry points   start screen card + File > New (custom ModelFormat.new)
-Wizard         template (classic / root / joint) + skin texture size (64 / 128)
+Wizard         skin type (Steve / Alex) + template (root / classic / joint) + size (64 / 128)
 Creation       newProject -> Codecs.project.parse(embedded template) ->
-               inject temp-64.png / temp-128.png as the texture data URL
+               inject [steve|alex]-[64|128].png as the matching texture data URL
                (UV space stays 64; 128 = 2x texel density) ->
                wait for texture img.onload -> voxelize with
                includeTransparent: true -> created groups forced visible
 ```
 
 - The embedded templates carry NO texture source; the plugin injects the
-  matching temp texture per chosen size. Template meta points at the plugin
+  matching skin type and size texture. Template meta points at the plugin
   format so parse never falls back to `free`.
 - All pixels become cubes, transparent ones included (paint-then-cleanup
   workflow); preflight maxVoxels still applies and leaves the bare template
   untouched when exceeded.
-- Project name after creation: `temp-64` / `temp-128`.
+- Default template selection is `root` (Default model); skin type defaults to
+  Steve. Project name after creation remains `temp-64` / `temp-128`.
 
 ## Clear transparent cubes (top-level menu "3D Skin Model")
 
@@ -191,9 +198,8 @@ Creation       newProject -> Codecs.project.parse(embedded template) ->
 - Removal candidates: cubes inside groups carrying the `m3sl_source` metadata
   (plus legacy generated groups); a cube only participates when its north-face
   UV spans exactly one texel.
-- A cube is removed when its sampled pixel's alpha <= alphaThreshold
-  (default 0 = fully transparent only). Missing textures, non-texel UVs and
-  out-of-bounds samples are kept and reported as warnings.
+- A cube is removed when its sampled pixel's alpha is 0. Missing textures,
+  non-texel UVs and out-of-bounds samples are kept and reported as warnings.
 - One atomic undo transaction; planning completes before any mutation.
 
 ## Regenerate cubes (top-level menu "3D Skin Model")
@@ -211,6 +217,26 @@ Apply       one undo transaction: groups kept (poses untouched),
 - Legacy groups without metadata (pre-0.3.1) are NOT regenerated.
 - Missing textures skip their layer with a warning.
 - Idempotent: same texture -> same cubes.
+
+## Blockbench MCP integration
+
+The optional Desktop integration uses the public Blockbench MCP plugin extension
+API (minimum v1.10.0 in the 1.x series). It registers through the plugin-owned
+`MCP_QUEUE` entry and does not start a second MCP server or bundle Zod.
+
+Six strict tools are exposed: inspect, generate, restore, regenerate, clear
+transparent cubes, and create a new skin. Generation parameters expose only
+supported user choices; `alphaThreshold`, `maxVoxels`, and `batchSize` remain
+fixed at `0`, `10_000`, and `200`. New skins default to Steve / root / 64.
+
+Read and write tools return JSON results. Failures include a stable operation
+error code; write calls await the shared operation service and forward the MCP
+request's abort signal. UI, automatic, new-skin, and MCP writes use the same
+operation lock. The upstream `runUndoableEdit` helper is synchronous, so these
+asynchronous operations keep the service's verified full-lifecycle Undo
+transaction and rollback. Missing or incompatible MCP APIs skip registration;
+plugin unload disposes owned tools and pending queue entries. Web and PWA use
+the regular UI without MCP.
 
 ## Acceptance (reference model, alphaThreshold 0)
 

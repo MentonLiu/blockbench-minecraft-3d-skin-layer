@@ -39,7 +39,7 @@ versioning follows [SemVer 2.0.0](https://semver.org).
   menu, so every entry point (generate, regenerate, restore, clear
   transparent cubes) is in one place next to File.
 
-## [0.4.0-pre2] - 2026-09-22
+## [0.4.0-pre2] - 2026-09-28
 
 ### Added
 
